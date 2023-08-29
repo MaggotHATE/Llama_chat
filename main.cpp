@@ -654,7 +654,12 @@ int main(int, char**)
     
     
     localSettings.modelFromJson = getStringFromJson("config.json","model");
-    char const *modelFilterPatterns[2]={"*.bin","*.gguf"};
+    #if GGML_OLD_FORMAT
+    char const *modelFilterPatterns[1]={"*.bin"};
+    #else
+    char const *modelFilterPatterns[2]={"*.gguf","*.bin"};
+    #endif
+
     char const *instructFilterPatterns[1]={"*.txt"};
     char const *fontFilterPatterns[1]={"*.ttf"};
     char const* currPath = (filesystem::current_path().string() + '/').c_str();
@@ -785,7 +790,11 @@ int main(int, char**)
             {
                 if (ImGui::MenuItem("Open a model", "Ctrl+O")) {
                     if (modelsFolderName == "NULL"){
+#if GGML_OLD_FORMAT
                         auto getModelName = tinyfd_openFileDialog("Select a model...", NULL,1, modelFilterPatterns, NULL,0);
+#else 
+                        auto getModelName = tinyfd_openFileDialog("Select a model...", NULL,2, modelFilterPatterns, NULL,0);
+#endif
                         //auto getModelName = openFile(modelFilterPatterns);
                         if (getModelName) {
                         //if (getModelName != "NULL") {
@@ -808,7 +817,12 @@ int main(int, char**)
                             }
                         }
                     } else {
+                        //auto getModelName = tinyfd_openFileDialog("Select a model...", modelsFolderName.c_str(),1, modelFilterPatterns, NULL,0);
+#if GGML_OLD_FORMAT
                         auto getModelName = tinyfd_openFileDialog("Select a model...", modelsFolderName.c_str(),1, modelFilterPatterns, NULL,0);
+#else 
+                        auto getModelName = tinyfd_openFileDialog("Select a model...", modelsFolderName.c_str(),2, modelFilterPatterns, NULL,0);
+#endif
                         
                         if (getModelName) {
                             std::string getModelNameStr = getModelName;

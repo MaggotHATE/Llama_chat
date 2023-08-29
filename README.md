@@ -1,7 +1,7 @@
 # Llama_chat
 A chat UI for Llama.cpp. Uses ImgUI, tinyfiledialogs and json.hpp.
 
-This project started from the main example of llama.cpp - the idea was to read parameters from .json files, and it stays the same here, only with a class, separate therads for running llama.cpp, structs for managing and settings - and only then wrapped into UI. A chatTest console app is also added as an additional example and for testing purposes, since certain infromation (like memory used by the model) is printed outside of the original example. 
+This project started from the main example of llama.cpp - the idea was to read parameters from .json files, and it stays the same here, only with a class, separate therads for running llama.cpp, structs for managing and settings - and only then wrapped into UI. A chatTest console app is also added as an additional example and for testing purposes, since certain information (like memory used by the model) is printed outside of the original example. 
 
 ## Features
 
@@ -29,4 +29,4 @@ Tested on Windows only for now. AVX releases only due to old CPU, please compile
 * Use w64devkit https://github.com/skeeto/w64devkit/releases
 * Launch w64devkit.exe and navigate to the project folder
 * `make all_cpu` to compile all cpu-only executables
-* `make all` includes CLBLAST only for now (for CUBLAS see https://github.com/ggerganov/llama.cpp/issues/1470 )
+* `make all` includes CLBLAST ( the only GPU option for now - regarding CUBLAS see https://github.com/ggerganov/llama.cpp/issues/1470 )
