@@ -14,6 +14,9 @@
 #CXX = g++
 #CXX = clang++
 
+CCC = c17
+CCPP = c++17
+
 EXE = Llama_Chat_gguf
 EXE_CL = Llama_Chat_gguf_clblast
 EXE_GGML = Llama_Chat_ggml
@@ -32,9 +35,9 @@ LINUX_GL_LIBS = -lGL
 
 
 #for main ui
-CXXFLAGS = -O3 -std=c++20 -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -w
-CXXFLAGS2 = -O3 -std=c++20 -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -w
-CXXFLAGS_GGML = -O3 -std=c++20 -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -w
+CXXFLAGS = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
+CXXFLAGS2 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
+CXXFLAGS_GGML = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w
 CXXFLAGS += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS2 += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_GGML += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
@@ -43,16 +46,16 @@ CXXFLAGS2 += -g -Wall -Wformat -pipe
 CXXFLAGS_GGML += -g -Wall -Wformat -pipe
 
 #for general ggml-gguf
-CFLAGS = -O3 -std=c2x -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -w -pipe
-CFLAGS2 = -O3 -std=c2x -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -w -pipe
-CFLAGS2 = -O3 -std=c2x -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -w -pipe
-CFLAGS_GGML = -O3 -std=c2x -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -w -pipe
+CFLAGS = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS2 = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS2 = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS_GGML = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
 
 
 #for all chatTest
-CXXFLAGS1 = -O3 -std=c++20 -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -w
-CXXFLAGS3 = -O3 -std=c++20 -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST  -w
-CXXFLAGS_GGML1 = -O3 -std=c++20 -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -w
+CXXFLAGS1 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
+CXXFLAGS3 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
+CXXFLAGS_GGML1 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w
 
 
 
@@ -174,8 +177,8 @@ o/grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 ifeq ($(UNAME_S),Darwin)
     LDFLAGS2 += -lclblast -framework OpenCL
 else
-    LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
-    #LDFLAGS += -Llib/libclblast.a -static  -lclblast -lOpenCL
+    #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
+    LDFLAGS2 += -lclblast -lOpenCL
 endif
 
 OBJS3    = o/k_quants_cl.o o/ggml-opencl_cl.o o/ggml_cl.o o/ggml-alloc_cl.o o/llama_cl.o o/common_cl.o o/grammar-parser_cl.o
@@ -234,6 +237,9 @@ demo_cl: $(EXE_CL)
 	@echo Build complete for $(ECHO_MESSAGE)
     
 demo_ggml: $(EXE_GGML)
+	@echo Build complete for $(ECHO_MESSAGE)
+    
+demos_gguf: $(EXE) $(EXE_CL)
 	@echo Build complete for $(ECHO_MESSAGE)
     
 demos: $(EXE) $(EXE_CL) $(EXE_GGML)

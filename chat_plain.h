@@ -1002,13 +1002,14 @@ public:
         if (debug) fprintf(stderr, "1");
         // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
         // --prompt or --file which uses the same value.
-        auto max_embd_size = n_ctx - 4;
+        int max_embd_size = n_ctx - 4;
         // Ensure the input doesn't exceed the context size by truncating embd if necessary.
         if ((int)embd.size() > max_embd_size) {
-            auto skipped_tokens = embd.size() - max_embd_size;
-            printf("<<input too long: skipped %ld token%s>>", skipped_tokens, skipped_tokens != 1 ? "s" : "");
-            fflush(stdout);
+            const int skipped_tokens = (int) embd.size() - max_embd_size;
             embd.resize(max_embd_size);
+            printf("<<input too long: skipped %d token%s>>", skipped_tokens, skipped_tokens != 1 ? "s" : "");
+            fflush(stdout);
+            
         }
 
         // infinite text generation via context swapping
@@ -1165,56 +1166,86 @@ public:
                 candidates.emplace_back(llama_token_data{token_id, logits[token_id], 0.0f});
             }
 
-            llama_token_data_array candidates_p = { candidates.data(), candidates.size(), false };
+            //llama_token_data_array candidates_p = { candidates.data(), candidates.size(), false };
+            llama_token_data_array cur_p = { candidates.data(), candidates.size(), false };
             
             if (ctx_guidance) {
-                llama_sample_classifier_free_guidance(ctx, &candidates_p, ctx_guidance, params.cfg_scale);
+                //llama_sample_classifier_free_guidance(ctx, &candidates_p, ctx_guidance, params.cfg_scale);
+                llama_sample_classifier_free_guidance(ctx, &cur_p, ctx_guidance, params.cfg_scale);
             }
 
             // Apply penalties
             float nl_logit = logits[llama_token_nl(ctx)];
             auto last_n_repeat = std::min(std::min((int)last_n_tokens.size(), repeat_last_n), n_ctx);
-            llama_sample_repetition_penalty(ctx, &candidates_p,
+            //llama_sample_repetition_penalty(ctx, &candidates_p,
+            llama_sample_repetition_penalty(ctx, &cur_p,
                 last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
                 last_n_repeat, repeat_penalty);
-            llama_sample_frequency_and_presence_penalties(ctx, &candidates_p,
+            //llama_sample_frequency_and_presence_penalties(ctx, &candidates_p,
+            llama_sample_frequency_and_presence_penalties(ctx, &cur_p,
                 last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
                 last_n_repeat, alpha_frequency, alpha_presence);
             if (!penalize_nl) {
                 //logits[llama_token_nl(ctx)] = nl_logit;
-                for (size_t idx = 0; idx < candidates_p.size; idx++) {
-                    if (candidates_p.data[idx].id == llama_token_nl(ctx)) {
-                        candidates_p.data[idx].logit = nl_logit;
+                //for (size_t idx = 0; idx < candidates_p.size; idx++) {
+                for (size_t idx = 0; idx < cur_p.size; idx++) {
+                    //if (candidates_p.data[idx].id == llama_token_nl(ctx)) {
+                    if (cur_p.data[idx].id == llama_token_nl(ctx)) {
+                        //candidates_p.data[idx].logit = nl_logit;
+                        cur_p.data[idx].logit = nl_logit;
                         break;
                     }
                 }
             }
             
             if (grammar != NULL) {
-                llama_sample_grammar(ctx, &candidates_p, grammar);
+                //llama_sample_grammar(ctx, &candidates_p, grammar);
+                llama_sample_grammar(ctx, &cur_p, grammar);
             }
 
             if (temp <= 0) {
                 // Greedy sampling
-                id = llama_sample_token_greedy(ctx, &candidates_p);
+                //id = llama_sample_token_greedy(ctx, &candidates_p);
+                id = llama_sample_token_greedy(ctx, &cur_p);
             } else {
                 if (mirostat == 1) {
                     static float mirostat_mu = 2.0f * mirostat_tau;
                     const int mirostat_m = 100;
-                    llama_sample_temperature(ctx, &candidates_p, temp);
-                    id = llama_sample_token_mirostat(ctx, &candidates_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
+                    //llama_sample_temperature(ctx, &candidates_p, temp);
+                    llama_sample_temperature(ctx, &cur_p, temp);
+                    //id = llama_sample_token_mirostat(ctx, &candidates_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
+                    id = llama_sample_token_mirostat(ctx, &cur_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
                 } else if (mirostat == 2) {
                     static float mirostat_mu = 2.0f * mirostat_tau;
-                    llama_sample_temperature(ctx, &candidates_p, temp);
-                    id = llama_sample_token_mirostat_v2(ctx, &candidates_p, mirostat_tau, mirostat_eta, &mirostat_mu);
+                    //llama_sample_temperature(ctx, &candidates_p, temp);
+                    llama_sample_temperature(ctx, &cur_p, temp);
+                    //id = llama_sample_token_mirostat_v2(ctx, &candidates_p, mirostat_tau, mirostat_eta, &mirostat_mu);
+                    id = llama_sample_token_mirostat_v2(ctx, &cur_p, mirostat_tau, mirostat_eta, &mirostat_mu);
                 } else {
                     // Temperature sampling
-                    llama_sample_top_k(ctx, &candidates_p, top_k, 1);
-                    llama_sample_tail_free(ctx, &candidates_p, tfs_z, 1);
-                    llama_sample_typical(ctx, &candidates_p, typical_p, 1);
-                    llama_sample_top_p(ctx, &candidates_p, top_p, 1);
-                    llama_sample_temperature(ctx, &candidates_p, temp);
-                    id = llama_sample_token(ctx, &candidates_p);
+                    // llama_sample_top_k(ctx, &candidates_p, top_k, 1);
+                    // llama_sample_tail_free(ctx, &candidates_p, tfs_z, 1);
+                    // llama_sample_typical(ctx, &candidates_p, typical_p, 1);
+                    // llama_sample_top_p(ctx, &candidates_p, top_p, 1);
+                    // llama_sample_temperature(ctx, &candidates_p, temp);
+                    // id = llama_sample_token(ctx, &candidates_p);
+                    
+                    llama_sample_top_k(ctx, &cur_p, top_k, 1);
+                    llama_sample_tail_free(ctx, &cur_p, tfs_z, 1);
+                    llama_sample_typical(ctx, &cur_p, typical_p, 1);
+                    llama_sample_top_p(ctx, &cur_p, top_p, 1);
+                    llama_sample_temperature(ctx, &cur_p, temp);
+                    
+                    {
+                        const int n_top = 10;
+
+                        for (int i = 0; i < n_top; i++) {
+                            const llama_token id = cur_p.data[i].id;
+                        }
+                    }
+                    
+                    id = llama_sample_token(ctx, &cur_p);
+                    
                 }
             }
             // printf("`%d`", candidates_p.size);
@@ -1424,7 +1455,7 @@ public:
                     ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
                     : 0;
 
-                if (last_output.find(antiprompt.c_str(), search_start_pos) != std::string::npos) {
+                if (last_output.find(antiprompt, search_start_pos) != std::string::npos) {
                     if (params.interactive) {
                         is_interacting = true;
                     }
@@ -1488,7 +1519,8 @@ public:
                 embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
             }
 
-            auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            //auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            const auto line_inp = ::llama_tokenize(ctx, buffer, false);
             embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
             
             for (size_t i = original_size; i < embd_inp.size(); ++i) {

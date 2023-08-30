@@ -709,6 +709,7 @@ int main(int, char**)
     std::string helpLabel = "Your question";
     std::string aTiming = "Not calculated yet...";
     std::string output = "...";
+    int maxString = 3000;
     
     
     
@@ -1087,17 +1088,53 @@ int main(int, char**)
                                     }
                                     
                                     //auto idxPopup = std::to_string(messageNum).c_str();
-                                    ImGui::Text((r.second.c_str()));
-                                    if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                                    {
-                                        if (ImGui::Selectable("Copy")){
-                                            ImGui::LogToClipboard();
-                                            ImGui::LogText(r.second.c_str());
-                                            ImGui::LogFinish();
+                                    if (r.second.size() < maxString){
+                                        ImGui::Text((r.second.c_str()));
+                                        if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                        {
+                                            if (ImGui::Selectable("Copy")){
+                                                ImGui::LogToClipboard();
+                                                ImGui::LogText(r.second.c_str());
+                                                ImGui::LogFinish();
+                                            }
+                                            ImGui::EndPopup();
                                         }
-                                        ImGui::EndPopup();
+                                    } else {
+                                        std::string msg = r.second;
+                                        while (msg.size() > maxString){
+                                            std::string subMsg = msg.substr(0,maxString);
+                                            int posDelim = subMsg.rfind('\n');
+                                            if (posDelim == subMsg.npos){
+                                                int posSpace = subMsg.rfind(". ");
+                                                subMsg = msg.substr(0,posSpace);
+                                                msg = msg.substr(posSpace);
+                                            } else {
+                                                subMsg = msg.substr(0,posDelim);
+                                                msg = msg.substr(posDelim);
+                                            }
+                                            
+                                            ImGui::Text((subMsg.c_str()));
+                                            if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                            {
+                                                if (ImGui::Selectable("Copy")){
+                                                    ImGui::LogToClipboard();
+                                                    ImGui::LogText(r.second.c_str());
+                                                    ImGui::LogFinish();
+                                                }
+                                                ImGui::EndPopup();
+                                            }
+                                        }
+                                        ImGui::Text((msg.c_str()));
+                                        if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                        {
+                                            if (ImGui::Selectable("Copy")){
+                                                ImGui::LogToClipboard();
+                                                ImGui::LogText(r.second.c_str());
+                                                ImGui::LogFinish();
+                                            }
+                                            ImGui::EndPopup();
+                                        }
                                     }
-                                    
                                     ImGui::PopTextWrapPos();
                                     
                                     if (messageNum == 1){
@@ -1160,7 +1197,26 @@ int main(int, char**)
                                 if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.50f);
                                 else ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
                                 output = newChat.lastResult;
-                                ImGui::TextWrapped(output.c_str());
+                                
+                                
+                                if (output.size() < maxString){
+                                    ImGui::TextWrapped(output.c_str());
+                                } else {
+                                    std::string msg = output;
+                                    while (msg.size() > maxString){
+                                        std::string subMsg = msg.substr(0,maxString);
+                                        int posDelim = subMsg.rfind('\n');
+                                        if (posDelim == subMsg.npos){
+                                            int posSpace = subMsg.rfind(". ");
+                                            subMsg = msg.substr(0,posSpace);
+                                            msg = msg.substr(posSpace);
+                                        } else {
+                                            subMsg = msg.substr(0,posDelim);
+                                            msg = msg.substr(posDelim);
+                                        }
+                                    }
+                                    ImGui::Text((msg.c_str()));
+                                }
                                 
                                 ImGui::PopTextWrapPos();
                                 //newChat.getResultAsyncString();
