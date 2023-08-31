@@ -35,6 +35,7 @@
 #define SESSIONS_FOLDER "sessions/"
 
 static llama_context ** g_ctx;
+static gpt_params paramsDefault;
 
 static bool is_interacting = false;
 
@@ -431,6 +432,8 @@ public:
         n_past_guidance       = 0;
         guidance_offset       = 0;
         original_prompt_len   = 0;
+        
+        params = paramsDefault;
     }
     
     void clear(){

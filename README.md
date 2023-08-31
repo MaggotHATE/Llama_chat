@@ -23,10 +23,12 @@ Tested on Windows only for now. AVX releases only due to old CPU, please compile
 * imgui https://github.com/ocornut/imgui
 * OpenCL and CLBLAST if needed (see https://github.com/ggerganov/llama.cpp#clblast for installation guide)
 
-### Builning on Windows
+### Building on Windows
 
 * Download this repo or `git clone` it
 * Use w64devkit https://github.com/skeeto/w64devkit/releases
 * Launch w64devkit.exe and navigate to the project folder
 * `make all_cpu` to compile all cpu-only executables
 * `make all` includes CLBLAST ( the only GPU option for now - regarding CUBLAS see https://github.com/ggerganov/llama.cpp/issues/1470 )
+* `make demos_gguf` for gguf only chats
+* `make gguf_cpu` for gguf and cpu only chat and test

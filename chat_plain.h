@@ -53,6 +53,7 @@ static gpt_params               * g_params;
 static std::vector<llama_token> * g_input_tokens;
 static std::ostringstream       * g_output_ss;
 static std::vector<llama_token> * g_output_tokens;
+static gpt_params paramsDefault;
 
 static bool is_interacting = false;
 
@@ -498,6 +499,8 @@ public:
         n_past_guidance       = 0;
         guidance_offset       = 0;
         original_prompt_len   = 0;
+        
+        params = paramsDefault;
     }
     
     void clear(){

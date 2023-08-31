@@ -370,7 +370,7 @@ struct modelThread{
 
 struct configurableChat{
     gpt_params params;
-    gpt_params defaultParams;
+    //gpt_params paramsDefault;
     
     nlohmann::json localConfig;
     nlohmann::json modelConfig;
@@ -508,12 +508,12 @@ struct configurableChat{
     }
     
     void getSettings(chat& aChat){
-        params = defaultParams;
+        params = paramsDefault;
         params = aChat.params;
     }
 
     void getSettings(){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, params);
         modelName = params.model;
         syncInputs();
@@ -535,20 +535,20 @@ struct configurableChat{
     }
     
     void getSettingsFromModelConfig(){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(modelConfig, params);
         modelName = params.model;
     }
     
     void getSettings(std::string newModelName){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, newModelName, params);
         basePrompt = params.prompt;
         modelName = newModelName;
     }
     
     void updateSettings(){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, modelName, params);
     }
     
@@ -616,7 +616,7 @@ struct configurableChat{
         
         instructFileFromJson = "NULL";
         
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, modelName, params);
     }
     
@@ -630,28 +630,28 @@ struct configurableChat{
         else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
             processInstructFile(instructFileFromJson, params);
         
-        if (params.temp != defaultParams.temp) modelConfig[model]["temp"] = params.temp;
-        if (params.top_k != defaultParams.top_k) modelConfig[model]["top_k"] = params.top_k;
-        if (params.top_p != defaultParams.top_p) modelConfig[model]["top_p"] = params.top_p;
-        if (params.tfs_z != defaultParams.tfs_z) modelConfig[model]["tfs_z"] = params.tfs_z;
-        if (params.typical_p != defaultParams.typical_p) modelConfig[model]["typical_p"] = params.typical_p;
-        if (params.repeat_penalty != defaultParams.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.repeat_penalty;
-        if (params.frequency_penalty != defaultParams.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.frequency_penalty;
-        if (params.presence_penalty != defaultParams.presence_penalty) modelConfig[model]["presence_penalty"] = params.presence_penalty;
-        if (params.mirostat != defaultParams.mirostat) modelConfig[model]["mirostat"] = params.mirostat;
-        if (params.mirostat_tau != defaultParams.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.mirostat_tau;
-        if (params.mirostat_eta != defaultParams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
-        if (params.cfg_scale != defaultParams.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
-        if (params.n_ctx != defaultParams.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
-        if (params.n_threads != defaultParams.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
-        if (params.n_gpu_layers != defaultParams.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
+        if (params.temp != paramsDefault.temp) modelConfig[model]["temp"] = params.temp;
+        if (params.top_k != paramsDefault.top_k) modelConfig[model]["top_k"] = params.top_k;
+        if (params.top_p != paramsDefault.top_p) modelConfig[model]["top_p"] = params.top_p;
+        if (params.tfs_z != paramsDefault.tfs_z) modelConfig[model]["tfs_z"] = params.tfs_z;
+        if (params.typical_p != paramsDefault.typical_p) modelConfig[model]["typical_p"] = params.typical_p;
+        if (params.repeat_penalty != paramsDefault.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.repeat_penalty;
+        if (params.frequency_penalty != paramsDefault.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.frequency_penalty;
+        if (params.presence_penalty != paramsDefault.presence_penalty) modelConfig[model]["presence_penalty"] = params.presence_penalty;
+        if (params.mirostat != paramsDefault.mirostat) modelConfig[model]["mirostat"] = params.mirostat;
+        if (params.mirostat_tau != paramsDefault.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.mirostat_tau;
+        if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
+        if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
+        if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
+        if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
+        if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT
-        if (params.rms_norm_eps != defaultParams.rms_norm_eps) modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
+        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
         #endif
         
-        if (params.rope_freq_base != defaultParams.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
-        if (params.rope_freq_scale != defaultParams.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
+        if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
+        if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
         
         modelConfig[model]["cfg-negative-prompt"] = params.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;
@@ -676,28 +676,28 @@ struct configurableChat{
         else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
             processInstructFile(instructFileFromJson, params);
         
-        if (params.temp != defaultParams.temp) modelConfig[modelName]["temp"] = params.temp;
-        if (params.top_k != defaultParams.top_k) modelConfig[modelName]["top_k"] = params.top_k;
-        if (params.top_p != defaultParams.top_p) modelConfig[modelName]["top_p"] = params.top_p;
-        if (params.tfs_z != defaultParams.tfs_z) modelConfig[modelName]["tfs_z"] = params.tfs_z;
-        if (params.typical_p != defaultParams.typical_p) modelConfig[modelName]["typical_p"] = params.typical_p;
-        if (params.repeat_penalty != defaultParams.repeat_penalty) modelConfig[modelName]["repeat_penalty"] = params.repeat_penalty;
-        if (params.frequency_penalty != defaultParams.frequency_penalty) modelConfig[modelName]["frequency_penalty"] = params.frequency_penalty;
-        if (params.presence_penalty != defaultParams.presence_penalty) modelConfig[modelName]["presence_penalty"] = params.presence_penalty;
-        if (params.mirostat != defaultParams.mirostat) modelConfig[modelName]["mirostat"] = params.mirostat;
-        if (params.mirostat_tau != defaultParams.mirostat_tau) modelConfig[modelName]["mirostat_tau"] = params.mirostat_tau;
-        if (params.mirostat_eta != defaultParams.mirostat_eta) modelConfig[modelName]["mirostat_eta"] = params.mirostat_eta;
-        if (params.cfg_scale != defaultParams.cfg_scale) modelConfig[modelName]["cfg-scale"] = params.cfg_scale;
-        if (params.n_ctx != defaultParams.n_ctx) modelConfig[modelName]["ctx-size"] = params.n_ctx;
-        if (params.n_threads != defaultParams.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
-        if (params.n_gpu_layers != defaultParams.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
+        if (params.temp != paramsDefault.temp) modelConfig[modelName]["temp"] = params.temp;
+        if (params.top_k != paramsDefault.top_k) modelConfig[modelName]["top_k"] = params.top_k;
+        if (params.top_p != paramsDefault.top_p) modelConfig[modelName]["top_p"] = params.top_p;
+        if (params.tfs_z != paramsDefault.tfs_z) modelConfig[modelName]["tfs_z"] = params.tfs_z;
+        if (params.typical_p != paramsDefault.typical_p) modelConfig[modelName]["typical_p"] = params.typical_p;
+        if (params.repeat_penalty != paramsDefault.repeat_penalty) modelConfig[modelName]["repeat_penalty"] = params.repeat_penalty;
+        if (params.frequency_penalty != paramsDefault.frequency_penalty) modelConfig[modelName]["frequency_penalty"] = params.frequency_penalty;
+        if (params.presence_penalty != paramsDefault.presence_penalty) modelConfig[modelName]["presence_penalty"] = params.presence_penalty;
+        if (params.mirostat != paramsDefault.mirostat) modelConfig[modelName]["mirostat"] = params.mirostat;
+        if (params.mirostat_tau != paramsDefault.mirostat_tau) modelConfig[modelName]["mirostat_tau"] = params.mirostat_tau;
+        if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[modelName]["mirostat_eta"] = params.mirostat_eta;
+        if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[modelName]["cfg-scale"] = params.cfg_scale;
+        if (params.n_ctx != paramsDefault.n_ctx) modelConfig[modelName]["ctx-size"] = params.n_ctx;
+        if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
+        if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT
-        if (params.rms_norm_eps != defaultParams.rms_norm_eps) modelConfig[modelName]["rms-norm-eps"] = params.rms_norm_eps;
+        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[modelName]["rms-norm-eps"] = params.rms_norm_eps;
         #endif
         
-        if (params.rope_freq_base != defaultParams.rope_freq_base) modelConfig[modelName]["rope_freq_base"] = params.rope_freq_base;
-        if (params.rope_freq_scale != defaultParams.rope_freq_scale) modelConfig[modelName]["rope_freq_scale"] = params.rope_freq_scale;
+        if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[modelName]["rope_freq_base"] = params.rope_freq_base;
+        if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[modelName]["rope_freq_scale"] = params.rope_freq_scale;
 
         modelConfig[modelName]["cfg-negative-prompt"] = params.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[modelName]["prompt"] = params.prompt;

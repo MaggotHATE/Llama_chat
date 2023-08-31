@@ -14,8 +14,8 @@
 #CXX = g++
 #CXX = clang++
 
-CCC = c17
-CCPP = c++17
+CCC = c2x
+CCPP = c++20
 
 EXE = Llama_Chat_gguf
 EXE_CL = Llama_Chat_gguf_clblast
