@@ -1090,15 +1090,15 @@ int main(int, char**)
                                     //auto idxPopup = std::to_string(messageNum).c_str();
                                     if (r.second.size() < maxString){
                                         ImGui::Text((r.second.c_str()));
-                                        if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                                        {
-                                            if (ImGui::Selectable("Copy")){
-                                                ImGui::LogToClipboard();
-                                                ImGui::LogText(r.second.c_str());
-                                                ImGui::LogFinish();
-                                            }
-                                            ImGui::EndPopup();
-                                        }
+                                        // if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                        // {
+                                            // if (ImGui::Selectable("Copy")){
+                                                // ImGui::LogToClipboard();
+                                                // ImGui::LogText(r.second.c_str());
+                                                // ImGui::LogFinish();
+                                            // }
+                                            // ImGui::EndPopup();
+                                        // }
                                     } else {
                                         std::string msg = r.second;
                                         while (msg.size() > maxString){
@@ -1124,17 +1124,29 @@ int main(int, char**)
                                                 ImGui::EndPopup();
                                             }
                                         }
+                                        // if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                        // {
+                                            // if (ImGui::Selectable("Copy")){
+                                                // ImGui::LogToClipboard();
+                                                // ImGui::LogText(r.second.c_str());
+                                                // ImGui::LogFinish();
+                                            // }
+                                            // ImGui::EndPopup();
+                                        // }
                                         ImGui::Text((msg.c_str()));
-                                        if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                                        {
-                                            if (ImGui::Selectable("Copy")){
-                                                ImGui::LogToClipboard();
-                                                ImGui::LogText(r.second.c_str());
-                                                ImGui::LogFinish();
-                                            }
-                                            ImGui::EndPopup();
-                                        }
+                                        
                                     }
+                                    
+                                    if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                    {
+                                        if (ImGui::Selectable("Copy")){
+                                            ImGui::LogToClipboard();
+                                            ImGui::LogText(r.second.c_str());
+                                            ImGui::LogFinish();
+                                        }
+                                        ImGui::EndPopup();
+                                    }
+                                    
                                     ImGui::PopTextWrapPos();
                                     
                                     if (messageNum == 1){

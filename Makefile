@@ -45,9 +45,10 @@ CXXFLAGS += -g -Wall -Wformat -pipe
 CXXFLAGS2 += -g -Wall -Wformat -pipe
 CXXFLAGS_GGML += -g -Wall -Wformat -pipe
 
+
+
 #for general ggml-gguf
 CFLAGS = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS2 = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
 CFLAGS2 = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
 CFLAGS_GGML = -O3 -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
 
@@ -57,7 +58,18 @@ CXXFLAGS1 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_U
 CXXFLAGS3 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
 CXXFLAGS_GGML1 = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w
 
-
+# The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+# https://github.com/ggerganov/llama.cpp/issues/2922
+ifneq '' '$(findstring mingw,$(shell $(CC) -dumpmachine))'
+	CFLAGS   += -Xassembler -muse-unaligned-vector-move
+	CFLAGS2   += -Xassembler -muse-unaligned-vector-move
+	CFLAGS_GGML   += -Xassembler -muse-unaligned-vector-move
+	CXXFLAGS1 += -Xassembler -muse-unaligned-vector-move
+	CXXFLAGS2 += -Xassembler -muse-unaligned-vector-move
+	CXXFLAGS3 += -Xassembler -muse-unaligned-vector-move
+	CXXFLAGS_GGML1 += -Xassembler -muse-unaligned-vector-move
+endif
 
 LIBS =
 LDFLAGS  =
