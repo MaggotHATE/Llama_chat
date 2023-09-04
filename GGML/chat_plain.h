@@ -337,6 +337,24 @@ std::string llama_string_timings_simple(struct llama_context * ctx) {
     return result;
 }
 
+float llama_string_eval(struct llama_context * ctx) {
+    const llama_timings timings = llama_get_timings(ctx);
+    return (1e3 / timings.t_eval_ms * timings.n_eval);
+}
+
+float llama_string_evalPrompt(struct llama_context * ctx) {
+    const llama_timings timings = llama_get_timings(ctx);
+    return (1e3 / timings.t_p_eval_ms * timings.n_p_eval);
+}
+
+float llama_string_eval(const llama_timings timings) {
+    return (1e3 / timings.t_eval_ms * timings.n_eval);
+}
+
+float llama_string_evalPrompt(const llama_timings timings) {
+    return (1e3 / timings.t_p_eval_ms * timings.n_p_eval);
+}
+
 //CLASS////////////////////////////////////////////////////////////////////////////////////////////
 
 class chat
@@ -482,6 +500,26 @@ public:
         //llama_print_timings(ctx);
         return llama_string_timings_simple(ctx);
     }
+    
+    std::string get_eval(){
+        //llama_print_timings(ctx);
+        return std::to_string(llama_string_eval(ctx)) + " tokens per second";
+    }
+    
+    std::string get_evalPrompt(){
+        //llama_print_timings(ctx);
+        return std::to_string(llama_string_evalPrompt(ctx)) + " tokens per second";
+    }
+    
+    std::string get_ts(){
+        std::string result = "Evals: \n";
+        const llama_timings timings = llama_get_timings(ctx);
+        result += "Prompts: " + std::to_string(llama_string_evalPrompt(timings)) + " t/s; \n";
+        result += "Generation: " + std::to_string(llama_string_eval(timings)) + " t/s; \n";
+        
+        return result;
+    }
+    
     // unsafe to run in threads;
     int getArgs(int argc, char ** argv){
         for (int i = 1; i < argc; i++) {

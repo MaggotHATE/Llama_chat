@@ -1090,15 +1090,15 @@ int main(int, char**)
                                     //auto idxPopup = std::to_string(messageNum).c_str();
                                     if (r.second.size() < maxString){
                                         ImGui::Text((r.second.c_str()));
-                                        // if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                                        // {
-                                            // if (ImGui::Selectable("Copy")){
-                                                // ImGui::LogToClipboard();
-                                                // ImGui::LogText(r.second.c_str());
-                                                // ImGui::LogFinish();
-                                            // }
-                                            // ImGui::EndPopup();
-                                        // }
+                                        if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                        {
+                                            if (ImGui::Selectable("Copy")){
+                                                ImGui::LogToClipboard();
+                                                ImGui::LogText(r.second.c_str());
+                                                ImGui::LogFinish();
+                                            }
+                                            ImGui::EndPopup();
+                                        }
                                     } else {
                                         std::string msg = r.second;
                                         while (msg.size() > maxString){
@@ -1114,7 +1114,7 @@ int main(int, char**)
                                             }
                                             
                                             ImGui::Text((subMsg.c_str()));
-                                            if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                            if (ImGui::BeginPopupContextItem((std::to_string(messageNum)+"_s").c_str()))
                                             {
                                                 if (ImGui::Selectable("Copy")){
                                                     ImGui::LogToClipboard();
@@ -1124,28 +1124,28 @@ int main(int, char**)
                                                 ImGui::EndPopup();
                                             }
                                         }
-                                        // if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                                        // {
-                                            // if (ImGui::Selectable("Copy")){
-                                                // ImGui::LogToClipboard();
-                                                // ImGui::LogText(r.second.c_str());
-                                                // ImGui::LogFinish();
-                                            // }
-                                            // ImGui::EndPopup();
-                                        // }
-                                        ImGui::Text((msg.c_str()));
                                         
+                                        ImGui::Text((msg.c_str()));
+                                        if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                        {
+                                            if (ImGui::Selectable("Copy")){
+                                                ImGui::LogToClipboard();
+                                                ImGui::LogText(r.second.c_str());
+                                                ImGui::LogFinish();
+                                            }
+                                            ImGui::EndPopup();
+                                        }
                                     }
                                     
-                                    if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                                    {
-                                        if (ImGui::Selectable("Copy")){
-                                            ImGui::LogToClipboard();
-                                            ImGui::LogText(r.second.c_str());
-                                            ImGui::LogFinish();
-                                        }
-                                        ImGui::EndPopup();
-                                    }
+                                    // if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                    // {
+                                        // if (ImGui::Selectable("Copy")){
+                                            // ImGui::LogToClipboard();
+                                            // ImGui::LogText(r.second.c_str());
+                                            // ImGui::LogFinish();
+                                        // }
+                                        // ImGui::EndPopup();
+                                    // }
                                     
                                     ImGui::PopTextWrapPos();
                                     
@@ -1171,7 +1171,7 @@ int main(int, char**)
                                     {
                                         if (ImGui::Selectable("Copy")){
                                             ImGui::LogToClipboard();
-                                            ImGui::LogText(r.second.c_str());
+                                            ImGui::LogText((r.second.substr(0,r.second.size())).c_str());
                                             ImGui::LogFinish();
                                         }
                                         
@@ -1209,7 +1209,7 @@ int main(int, char**)
                                 if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.50f);
                                 else ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
                                 output = newChat.lastResult;
-                                
+                                //aTiming = newChat.lastTimings;
                                 
                                 if (output.size() < maxString){
                                     ImGui::TextWrapped(output.c_str());
@@ -1733,6 +1733,7 @@ int main(int, char**)
                 ImGui::BeginChild("Timings", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), false);
                 
                     ImGui::TextWrapped(aTiming.c_str());
+                    //ImGui::TextWrapped((newChat.lastTimings).c_str());
                 
                 ImGui::EndChild();
                 //}

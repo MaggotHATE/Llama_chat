@@ -73,7 +73,7 @@ struct modelThread{
     int consumed_tokens = 0;
     int past_tokens = 0;
     
-    std::string lastTimings = "";
+    std::string lastTimings = "Not yet calculated...";
     std::string lastResult = "";
 
     // ~modelThread(){
@@ -122,6 +122,7 @@ struct modelThread{
         }
         
         std::cout << "Generated: " << last_tokens << std::endl;
+        std::cout << lastTimings << std::endl;
         
         std::cout<< DELIMINER;
     }
@@ -130,6 +131,7 @@ struct modelThread{
         Clear();
         
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
+        std::cout << lastTimings << std::endl;
         
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
@@ -208,7 +210,8 @@ struct modelThread{
     }
     
     void getTimigsSimple(){
-        lastTimings = newChat.get_timings_simple();
+        //lastTimings = newChat.get_timings_simple();
+        lastTimings = newChat.get_ts();
     }
     
     void startGen(){
@@ -249,7 +252,7 @@ struct modelThread{
                     std::string output = newChat.cycleStringsOnly(false);
                     if (streaming) std::cout << output;
                     lastResult += output;
-                    
+                    //getTimigsSimple();
                     
                     if (newChat.finished){
                         newChat.eraseAntiprompt(lastResult);
@@ -298,6 +301,7 @@ struct modelThread{
                     std::string output = newChat.cycleStringsOnly(false);
                     if (streaming) std::cout << output;
                     lastResult += output;
+                    //getTimigsSimple();
                     
                     if (newChat.finished){
                         newChat.eraseAntiprompt(lastResult);
