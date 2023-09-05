@@ -49,7 +49,6 @@ void Clear()
 struct modelThread{
     //model class
     chat newChat;
-    const chat defaultChat;
     //vector for storing results
     std::vector<char*> results;
     std::vector<std::string> resultsString;
@@ -191,7 +190,6 @@ struct modelThread{
     void unload(){
         newChat.clear();
         resultsStringPairs.clear();
-        //newChat = defaultChat;
         isContinue = '_';
         isPregen = '_';
         isLoading = '_';
@@ -223,16 +221,17 @@ struct modelThread{
     void stop(){
         //newChat.finished = true;
         isContinue = 'i';
+        resultsStringPairs.push_back(std::pair("AI",lastResult));
         getTimigsSimple();
     }
     
     // loading, preloading and generating threads  
-    void getResultAsyncStringFull(bool streaming = false) {
+    void getResultAsyncStringFull(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
         newChat.clearLastTokens();
         
-        futureTextString = std::async(std::launch::async, [this, &streaming] mutable {
+        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
             
             std::string input = resultsStringPairs.back().second;
                 
@@ -243,15 +242,22 @@ struct modelThread{
             
             while (isContinue != 'i'){
         
-                futureTextSubString = std::async(std::launch::async, [this, &streaming] mutable {
+                futureTextSubString = std::async(std::launch::async, [this, &streaming, &full] mutable {
                     //char* result = newChat.cycleInputSingleOutputString(input); 
                     
                     //std::string result = newChat.cycleStringsOnly(resultsString.back()); 
                     //resultsString.push_back(result);
                     //std::string input = resultsStringPairs.back().second;
                     std::string output = newChat.cycleStringsOnly(false);
-                    if (streaming) std::cout << output;
                     lastResult += output;
+                    
+                    if (streaming) {
+                        if (full) {
+                            getTimigsSimple();
+                            display();
+                            std::cout << lastResult;
+                        } else std::cout << output;
+                    }
                     //getTimigsSimple();
                     
                     if (newChat.finished){
@@ -515,8 +521,13 @@ struct configurableChat{
         params = paramsDefault;
         params = aChat.params;
     }
+    
+    // void getSettings(){
+        // params = paramsDefault;
+        // params = aChat.params;
+    // }
 
-    void getSettings(){
+    void getSettingsFull(){
         params = paramsDefault;
         readParamsFromJson(localConfig, params);
         modelName = params.model;
@@ -572,6 +583,23 @@ struct configurableChat{
         aChat.params.cfg_scale = params.cfg_scale;
         //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
     }
+    
+    // void pushSettings(){
+        // //aChat.params.n_threads = n_threads;
+        // aChat.params.temp = params.temp;
+        // aChat.params.top_k = params.top_k;
+        // aChat.params.top_p = params.top_p;
+        // aChat.params.tfs_z = params.tfs_z;
+        // aChat.params.typical_p = params.typical_p;
+        // aChat.params.repeat_penalty = params.repeat_penalty;
+        // aChat.params.frequency_penalty = params.frequency_penalty;
+        // aChat.params.presence_penalty = params.presence_penalty;
+        // aChat.params.mirostat = params.mirostat;
+        // aChat.params.mirostat_tau = params.mirostat_tau;
+        // aChat.params.mirostat_eta = params.mirostat_eta;
+        // aChat.params.cfg_scale = params.cfg_scale;
+        // //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
+    // }
     
     
     void hasFile(){

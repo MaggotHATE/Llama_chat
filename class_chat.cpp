@@ -34,88 +34,6 @@ void append_utf8(char32_t ch, std::string & out) {
     }
 }
 
-struct configurables{
-    gpt_params params;
-    gpt_params paramsDefault;
-    
-    nlohmann::json localConfig;
-    nlohmann::json modelConfig;
-    std::string instructFileFromJson = "NULL";
-    std::string inputPrompt = "NULL";
-    std::string inputAntiprompt = "NULL";
-    std::string inputAntiCFG = "NULL";
-    std::string inputInstructFile = "NULL";
-    std::string modelName = "NULL";
-    
-    
-    void getSettings(chat& aChat){
-        params = aChat.params;
-    }
-    
-    void getSettings(){
-        readParamsFromJson(localConfig, params);
-        
-        // if (localConfig.contains("model")){ // avoiding empty item created during checks
-            // if (localConfig["model"].is_string()) modelName = localConfig["model"].get<std::string>();
-            
-            // if (localConfig.contains(modelName)){ // avoiding empty object created during checks
-                // if (localConfig[modelName].is_object()){
-                    // if (localConfig[modelName].contains("file")){ // avoiding empty item created during checks
-                        // if (localConfig[modelName]["file"].is_string()) 
-                            // instructFileFromJson = localConfig[modelName]["file"].get<std::string>();
-                    // }
-                // }
-            // }
-        // }
-    }
-    
-    void getSettings(std::string newModelName){
-        params = paramsDefault;
-        readParamsFromJson(localConfig, newModelName, params);
-        modelName = newModelName;
-    }
-    
-    void updateSettings(){
-        params = paramsDefault;
-        readParamsFromJson(localConfig, modelName, params);
-    }
-    
-    void fillLocalJson(std::string& model){
-        modelConfig.clear();
-        
-        modelConfig["model"] = model;
-        
-        if (inputInstructFile != "NULL") //modelConfig[modelName]["file"] = inputInstructFile;
-            processInstructFile(inputInstructFile, params);
-        else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
-            processInstructFile(instructFileFromJson, params);
-        
-        modelConfig[model]["temp"] = params.temp;
-        modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
-        modelConfig[model]["top_k"] = params.top_k;
-        modelConfig[model]["top_p"] = params.top_p;
-        modelConfig[model]["tfs_z"] = params.tfs_z;
-        modelConfig[model]["typical_p"] = params.typical_p;
-        modelConfig[model]["repeat_penalty"] = params.repeat_penalty;
-        modelConfig[model]["frequency_penalty"] = params.frequency_penalty;
-        modelConfig[model]["presence_penalty"] = params.presence_penalty;
-        modelConfig[model]["mirostat"] = params.mirostat;
-        modelConfig[model]["mirostat_tau"] = params.mirostat_tau;
-        modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
-        modelConfig[model]["cfg-scale"] = params.cfg_scale;
-        modelConfig[model]["ctx-size"] = params.n_ctx;
-        modelConfig[model]["n_threads"] = params.n_threads;
-        //modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
-        modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
-        modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
-        
-        modelConfig[model]["cfg-negative-prompt"] = params.cfg_negative_prompt;
-        modelConfig[model]["prompt"] = params.prompt;
-        modelConfig[model]["grammar"] = params.grammar;
-        if(params.antiprompt.size()) modelConfig[model]["reverse-prompt"] = params.antiprompt[0];
-    }
-};
-
 int main(int argc, char ** argv) {
     //std::setlocale(LC_ALL, "en_US.utf8");
     //chat newChat;
@@ -124,7 +42,7 @@ int main(int argc, char ** argv) {
     configurableChat settings;
     
     settings.localConfig = getJson("config.json");
-    settings.getSettings();
+    settings.getSettingsFull();
     
     settings.fillLocalJson(settings.params.model);
     
@@ -138,6 +56,8 @@ int main(int argc, char ** argv) {
     //load(threadedChat);
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
+    
+    int latency = settings.localConfig["latency"];
     //task_lambda(threadedChat);
     
     
@@ -147,7 +67,7 @@ int main(int argc, char ** argv) {
         if (threadedChat.isContinue != 'i') {
             //if (threadedChat.isContinue == 'w') threadedChat.getResultAsyncString(true);
             //else 
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(latency));
         } else {
             
             threadedChat.display();
@@ -172,7 +92,7 @@ int main(int argc, char ** argv) {
                 //threadedChat.lastResult = "";
                 //threadedChat.getResultAsyncString(true);
                 threadedChat.startGen();
-                threadedChat.getResultAsyncStringFull(true);
+                threadedChat.getResultAsyncStringFull(true, true);
                 
                  // char input[2048];
                 // fflush(stdout);

@@ -526,11 +526,13 @@ int main(int, char**)
     int width = 600;
     int height = 800;
     float fontSize = 21.0f;
+    int latency = 30;
     std::string fontFile = "DroidSans.ttf";
     std::string modelsFolderName = "NULL";
     std::string promptsFolderName = "NULL";
     
     if (!configJson["error"].is_string()){
+        if (configJson["latency"].is_number()) latency = configJson["latency"].get<int>();
         if (configJson["width"].is_number()) width = configJson["width"].get<int>();
         if (configJson["height"].is_number()) height = configJson["height"].get<int>();
         if (configJson["font"].is_string()) fontFile = configJson["font"].get<std::string>();
@@ -679,6 +681,7 @@ int main(int, char**)
     
     bool copiedDialog = false;
     bool copiedSettings = false;
+    bool copiedTimings = false;
     bool initTokens = false;
     bool hasModel = false;
     int totalThreads = get_num_physical_cores();
@@ -689,7 +692,7 @@ int main(int, char**)
     
     
     localSettings.getFromJson("config.json");
-    localSettings.getSettings();
+    localSettings.getSettingsFull();
     localSettings.fillLocalJson();
     int n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
     int tokens_this_session = 0;
@@ -710,6 +713,7 @@ int main(int, char**)
     std::string aTiming = "Not calculated yet...";
     std::string output = "...";
     int maxString = 3000;
+    int messageNum = 0;
     
     
     
@@ -814,6 +818,7 @@ int main(int, char**)
                                 newChat.loaded = 0;
                                 copiedDialog = false;
                                 copiedSettings = false;
+                                copiedTimings = false;
                                 newChat.unload();
                             }
                         }
@@ -841,6 +846,7 @@ int main(int, char**)
                                 newChat.loaded = 0;
                                 copiedDialog = false;
                                 copiedSettings = false;
+                                copiedTimings = false;
                                 newChat.unload();
                             }
                         }
@@ -922,6 +928,7 @@ int main(int, char**)
                                    newChat.loaded = 0;
                                    copiedDialog = false;
                                    copiedSettings = false;
+                                   copiedTimings = false;
 
                                    hasModel = false;
                                    newChat.unload();
@@ -1004,6 +1011,7 @@ int main(int, char**)
                     tokens_this_session = 0;
                     copiedDialog = false;
                     copiedSettings = false;
+                    copiedTimings = false;
                     initTokens = false;
                     cancelled = false;
 
@@ -1059,25 +1067,28 @@ int main(int, char**)
                     }
 
                     {
-                        ImGui::Indent();
+/////// rendering dialogs ////////////////////////////////////////////////////////////////////////
                         ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x * 0.99f, ImGui::GetContentRegionAvail().y*0.80f), false);
-                        
+                        ImGui::Indent();
                             // to avoid mutexes we only use a copy of dialog DB for UI
                             if (newChat.isContinue == 'i') {
                                 if (!copiedDialog){
                                     localResultPairs = newChat.resultsStringPairs;
                                     ImGui::SetScrollFromPosY(ImGui::GetCursorPos().y + ImGui::GetContentRegionAvail().y, 0.25f);
                                     copiedDialog = true;
-                                    aTiming = newChat.lastTimings;
+                                    copiedTimings = false;
+                                    //aTiming = newChat.lastTimings;
                                     helpLabel = " ";
+                                    
                                 }
                             }
 
-/////// rendering dialogs ////////////////////////////////////////////////////////////////////////
-                            int messageNum = 0;
+
+                            messageNum = 0;
                             for (auto& r : localResultPairs){
                                 ++messageNum;
                                 if (r.first == "AI"){
+////////////////////generated
                                     //std::cout << r.second;
                                     //ImGui::TextWrapped(r.second.c_str());
                                     if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.5f);
@@ -1159,7 +1170,7 @@ int main(int, char**)
                                     //ImGui::PopTextWrapPos();
                                     //ImGui::InputTextMultiline(" ", &r.second, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2), ImGuiInputTextFlags_ReadOnly);
                                 } else {
-                                    
+////////////////////////prompts
                                     //if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.35f);
                                     
                                     //std::cout << r.first << r.second;
@@ -1203,12 +1214,13 @@ int main(int, char**)
                                 //if (r.second.back() != '\n') std::cout<< DELIMINER;
                             }
                             
-                            // streaming dialog token-after-token
+//////////////// streaming dialog token-after-token
                             if (newChat.isContinue == 'w') {
                                 //ImGui::TextWrapped("...");
                                 if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.50f);
                                 else ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
                                 output = newChat.lastResult;
+                                //copiedTimings = false;
                                 //aTiming = newChat.lastTimings;
                                 
                                 if (output.size() < maxString){
@@ -1244,6 +1256,8 @@ int main(int, char**)
                                 tokens_this_session = newChat.last_tokens;
                                 consumed_this_session = newChat.consumed_tokens;
                                 past_this_session = newChat.past_tokens;
+                                
+                                
                                 //helpLabel = "Generating... "+std::to_string(tokens_this_session) + " tokens.";
                                 //ImGui::SetScrollFromPosY(ImGui::GetCursorPos().y, 0.25f);
                                 //ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.5f);
@@ -1251,9 +1265,9 @@ int main(int, char**)
                             } else {
                                 if (messageNum > 1) ImGui::SeparatorText("");
                             }
-                        
-                        ImGui::EndChild();
                         ImGui::Unindent();
+                        ImGui::EndChild();
+                        
                     }
 // INPUT ////////////////////////////////////////////////////////////////////////////////////////
                     //ImGui::InputTextMultiline("input text", inputStr, IM_ARRAYSIZE(inputStr));
@@ -1295,6 +1309,7 @@ int main(int, char**)
                             output = "...";
                             newChat.getResultAsyncStringFull();
                             copiedDialog = false;
+                            copiedTimings = false;
                             scrolled = false;
                             
                         }
@@ -1420,6 +1435,7 @@ int main(int, char**)
                                     // else load(newChat);
                                     copiedDialog = false;
                                     copiedSettings = false;
+                                    copiedTimings = false;
                                     //load(newChat, localSettings.localConfig, hasModel);
                                     newChat.load(localSettings.modelConfig, hasModel);
                                     //load_task(newChat, localSettings, hasModel);
@@ -1732,6 +1748,11 @@ int main(int, char**)
                 
                 ImGui::BeginChild("Timings", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), false);
                 
+                    if (copiedTimings == false) {
+                        aTiming = newChat.lastTimings;
+                        copiedTimings = true;
+                    }
+                
                     ImGui::TextWrapped(aTiming.c_str());
                     //ImGui::TextWrapped((newChat.lastTimings).c_str());
                 
@@ -1946,7 +1967,9 @@ int main(int, char**)
             ImGui::EndTabBar();
         }
         //ImGui::PopFont();
-        
+        //if (newChat.isContinue == 'w') {
+            std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+        //}
         ImGui::End();
         //}
 

@@ -408,14 +408,58 @@ float llama_string_evalPrompt(struct llama_context * ctx) {
     return (1e3 / timings.t_p_eval_ms * timings.n_p_eval);
 }
 
-float llama_string_eval(const llama_timings timings) {
+///
+
+float llama_string_eval(const llama_timings & timings) {
     if (timings.t_eval_ms != 0 && timings.n_eval != 0) return (1e3 / timings.t_eval_ms * timings.n_eval);
     else return 0;
 }
 
-float llama_string_evalPrompt(const llama_timings timings) {
+float llama_string_evalPrompt(const llama_timings & timings) {
     return (1e3 / timings.t_p_eval_ms * timings.n_p_eval);
 }
+
+//STRUCT/////////////////////////////////////////
+
+struct modelData{
+    llama_context * ctx;
+    llama_model * model;
+    
+    int n_ctx;
+    
+    size_t n_matching_session_tokens = 0;
+    
+    llama_context * ctx_guidance = NULL;
+    std::vector<llama_token> session_tokens;
+    std::vector<llama_token> embd;
+    std::vector<llama_token> embd_inp;
+    std::vector<llama_token> last_tokens;
+    std::vector<llama_token> guidance_inp;
+    std::vector<llama_token> embd_guidance;
+    std::vector<llama_token_data> candidates;
+    
+    grammar_parser::parse_state parsed_grammar;
+    struct llama_grammar * grammar = NULL;
+    
+    int n_vocab;
+    int n_past                = 0;
+    int n_remain              = 0;
+    int n_consumed            = 0;
+    int n_session_consumed    = 0;
+    int n_past_guidance       = 0;
+    int guidance_offset       = 0;
+    int original_prompt_len   = 0;
+    int last_tokens_count     = 0;
+
+    std::vector<int> inp_pfx;
+    std::vector<int> inp_sfx;
+       
+    std::vector<int> llama_token_newline;
+    
+    std::vector<int>   input_tokens;
+    std::vector<int>   output_tokens;
+};
+
 
 //CLASS////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -908,7 +952,7 @@ public:
         }
 
         // debug message about similarity of saved session, if applicable
-        size_t n_matching_session_tokens = 0;
+        n_matching_session_tokens = 0;
         if (session_tokens.size()) {
             for (llama_token id : session_tokens) {
                 if (n_matching_session_tokens >= embd_inp.size() || id != embd_inp[n_matching_session_tokens]) {
@@ -1185,6 +1229,7 @@ public:
             llama_save_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
         }
         
+        // new generation function, moved to common 
         const llama_token id = llama_sample_token(ctx, ctx_guidance, grammar, params, last_tokens, candidates);
         
         last_tokens.erase(last_tokens.begin());
