@@ -580,14 +580,16 @@ int main(int, char**)
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 #endif
 
-    char* windowLable = "Llama.cpp chat (gguf format)";
+    std::string windowLable = "Llama.cpp chat (gguf format)";
     
     //if(clblast == 1) windowLable = "Llama.cpp chat (with CLBLAST)";
     
     #if GGML_OLD_FORMAT
     windowLable = "Llama.cpp chat (ggmlv3 format)";
-    #elif defined(GGML_USE_CLBLAST)
-    windowLable = "Llama.cpp chat (gguf format with CLBLAST)";
+    #endif
+    
+    #if GGML_USE_CLBLAST
+    windowLable += ": CLBLAST";
     #endif
 
     // Create window with graphics context
@@ -595,7 +597,7 @@ int main(int, char**)
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Window* window = SDL_CreateWindow(windowLable, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, window_flags);
+    SDL_Window* window = SDL_CreateWindow(windowLable.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, window_flags);
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
@@ -1251,7 +1253,8 @@ int main(int, char**)
                                     scrolled = true;
                                 }
                                 
-                                ImGui::SeparatorText("Generating");
+                                //ImGui::SeparatorText(("Generating " + std::to_string(newChat.lastSpeed) + " t/s").c_str());
+                                ImGui::SeparatorText(std::format("Generating at {:.2f} t/s", newChat.lastSpeed).c_str());
                                 
                                 tokens_this_session = newChat.last_tokens;
                                 consumed_this_session = newChat.consumed_tokens;
@@ -1307,7 +1310,7 @@ int main(int, char**)
                             //newChat.isContinue = 'w';
                             newChat.startGen();
                             output = "...";
-                            newChat.getResultAsyncStringFull();
+                            newChat.getResultAsyncStringFull(false, true);
                             copiedDialog = false;
                             copiedTimings = false;
                             scrolled = false;

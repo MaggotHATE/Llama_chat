@@ -3,6 +3,7 @@
 #include <thread>
 #include <locale>
 #include <codecvt>
+#include <format>
 
 
 #ifdef GGML_OLD_FORMAT
@@ -73,6 +74,7 @@ struct modelThread{
     int past_tokens = 0;
     
     std::string lastTimings = "Not yet calculated...";
+    float lastSpeed = 0.0f;
     std::string lastResult = "";
 
     // ~modelThread(){
@@ -212,6 +214,11 @@ struct modelThread{
         lastTimings = newChat.get_ts();
     }
     
+    void getTimigsGen(){
+        //lastTimings = newChat.get_timings_simple();
+        lastSpeed = newChat.get_speed();
+    }
+    
     void startGen(){
         newChat.finished = false;
         isContinue = 'w';
@@ -257,6 +264,8 @@ struct modelThread{
                             display();
                             std::cout << lastResult;
                         } else std::cout << output;
+                    } else {
+                        if (full) getTimigsGen();
                     }
                     //getTimigsSimple();
                     

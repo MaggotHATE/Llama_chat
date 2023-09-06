@@ -520,6 +520,11 @@ public:
         return result;
     }
     
+    float get_speed(){
+        //llama_print_timings(ctx);
+        return llama_string_eval(ctx);
+    }
+    
     // unsafe to run in threads;
     int getArgs(int argc, char ** argv){
         for (int i = 1; i < argc; i++) {

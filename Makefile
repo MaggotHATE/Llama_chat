@@ -27,7 +27,7 @@ endif
 EXE = Llama_Chat_gguf
 EXE_CL = Llama_Chat_gguf_clblast
 EXE_GGML = Llama_Chat_ggml
-EXE_GGML_CL = Llama_Chat_ggml_clblast
+EXE_CL_GGML = Llama_Chat_ggml_clblast
 IMGUI_DIR = imgui
 SOURCES = main.cpp
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
@@ -36,6 +36,7 @@ SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
 OBJS = $(addprefix o/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 OBJS_CL = $(subst main.o,main_cl.o,$(OBJS))
 OBJS_GGML = $(subst main.o,main_ggml.o,$(OBJS))
+OBJS_CL_GGML = $(subst main.o,main_cl_ggml.o,$(OBJS))
 #OBJS_GGML = $(subst o/main.o, ,$(OBJS))
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
@@ -45,12 +46,15 @@ LINUX_GL_LIBS = -lGL
 CXXFLAGS_UI = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI_CL = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI_GGML = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w
+CXXFLAGS_UI_CL_GGML = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI_CL += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI_GGML += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
+CXXFLAGS_UI_CL_GGML += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI += -g -Wall -Wformat -pipe
 CXXFLAGS_UI_CL += -g -Wall -Wformat -pipe
 CXXFLAGS_UI_GGML += -g -Wall -Wformat -pipe
+CXXFLAGS_UI_CL_GGML += -g -Wall -Wformat -pipe
 
 
 
@@ -58,25 +62,31 @@ CXXFLAGS_UI_GGML += -g -Wall -Wformat -pipe
 CFLAGS = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 CFLAGS_CL = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
 CFLAGS_GGML = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS_CL_GGML = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
 
 
 #for all chatTest
 CXXFLAGS = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 CXXFLAGS_CL = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
 CXXFLAGS_GGML = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS_CL_GGML = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
 # https://github.com/ggerganov/llama.cpp/issues/2922
 ifneq '' '$(findstring mingw,$(shell $(CC) -dumpmachine))'
-	CFLAGS   += -Xassembler -muse-unaligned-vector-move
-	CXXFLAGS_UI   += -Xassembler -muse-unaligned-vector-move
-	CFLAGS_CL   += -Xassembler -muse-unaligned-vector-move
-	CXXFLAGS_UI_GGML   += -Xassembler -muse-unaligned-vector-move
-	CXXFLAGS += -Xassembler -muse-unaligned-vector-move
-	CXXFLAGS_UI_CL += -Xassembler -muse-unaligned-vector-move
-	CXXFLAGS3 += -Xassembler -muse-unaligned-vector-move
-	CXXFLAGS_GGML += -Xassembler -muse-unaligned-vector-move
+    CFLAGS   += -Xassembler -muse-unaligned-vector-move
+    CFLAGS_CL   += -Xassembler -muse-unaligned-vector-move
+    CFLAGS_GGML   += -Xassembler -muse-unaligned-vector-move
+    CFLAGS_CL_GGML   += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_UI   += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_UI_CL += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_UI_GGML   += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_UI_CL_GGML += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_CL += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_GGML += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS_CL_GGML += -Xassembler -muse-unaligned-vector-move
 endif
 
 LIBS =
@@ -104,21 +114,24 @@ ifeq ($(UNAME_S), Linux) #LINUX
 	CXXFLAGS_UI += `sdl2-config --cflags`
 	CXXFLAGS_UI_CL += `sdl2-config --cflags`
 	CXXFLAGS_UI_GGML += `sdl2-config --cflags`
+	CXXFLAGS_UI_CL_GGML += `sdl2-config --cflags`
 	#CFLAGS = $(CXXFLAGS)
 	#CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
 
 ifeq ($(UNAME_S), Darwin) #APPLE
-	ECHO_MESSAGE = "Mac OS X"
-	LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo `sdl2-config --libs`
-	LIBS += -L/usr/local/lib -L/opt/local/lib
+    ECHO_MESSAGE = "Mac OS X"
+    LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo `sdl2-config --libs`
+    LIBS += -L/usr/local/lib -L/opt/local/lib
 
-	CXXFLAGS_UI += `sdl2-config --cflags`
-	CXXFLAGS_UI += -I/usr/local/include -I/opt/local/include	
+    CXXFLAGS_UI += `sdl2-config --cflags`
+    CXXFLAGS_UI += -I/usr/local/include -I/opt/local/include	
     CXXFLAGS_UI_CL += `sdl2-config --cflags`
-	CXXFLAGS_UI_CL += -I/usr/local/include -I/opt/local/include
+    CXXFLAGS_UI_CL += -I/usr/local/include -I/opt/local/include
     CXXFLAGS_UI_GGML += `sdl2-config --cflags`
-	CXXFLAGS_UI_GGML += -I/usr/local/include -I/opt/local/include
+    CXXFLAGS_UI_GGML += -I/usr/local/include -I/opt/local/include
+    CXXFLAGS_UI_CL_GGML += `sdl2-config --cflags`
+    CXXFLAGS_UI_CL_GGML += -I/usr/local/include -I/opt/local/include
 	#CFLAGS = $(CXXFLAGS)
 	#CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
@@ -130,6 +143,7 @@ ifeq ($(OS), Windows_NT)
     CXXFLAGS_UI += `pkg-config --cflags sdl2`
     CXXFLAGS_UI_CL += `pkg-config --cflags sdl2`
     CXXFLAGS_UI_GGML += `pkg-config --cflags sdl2`
+    CXXFLAGS_UI_CL_GGML += `pkg-config --cflags sdl2`
     #CFLAGS = $(CXXFLAGS)
     #CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
@@ -200,9 +214,11 @@ else
     #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
     LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib
     #LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib -lclblast -lOpenCL
-    CXXFLAGS_CL += -lclblast -lOpenCL
-    CXXFLAGS_UI_CL += -lclblast -lOpenCL
 endif
+
+CXXFLAGS_CL += -lclblast -lOpenCL
+CXXFLAGS_UI_CL += -lclblast -lOpenCL
+
 
 OBJS_GGUF_CL    = o/k_quants_cl.o o/ggml-opencl-gguf.o o/ggml_cl.o o/ggml-alloc_cl.o o/llama_cl.o o/common_cl.o o/grammar-parser_cl.o
 
@@ -230,6 +246,46 @@ o/k_quants_cl.o: base/k_quants.c base/k_quants.h
 o/grammar-parser_cl.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
+# Separate GGML CLBLAST
+
+# Mac provides OpenCL as a framework
+ifeq ($(UNAME_S),Darwin)
+    LDFLAGS_CL_GGML += -lclblast -framework OpenCL
+else
+    #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
+    LDFLAGS_CL_GGML += -Llib/OpenCL.lib -Llib/clblast.lib
+endif
+    #LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib -lclblast -lOpenCL
+CXXFLAGS_CL_GGML += -lclblast -lOpenCL
+CXXFLAGS_UI_CL_GGML += -lclblast -lOpenCL
+
+
+OBJS_CL_GGML1    = o/k_quants_cl-ggml.o o/ggml-opencl-ggml.o o/ggml_cl-ggml.o o/ggml-alloc_cl-ggml.o o/llama_cl-ggml.o o/common_cl-ggml.o o/grammar-parser_cl-ggml.o
+
+o/ggml-opencl-ggml.o: GGML/ggml-opencl.cpp GGML/ggml-opencl.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+    
+o/ggml_cl-ggml.o: GGML/ggml.c GGML/ggml.h
+	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
+    
+o/ggml-alloc_cl-ggml.o: GGML/ggml-alloc.c GGML/ggml.h GGML/ggml-alloc.h
+	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
+
+o/llama_cl-ggml.o: GGML/llama.cpp base/ggml.h base/ggml-alloc.h GGML/llama.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+
+o/common_cl-ggml.o: GGML/common.cpp GGML/common.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+
+o/libllama_cl-ggml.so: o/llama_cl.o o/ggml_cl.o $(OBJS2)
+	$(CXX) $(CXXFLAGS_CL_GGML) -shared -fPIC -o $@ $^ $(LDFLAGS_CL)
+    
+o/k_quants_cl-ggml.o: GGML/k_quants.c GGML/k_quants.h
+	$(CC) $(CFLAGS_CL_GGML) -c $< -o $@
+    
+o/grammar-parser_cl-ggml.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+    
 
 # general    
     
@@ -242,6 +298,9 @@ o/main_cl.o:main.cpp
 o/main_ggml.o:main.cpp
 	$(CXX) $(CXXFLAGS_UI_GGML) -c -o $@ $<
 
+o/main_cl_ggml.o:main.cpp
+	$(CXX) $(CXXFLAGS_UI_GGML) -c -o $@ $<
+    
 o/%.o:$(IMGUI_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS_UI) -c -o $@ $<
 
@@ -262,10 +321,13 @@ demo_cl: $(EXE_CL)
 demo_ggml: $(EXE_GGML)
 	@echo Build complete for $(ECHO_MESSAGE)
     
+demo_ggml_cl: $(EXE_CL_GGML)
+	@echo Build complete for $(ECHO_MESSAGE)
+    
 demos_gguf: $(EXE) $(EXE_CL)
 	@echo Build complete for $(ECHO_MESSAGE)
     
-demos: $(EXE) $(EXE_CL) $(EXE_GGML)
+demos: $(EXE) $(EXE_CL) $(EXE_GGML) $(EXE_CL_GGML)
 	@echo Build complete for $(ECHO_MESSAGE)
     
 tests: chatTest chatTest_cl chatTest_ggml
@@ -312,3 +374,11 @@ $(EXE_GGML):$(OBJS_GGML) $(OBJS_GGML1) include/json.hpp tinyfiledialogs/tinyfile
     
 chatTest_ggml:class_chat.cpp $(OBJS_GGML1) include/json.hpp GGML/chat_plain.h thread_chat.h 
 	$(CXX) $(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+    
+#GGML format w CLBLAST
+
+$(EXE_CL_GGML):$(OBJS_CL_GGML) $(OBJS_CL_GGML1) include/json.hpp tinyfiledialogs/tinyfiledialogs.c GGML/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
+    
+chatTest_ggml_cl:class_chat.cpp $(OBJS_CL_GGML1) include/json.hpp GGML/chat_plain.h thread_chat.h 
+	$(CXX) $(CXXFLAGS_CL_GGML) $(filter-out %.h,$^) -o $@

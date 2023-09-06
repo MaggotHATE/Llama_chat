@@ -623,12 +623,17 @@ public:
     
     std::string get_eval(){
         //llama_print_timings(ctx);
-        return std::to_string(llama_string_eval(ctx)) + " tokens per second";
+        return std::to_string(llama_string_eval(ctx)) + " t/s";
+    }
+    
+    float get_speed(){
+        //llama_print_timings(ctx);
+        return llama_string_eval(ctx);
     }
     
     std::string get_evalPrompt(){
         //llama_print_timings(ctx);
-        return std::to_string(llama_string_evalPrompt(ctx)) + " tokens per second";
+        return std::to_string(llama_string_evalPrompt(ctx)) + " t/s";
     }
     
     std::string get_ts(){
@@ -1405,7 +1410,7 @@ public:
             if (debug) fprintf(stderr, "4");
             for (auto id : embd) { 
                 //std::string tknStr = llama_token_to_string(ctx, id); 
-                std::string tknStr = llama_token_to_piece(ctx, id); 
+                const std::string tknStr = llama_token_to_piece(ctx, id); 
                 //result += (std::string) tknStr;
                 result += tknStr;
                 //if (streaming) printf("%s", tknStr);
@@ -1469,7 +1474,7 @@ public:
                 }
 
                 is_interacting = true;
-                printf("\n");
+                //printf("\n");
             } else if (params.instruct) {
                 is_interacting = true;
             }
@@ -1596,7 +1601,7 @@ public:
         return "cycle broken!";
     }
 
-    std::string getPrinted(){
+    const std::string getPrinted(){
         if (debug) fprintf(stderr, "4");
         
         for (auto id : embd) { 
