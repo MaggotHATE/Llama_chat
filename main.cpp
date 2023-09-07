@@ -522,6 +522,8 @@ std::string openFile(const char* const* filterPatterns){
 // Main code ///////////////////////////////////////////////////////////////////////////////////
 int main(int, char**)
 {
+    std::setlocale(LC_CTYPE, ".UTF8");
+    
     nlohmann::json configJson = getJson("chatConfig.json");
     int width = 600;
     int height = 800;

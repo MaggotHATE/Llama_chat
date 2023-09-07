@@ -183,6 +183,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
+    if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
     if (checkJNum(config, "temp")) params.temp = loadNpring(config,"temp", true);
     if (checkJNum(config, "top_k")) params.top_k = loadNpring(config,"top_k", true);
     if (checkJNum(config, "top_p")) params.top_p = loadNpring(config,"top_p", true);

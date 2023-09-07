@@ -684,6 +684,7 @@ struct configurableChat{
         if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
         if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
+        if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
@@ -730,6 +731,7 @@ struct configurableChat{
         if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[modelName]["mirostat_eta"] = params.mirostat_eta;
         if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[modelName]["cfg-scale"] = params.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[modelName]["ctx-size"] = params.n_ctx;
+        if (params.n_keep != paramsDefault.n_keep) modelConfig[modelName]["n_keep"] = params.n_keep;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         
