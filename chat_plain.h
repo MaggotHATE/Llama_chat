@@ -1,7 +1,7 @@
 // Defines sigaction on msys:
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+// #ifndef _GNU_SOURCE
+// #define _GNU_SOURCE
+// #endif
 
 /* #ifdef GGML_USE_CLBLAST
 #   include "base_cl/common.h"
@@ -747,9 +747,13 @@ public:
         }
 
         //fprintf(stderr, "Context size %zu \n", params.n_ctx);
-        if (params.n_ctx > 2048) {
-            fprintf(stderr, "%s: warning: model might not support context sizes greater than 2048 tokens (%d specified);"
-                    "expect poor results\n", __func__, params.n_ctx);
+        // if (params.n_ctx > 2048) {
+            // fprintf(stderr, "%s: warning: model might not support context sizes greater than 2048 tokens (%d specified);"
+                    // "expect poor results\n", __func__, params.n_ctx);
+        const int n_ctx_train = llama_n_ctx_train(ctx);
+        if (params.n_ctx > n_ctx_train) {
+            fprintf(stderr, "%s: warning: model was trained on only %d context tokens (%d specified)\n",
+                    __func__, n_ctx_train, params.n_ctx);
         } else if (params.n_ctx < 8) {
             fprintf(stderr, "%s: warning: minimum context size is 8, using minimum size.\n", __func__);
             params.n_ctx = 8;

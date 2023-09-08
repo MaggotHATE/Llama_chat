@@ -530,6 +530,7 @@ int main(int, char**)
     float fontSize = 21.0f;
     int latency = 30;
     std::string fontFile = "DroidSans.ttf";
+    std::string fontEmojisFile = "GikodotemojiRegular-EaBr4.ttf";
     std::string modelsFolderName = "NULL";
     std::string promptsFolderName = "NULL";
     
@@ -538,6 +539,7 @@ int main(int, char**)
         if (configJson["width"].is_number()) width = configJson["width"].get<int>();
         if (configJson["height"].is_number()) height = configJson["height"].get<int>();
         if (configJson["font"].is_string()) fontFile = configJson["font"].get<std::string>();
+        if (configJson["fontEmojis"].is_string()) fontEmojisFile = configJson["fontEmojis"].get<std::string>();
         if (configJson["fontSize"].is_number()) fontSize = configJson["fontSize"].get<float>();
         if (configJson.contains("modelsFolder") && configJson["modelsFolder"].is_string()) modelsFolderName = configJson["modelsFolder"].get<std::string>();
         if (configJson.contains("promptsFolder") && configJson["promptsFolder"].is_string()) promptsFolderName = configJson["promptsFolder"].get<std::string>();
@@ -648,13 +650,17 @@ int main(int, char**)
     
     static bool use_work_area = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    ImFont* font = io.Fonts->AddFontFromFileTTF(fontFile.c_str(), fontSize, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-    // static ImWchar ranges[] = { 0x1, 0x1FFFF, 0 };
-    // static ImFontConfig cfg;
+    
+    //ImFont* font = io.Fonts->AddFontDefault();
+    static ImWchar ranges[] = { 0x1, 0x1FFFF, 0 };
+    ImFont* font = io.Fonts->AddFontFromFileTTF(fontFile.c_str(), fontSize, nullptr, ranges);
+    ImFontConfig cfg;
+    cfg.MergeMode = true;
     // cfg.OversampleH = cfg.OversampleV = 1;
     // cfg.MergeMode = true;
-    ////cfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
     // io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguiemj.ttf", 16.0f, &cfg, ranges);
+    io.Fonts->AddFontFromFileTTF(fontEmojisFile.c_str(), fontSize, &cfg, ranges);
+    io.Fonts->Build();
     
     configurableChat localSettings;
     

@@ -1,7 +1,7 @@
 // Defines sigaction on msys:
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+// #ifndef _GNU_SOURCE
+// #define _GNU_SOURCE
+// #endif
 
 #include "common.h"
 #include "llama.h"
