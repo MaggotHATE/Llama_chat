@@ -41,6 +41,55 @@ OBJS_CL_GGML = $(subst main.o,main_cl_ggml.o,$(OBJS))
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
 
+# clock_gettime came in POSIX.1b (1993)
+# CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional
+# posix_memalign came in POSIX.1-2001 / SUSv3
+# M_PI is an XSI extension since POSIX.1-2001 / SUSv3, came in XPG1 (1985)
+GNUPDATEC = -D_XOPEN_SOURCE=600
+GNUPDATECXX = -D_XOPEN_SOURCE=600
+
+# Somehow in OpenBSD whenever POSIX conformance is specified
+# some string functions rely on locale_t availability,
+# which was introduced in POSIX.1-2008, forcing us to go higher
+ifeq ($(UNAME_S),OpenBSD)
+	GNUPDATEC   += -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700
+	GNUPDATECXX += -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700
+endif
+
+# Data types, macros and functions related to controlling CPU affinity and
+# some memory allocation are available on Linux through GNU extensions in libc
+ifeq ($(UNAME_S),Linux)
+	GNUPDATEC   += -D_GNU_SOURCE
+	GNUPDATECXX += -D_GNU_SOURCE
+endif
+
+# RLIMIT_MEMLOCK came in BSD, is not specified in POSIX.1,
+# and on macOS its availability depends on enabling Darwin extensions
+# similarly on DragonFly, enabling BSD extensions is necessary
+ifeq ($(UNAME_S),Darwin)
+	GNUPDATEC   += -D_DARWIN_C_SOURCE
+	GNUPDATECXX += -D_DARWIN_C_SOURCE
+endif
+ifeq ($(UNAME_S),DragonFly)
+	GNUPDATEC   += -D__BSD_VISIBLE
+	GNUPDATECXX += -D__BSD_VISIBLE
+endif
+
+# alloca is a non-standard interface that is not visible on BSDs when
+# POSIX conformance is specified, but not all of them provide a clean way
+# to enable it in such cases
+ifeq ($(UNAME_S),FreeBSD)
+	GNUPDATEC   += -D__BSD_VISIBLE
+	GNUPDATECXX += -D__BSD_VISIBLE
+endif
+ifeq ($(UNAME_S),NetBSD)
+	GNUPDATEC   += -D_NETBSD_SOURCE
+	GNUPDATECXX += -D_NETBSD_SOURCE
+endif
+ifeq ($(UNAME_S),OpenBSD)
+	GNUPDATEC   += -D_BSD_SOURCE
+	GNUPDATECXX += -D_BSD_SOURCE
+endif
 
 #for main ui
 CXXFLAGS_UI = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
@@ -59,17 +108,17 @@ CXXFLAGS_UI_CL_GGML += -g -Wall -Wformat -pipe
 
 
 #for general ggml-gguf
-CFLAGS = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_CL = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_GGML = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_CL_GGML = $(OPT) -std=$(CCC) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS_CL = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS_GGML = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS_CL_GGML = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
 
 
 #for all chatTest
-CXXFLAGS = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_CL = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_GGML = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_CL_GGML = $(OPT) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS_CL = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS_GGML = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS_CL_GGML = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
@@ -148,6 +197,13 @@ ifeq ($(OS), Windows_NT)
     #CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
 
+# For emojis
+
+CXXFLAGS_UI += -DIMGUI_USE_WCHAR32
+CXXFLAGS_UI_CL += -DIMGUI_USE_WCHAR32
+CXXFLAGS_UI_GGML += -DIMGUI_USE_WCHAR32
+CXXFLAGS_UI_CL_GGML += -DIMGUI_USE_WCHAR32
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------
@@ -177,6 +233,45 @@ o/k_quants_old.o: GGML/k_quants.c GGML/k_quants.h
 o/grammar-parser_old.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
 	$(CXX) $(CXXFLAGS_GGML) -c $< -o $@
 
+# Separate GGML CLBLAST
+
+# Mac provides OpenCL as a framework
+ifeq ($(UNAME_S),Darwin)
+    LDFLAGS_CL_GGML += -lclblast -framework OpenCL
+else
+    #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
+    LDFLAGS_CL_GGML += -Llib/OpenCL.lib -Llib/clblast.lib
+endif
+    #LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib -lclblast -lOpenCL
+CXXFLAGS_CL_GGML += -lclblast -lOpenCL
+CXXFLAGS_UI_CL_GGML += -lclblast -lOpenCL
+
+
+OBJS_CL_GGML1    = o/k_quants_cl-ggml.o o/ggml-opencl-ggml.o o/ggml_cl-ggml.o o/ggml-alloc_cl-ggml.o o/llama_cl-ggml.o o/common_cl-ggml.o o/grammar-parser_cl-ggml.o
+
+o/ggml-opencl-ggml.o: GGML/ggml-opencl.cpp GGML/ggml-opencl.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+    
+o/ggml_cl-ggml.o: GGML/ggml.c GGML/ggml.h
+	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
+    
+o/ggml-alloc_cl-ggml.o: GGML/ggml-alloc.c GGML/ggml.h GGML/ggml-alloc.h
+	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
+
+o/llama_cl-ggml.o: GGML/llama.cpp base/ggml.h base/ggml-alloc.h GGML/llama.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+
+o/common_cl-ggml.o: GGML/common.cpp GGML/common.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
+
+o/libllama_cl-ggml.so: o/llama_cl.o o/ggml_cl.o $(OBJS2)
+	$(CXX) $(CXXFLAGS_CL_GGML) -shared -fPIC -o $@ $^ $(LDFLAGS_CL)
+    
+o/k_quants_cl-ggml.o: GGML/k_quants.c GGML/k_quants.h
+	$(CC) $(CFLAGS_CL_GGML) -c $< -o $@
+    
+o/grammar-parser_cl-ggml.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
   
 # GGUF
 
@@ -188,7 +283,7 @@ o/ggml.o: base/ggml.c base/ggml.h
 o/ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
-o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h
+o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h base/threadpool.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/common.o: base/common.cpp base/common.h
@@ -231,7 +326,7 @@ o/ggml_cl.o: base/ggml.c base/ggml.h
 o/ggml-alloc_cl.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS_CL)   -c $< -o $@
 
-o/llama_cl.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h
+o/llama_cl.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h base/threadpool.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
 o/common_cl.o: base/common.cpp base/common.h
@@ -245,46 +340,6 @@ o/k_quants_cl.o: base/k_quants.c base/k_quants.h
     
 o/grammar-parser_cl.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-# Separate GGML CLBLAST
-
-# Mac provides OpenCL as a framework
-ifeq ($(UNAME_S),Darwin)
-    LDFLAGS_CL_GGML += -lclblast -framework OpenCL
-else
-    #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
-    LDFLAGS_CL_GGML += -Llib/OpenCL.lib -Llib/clblast.lib
-endif
-    #LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib -lclblast -lOpenCL
-CXXFLAGS_CL_GGML += -lclblast -lOpenCL
-CXXFLAGS_UI_CL_GGML += -lclblast -lOpenCL
-
-
-OBJS_CL_GGML1    = o/k_quants_cl-ggml.o o/ggml-opencl-ggml.o o/ggml_cl-ggml.o o/ggml-alloc_cl-ggml.o o/llama_cl-ggml.o o/common_cl-ggml.o o/grammar-parser_cl-ggml.o
-
-o/ggml-opencl-ggml.o: GGML/ggml-opencl.cpp GGML/ggml-opencl.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-    
-o/ggml_cl-ggml.o: GGML/ggml.c GGML/ggml.h
-	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
-    
-o/ggml-alloc_cl-ggml.o: GGML/ggml-alloc.c GGML/ggml.h GGML/ggml-alloc.h
-	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
-
-o/llama_cl-ggml.o: GGML/llama.cpp base/ggml.h base/ggml-alloc.h GGML/llama.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-
-o/common_cl-ggml.o: GGML/common.cpp GGML/common.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-
-o/libllama_cl-ggml.so: o/llama_cl.o o/ggml_cl.o $(OBJS2)
-	$(CXX) $(CXXFLAGS_CL_GGML) -shared -fPIC -o $@ $^ $(LDFLAGS_CL)
-    
-o/k_quants_cl-ggml.o: GGML/k_quants.c GGML/k_quants.h
-	$(CC) $(CFLAGS_CL_GGML) -c $< -o $@
-    
-o/grammar-parser_cl-ggml.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
     
 
 # general    
@@ -313,43 +368,43 @@ o/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
 #NAMED BULDS    
     
 demo: $(EXE)
-	@echo Build complete for $(ECHO_MESSAGE) 
+	@echo Build $(EXE) complete for $(ECHO_MESSAGE) 
     
 demo_cl: $(EXE_CL)
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
     
 demo_ggml: $(EXE_GGML)
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE_GGML) complete for $(ECHO_MESSAGE)
     
 demo_ggml_cl: $(EXE_CL_GGML)
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE_CL_GGML) complete for $(ECHO_MESSAGE)
     
 demos_gguf: $(EXE) $(EXE_CL)
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE) $(EXE_CL) complete for $(ECHO_MESSAGE)
     
 demos: $(EXE) $(EXE_CL) $(EXE_GGML) $(EXE_CL_GGML)
 	@echo Build complete for $(ECHO_MESSAGE)
     
 tests: chatTest chatTest_cl chatTest_ggml
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build chatTest chatTest_cl chatTest_ggml complete for $(ECHO_MESSAGE)
     
 all: $(EXE) $(EXE_CL) chatTest chatTest_cl $(EXE_GGML) chatTest_ggml
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE) $(EXE_CL) chatTest chatTest_cl $(EXE_GGML) chatTest_ggml complete for $(ECHO_MESSAGE)
     
 all_cl: $(EXE_CL) chatTest_cl
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE_CL) chatTest_cl complete for $(ECHO_MESSAGE)
     
 all_cpu: $(EXE) chatTest $(EXE_GGML) chatTest_ggml
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE) chatTest $(EXE_GGML) chatTest_ggml complete for $(ECHO_MESSAGE)
     
 all_gguf: $(EXE) $(EXE_CL) chatTest chatTest_cl
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE) $(EXE_CL) chatTest chatTest_cl complete for $(ECHO_MESSAGE)
     
 gguf_cpu: $(EXE) chatTest
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE) chatTest complete for $(ECHO_MESSAGE)
     
 all_ggml: $(EXE_GGML) chatTest_ggml
-	@echo Build complete for $(ECHO_MESSAGE)
+	@echo Build $(EXE_GGML) chatTest_ggml complete for $(ECHO_MESSAGE)
 
 # MAIN EXE's    
     
@@ -365,7 +420,7 @@ $(EXE_CL): $(OBJS_CL) $(OBJS_GGUF_CL) include/json.hpp tinyfiledialogs/tinyfiled
 	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(LDFLAGS_CL) $(LIBS)
         
 chatTest_cl:class_chat.cpp                                  include/json.hpp chat_plain.h thread_chat.h $(OBJS_GGUF_CL)
-	$(CXX) $(CXXFLAGS_CL) $(filter-out %.h,$^) -o $@
+	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
     
 #GGML format
 

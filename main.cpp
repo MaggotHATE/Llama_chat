@@ -647,6 +647,7 @@ int main(int, char**)
     bool scrolled = true;
     bool cancelled = false;
     bool copy = false;
+    bool autoscroll = true;
     
     static bool use_work_area = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -715,6 +716,7 @@ int main(int, char**)
     std::string inputStr = "";
     std::string inputPrompt = localSettings.params.prompt;
     std::string inputAntiprompt = "";
+    std::string shortModelName = "Model isn't loaded yet.";
     if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
     std::string inputAntiCFG = localSettings.params.cfg_negative_prompt;
     
@@ -984,9 +986,9 @@ int main(int, char**)
             ImGui::EndMenuBar();
         }
         
-        //ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x * 0.5f, 24.0f), false);
+        ImGui::BeginChild("Styles", ImVec2( ImGui::GetContentRegionAvail().x * 0.4f, fontSize + 6.0f));
         static int style_idx = 2;
-        if (ImGui::Combo("", &style_idx, "Dark theme\0Light theme\0Classic theme\0", 50))
+        if (ImGui::Combo("", &style_idx, "Dark theme\0Light theme\0Classic theme\0", 3))
         {
             switch (style_idx)
             {
@@ -995,14 +997,26 @@ int main(int, char**)
                 case 2: ImGui::StyleColorsClassic(); break;
             }
         }
-        //ImGui::EndChild();
+        
         
         //ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::SameLine();
         
         ImGui::Checkbox("Chat mode", &chatMode); 
         
+        ImGui::EndChild();
         
+        
+        
+        ImGui::SameLine();
+        
+        ImGui::BeginChild("Name", ImVec2( ImGui::GetContentRegionAvail().x * 0.60f, fontSize + 6.0f));
+        //ImGui::Text((shortModelName).c_str());
+        ImGui::Checkbox("Autoscroll", &autoscroll); 
+        ImGui::EndChild();
+        ImGui::SameLine();
+        
+        ImGui::BeginChild("Buttons", ImVec2( ImGui::GetContentRegionAvail().x, fontSize + 6.0f));
         if (newChat.loaded == 9){
             if (newChat.isContinue != 'w') {
                 // ImGui::SameLine();
@@ -1015,7 +1029,7 @@ int main(int, char**)
                     // //newChat.clear();
                     // newChat.clearSoft();
                 // }
-                ImGui::SameLine();
+                
                 if (ImGui::Button("Restart")){ 
                     newChat.loaded = 0;
                     tokens_this_session = 0;
@@ -1031,6 +1045,8 @@ int main(int, char**)
                 ImGui::SameLine();
                 ImGui::TextWrapped(("Tokens: " + std::to_string(past_this_session)).c_str());
             }  else {
+                //ImGui::SameLine();
+                
                 ImGui::SameLine();
                 if (ImGui::Button("Stop")){ 
                     newChat.stop();
@@ -1044,7 +1060,7 @@ int main(int, char**)
             }
         }
         
-        
+        ImGui::EndChild();
         
         //ImGui::Separator();
         //ImGui::Spacing();
@@ -1062,6 +1078,8 @@ int main(int, char**)
                 }
                 
                 if (newChat.loaded == 9) {
+                    
+                    shortModelName = newChat.shortModelName;
                     
                     if (!initTokens){
                         tokens_this_session = newChat.last_tokens;
@@ -1173,7 +1191,6 @@ int main(int, char**)
                                     if (messageNum == 1){
                                         ImGui::SeparatorText("Dialog");
                                     }
-
                                     //ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.5f);
                                     //ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
                                     //ImGui::Text(r.second.c_str(), wrap_width);
@@ -1187,6 +1204,7 @@ int main(int, char**)
                                     //std::string questionStr = r.first + r.second;
                                     //ImGui::SeparatorText(r.first.c_str());
                                     if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.40f);
+                                    
                                     ImGui::TextWrapped((r.first + r.second).c_str());
                                     if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
                                     {
@@ -1213,10 +1231,10 @@ int main(int, char**)
                                         
                                         ImGui::EndPopup();
                                     }
-                                    //ImGui::Separator();
-                                    //ImGui::Text((r.first + r.second).c_str(), wrap_width);
-                                    //ImGui::PopTextWrapPos();
-                                    //ImGui::InputTextMultiline(" ", &questionStr, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2), ImGuiInputTextFlags_ReadOnly);
+                                //ImGui::Separator();
+                                //ImGui::Text((r.first + r.second).c_str(), wrap_width);
+                                //ImGui::PopTextWrapPos();
+                                //ImGui::InputTextMultiline(" ", &questionStr, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2), ImGuiInputTextFlags_ReadOnly);
                                     
                                 }
                                 
@@ -1255,12 +1273,13 @@ int main(int, char**)
                                 
                                 ImGui::PopTextWrapPos();
                                 //newChat.getResultAsyncString();
-                                scrolled = false;
-                                if (!scrolled) {
-                                    ImGui::SetScrollFromPosY(ImGui::GetCursorPos().y + ImGui::GetContentRegionAvail().y, 0.25f);
-                                    scrolled = true;
+                                if (autoscroll){
+                                    scrolled = false;
+                                    if (!scrolled) {
+                                        ImGui::SetScrollFromPosY(ImGui::GetCursorPos().y + ImGui::GetContentRegionAvail().y, 0.25f);
+                                        scrolled = true;
+                                    }
                                 }
-                                
                                 //ImGui::SeparatorText(("Generating " + std::to_string(newChat.lastSpeed) + " t/s").c_str());
                                 ImGui::SeparatorText(std::format("Generating at {:.2f} t/s", newChat.lastSpeed).c_str());
                                 
@@ -1318,7 +1337,7 @@ int main(int, char**)
                             //newChat.isContinue = 'w';
                             newChat.startGen();
                             output = "...";
-                            newChat.getResultAsyncStringFull(false, true);
+                            newChat.getResultAsyncStringFull2(false, true);
                             copiedDialog = false;
                             copiedTimings = false;
                             scrolled = false;

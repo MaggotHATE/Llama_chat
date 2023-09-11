@@ -35,6 +35,8 @@ void append_utf8(char32_t ch, std::string & out) {
 }
 
 int main(int argc, char ** argv) {
+    SetConsoleOutputCP(CP_UTF8);
+    
     //std::setlocale(LC_ALL, "en_US.utf8");
     //chat newChat;
     //std::vector<std::string> results;
@@ -57,7 +59,8 @@ int main(int argc, char ** argv) {
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
     
-    int latency = settings.localConfig["latency"];
+    int latency = 30;
+    if (settings.localConfig.contains("latency")) latency = settings.localConfig["latency"];
     //task_lambda(threadedChat);
     
     
@@ -92,7 +95,7 @@ int main(int argc, char ** argv) {
                 //threadedChat.lastResult = "";
                 //threadedChat.getResultAsyncString(true);
                 threadedChat.startGen();
-                threadedChat.getResultAsyncStringFull(true, true);
+                threadedChat.getResultAsyncStringFull2(true, true);
                 
                  // char input[2048];
                 // fflush(stdout);

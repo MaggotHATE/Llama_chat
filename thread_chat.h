@@ -76,10 +76,22 @@ struct modelThread{
     std::string lastTimings = "Not yet calculated...";
     float lastSpeed = 0.0f;
     std::string lastResult = "";
+    std::string shortModelName = "";
 
     // ~modelThread(){
         // ~newChat;
     // }
+    
+    void getShortName(){
+        shortModelName = newChat.params.model;
+        int slash = shortModelName.rfind('/');
+        if (slash == shortModelName.npos) slash = 0;
+        int rslash = shortModelName.rfind('\\');
+        if (rslash == shortModelName.npos) rslash = 0;
+        
+        if (slash > rslash) shortModelName = shortModelName.substr(slash+1);
+        else shortModelName = shortModelName.substr(rslash+1);
+    }
     
     void appendFirstPrompt(){
         std::string context = newChat.params.prompt;
@@ -131,6 +143,7 @@ struct modelThread{
     void display(){
         Clear();
         
+        std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
         std::cout << lastTimings << std::endl;
         
@@ -296,6 +309,62 @@ struct modelThread{
         
     }
     
+void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
+        //isContinue = 'w';
+        //std::cout << " ** " << input << std::endl;
+        newChat.clearLastTokens();
+        
+        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
+            
+            std::string input = resultsStringPairs.back().second;
+                
+            newChat.inputOnly(input);
+            
+            consumed_tokens = newChat.getConsumedTokens();
+            past_tokens = newChat.getPastTokens();
+            
+            while (isContinue != 'i'){
+        
+
+                std::string output = newChat.cycleStringsOnly(false);
+                lastResult += output;
+                
+                if (streaming) {
+                    if (full) {
+                        getTimigsSimple();
+                        display();
+                        std::cout << lastResult;
+                    } else std::cout << output;
+                } else {
+                    if (full) getTimigsGen();
+                }
+                //getTimigsSimple();
+                
+                if (newChat.finished){
+                    newChat.eraseAntiprompt(lastResult);
+                    resultsStringPairs.push_back(std::pair("AI",lastResult));
+                    isContinue = 'i';
+                    isPregen = 'i';
+                    getTimigsSimple();
+                }
+                    
+                
+                //futureTextString.get();
+
+                last_tokens = newChat.getLastTokens();
+                //remain_tokens = newChat.getRemainTokens();
+                consumed_tokens = newChat.getConsumedTokens();
+                past_tokens = newChat.getPastTokens();
+            
+            }
+            
+            std::string result = "ready";
+                
+            return result;
+        });
+        
+    }
+    
     void getResultAsyncStringRepeat(bool streaming = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
@@ -359,6 +428,7 @@ struct modelThread{
             past_tokens = newChat.getPastTokens();
 
             std::cout << "Loaded, you can type now! " << std::endl;
+            getShortName();
             isContinue = 'i';
             
             return loaded;
@@ -378,6 +448,7 @@ struct modelThread{
             past_tokens = newChat.getPastTokens();
 
             std::cout << "Loaded, you can type now! " << std::endl;
+            getShortName();
             isContinue = 'i';
             
             return loaded;
@@ -411,6 +482,7 @@ struct configurableChat{
     std::string inputAntiCFG = "NULL";
     std::string inputInstructFile = "NULL";
     std::string modelName = "NULL";
+    std::string modelShortName = "NULL";
     std::string localJsonDump;
     
     void getModelsList(){
@@ -535,6 +607,8 @@ struct configurableChat{
         // params = paramsDefault;
         // params = aChat.params;
     // }
+    
+    
 
     void getSettingsFull(){
         params = paramsDefault;
