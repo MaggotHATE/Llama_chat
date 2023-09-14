@@ -1,3 +1,4 @@
+#define _GNU_SOURCE // Defines CLOCK_MONOTONIC on Linux
 #define _CRT_SECURE_NO_DEPRECATE // Disables ridiculous "unsafe" warnigns on Windows
 
 #include "ggml.h"
@@ -46,10 +47,6 @@
 // disable "possible loss of data" to avoid hundreds of casts
 // we should just be careful :)
 #pragma warning(disable: 4244 4267)
-
-// disable POSIX deprecation warnigns
-// these functions are never going away, anyway
-#pragma warning(disable: 4996)
 #endif
 
 #if defined(_WIN32)
@@ -106,9 +103,6 @@ typedef void * thread_ret_t;
 #include <sys/stat.h>
 #include <unistd.h>
 
-#endif
-#ifdef GGML_USE_CPU_HBM
-#include <hbwmalloc.h>
 #endif
 
 // __FMA__ and __F16C__ are not defined in MSVC, however they are implied with AVX2/AVX512
@@ -198,15 +192,9 @@ typedef void * thread_ret_t;
 #define GGML_ALIGNED_FREE(ptr)    _aligned_free(ptr)
 #else
 inline static void * ggml_aligned_malloc(size_t size) {
-    if (size == 0) {
-        GGML_PRINT("WARNING: Behavior may be unexpected when allocating 0 bytes for ggml_aligned_malloc!\n");
-        return NULL;
-    }
     void * aligned_memory = NULL;
-#ifdef GGML_USE_CPU_HBM
-    int result = hbw_posix_memalign(&aligned_memory, 16, size);
-#elif GGML_USE_METAL
-    int result = posix_memalign(&aligned_memory, sysconf(_SC_PAGESIZE), size);
+#ifdef GGML_USE_METAL
+    int result = posix_memalign(&aligned_memory, getpagesize(), size);
 #else
     int result = posix_memalign(&aligned_memory, GGML_MEM_ALIGN, size);
 #endif
@@ -227,11 +215,7 @@ inline static void * ggml_aligned_malloc(size_t size) {
     return aligned_memory;
 }
 #define GGML_ALIGNED_MALLOC(size) ggml_aligned_malloc(size)
-#ifdef GGML_USE_CPU_HBM
-#define GGML_ALIGNED_FREE(ptr)    if(NULL != ptr) hbw_free(ptr)
-#else
 #define GGML_ALIGNED_FREE(ptr)    free(ptr)
-#endif
 #endif
 
 #define UNUSED GGML_UNUSED
@@ -310,10 +294,8 @@ typedef double ggml_float;
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <intrin.h>
 #else
-#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__) || defined(__SSSE3__) || defined(__SSE3__)
 #if !defined(__riscv)
 #include <immintrin.h>
-#endif
 #endif
 #endif
 #endif
@@ -1117,10 +1099,18 @@ static void quantize_row_q8_0_reference(const float * restrict x, block_q8_0 * r
 
 static void quantize_row_q8_0(const float * restrict x, void * restrict vy, int k) {
     assert(QK8_0 == 32);
-    assert(k % QK8_0 == 0);
     const int nb = k / QK8_0;
 
     block_q8_0 * restrict y = vy;
+
+    if (k % QK8_0 != 0) {
+        float x_end[QK8_0] = {0};
+        memcpy(x_end, x + nb*QK8_0, sizeof(float) * (k % QK8_0));
+
+        block_q8_0 * y_end = y + nb;
+
+        quantize_row_q8_0(x_end, y_end, QK8_0);
+    }
 
 #if defined(__ARM_NEON)
     for (int i = 0; i < nb; i++) {
@@ -4001,7 +3991,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "CROSS_ENTROPY_LOSS_BACK",
 };
 
-static_assert(GGML_OP_COUNT == 69, "GGML_OP_COUNT != 69");
+static_assert(GGML_OP_COUNT == 68, "GGML_OP_COUNT != 68");
 
 static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "none",
@@ -4083,7 +4073,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "cross_entropy_loss_back(x,y)",
 };
 
-static_assert(GGML_OP_COUNT == 69, "GGML_OP_COUNT != 69");
+static_assert(GGML_OP_COUNT == 68, "GGML_OP_COUNT != 68");
 
 static_assert(GGML_OP_POOL_COUNT == 2, "GGML_OP_POOL_COUNT != 2");
 
@@ -4373,8 +4363,13 @@ static inline bool ggml_is_matrix(const struct ggml_tensor * tensor) {
 static inline bool ggml_can_mul_mat(const struct ggml_tensor * t0, const struct ggml_tensor * t1) {
     static_assert(GGML_MAX_DIMS == 4, "GGML_MAX_DIMS is not 4 - update this function");
 
-    return (t0->ne[0]           == t1->ne[0])  &&
-           (t1->ne[2]%t0->ne[2] == 0)          && // verify t0 is broadcastable
+    const int64_t blck_size = ggml_blck_size(t0->type);
+
+    const int64_t nblcks00_padded = (t0->ne[0] + blck_size - 1) / blck_size;
+    const int64_t nblcks10_padded = (t1->ne[0] + blck_size - 1) / blck_size;
+
+    return (nblcks00_padded     == nblcks10_padded) && // ensure same number of blocks after padding
+           (t1->ne[2]%t0->ne[2] == 0)               && // verify t0 is broadcastable
            (t1->ne[3]%t0->ne[3] == 0);
 }
 
@@ -4584,11 +4579,6 @@ struct ggml_context * ggml_init(struct ggml_init_params params) {
         return NULL;
     }
 
-    // allow to call ggml_init with 0 size
-    if (params.mem_size == 0) {
-        params.mem_size = GGML_MEM_ALIGN;
-    }
-
     const size_t mem_size = params.mem_buffer ? params.mem_size : GGML_PAD(params.mem_size, GGML_MEM_ALIGN);
 
     *ctx = (struct ggml_context) {
@@ -4791,7 +4781,7 @@ static struct ggml_tensor * ggml_new_tensor_impl(
 
     size_t obj_alloc_size = 0;
 
-    if (view_src == NULL && !ctx->no_alloc) {
+    if (view_src == NULL && ctx->no_alloc == false) {
         if (ctx->scratch.data != NULL) {
             // allocate tensor data in the scratch buffer
             if (ctx->scratch.offs + data_size > ctx->scratch.size) {
@@ -5492,7 +5482,7 @@ static struct ggml_tensor * ggml_mul_impl(
     }
 
     if (inplace) {
-        GGML_ASSERT(!is_node);
+        GGML_ASSERT(is_node == false);
     }
 
     struct ggml_tensor * result = inplace ? ggml_view_tensor(ctx, a) : ggml_dup_tensor(ctx, a);
@@ -5535,7 +5525,7 @@ static struct ggml_tensor * ggml_div_impl(
     }
 
     if (inplace) {
-        GGML_ASSERT(!is_node);
+        GGML_ASSERT(is_node == false);
     }
 
     struct ggml_tensor * result = inplace ? ggml_view_tensor(ctx, a) : ggml_dup_tensor(ctx, a);
@@ -6533,7 +6523,8 @@ static struct ggml_tensor * ggml_view_impl(
         struct ggml_tensor  * a,
         int                   n_dims,
         const int64_t       * ne,
-        size_t                offset) {
+        size_t                offset,
+        size_t                i_blck) {
 
     bool is_node = false;
 
@@ -6544,7 +6535,8 @@ static struct ggml_tensor * ggml_view_impl(
     struct ggml_tensor * result = ggml_new_tensor_impl(ctx, a->type, n_dims, ne, a, offset);
     ggml_format_name(result, "%s (view)", a->name);
 
-    ggml_set_op_params(result, &offset, sizeof(offset));
+    size_t params[2] = {offset, i_blck};
+    ggml_set_op_params(result, &params, sizeof(params));
 
     result->op   = GGML_OP_VIEW;
     result->grad = is_node ? ggml_dup_tensor(ctx, result) : NULL;
@@ -6561,7 +6553,7 @@ struct ggml_tensor * ggml_view_1d(
         int64_t               ne0,
         size_t                offset) {
 
-    struct ggml_tensor * result = ggml_view_impl(ctx, a, 1, &ne0, offset);
+    struct ggml_tensor * result = ggml_view_impl(ctx, a, 1, &ne0, offset, 0);
 
     return result;
 }
@@ -6578,7 +6570,7 @@ struct ggml_tensor * ggml_view_2d(
 
     const int64_t ne[2] = { ne0, ne1 };
 
-    struct ggml_tensor * result = ggml_view_impl(ctx, a, 2, ne, offset);
+    struct ggml_tensor * result = ggml_view_impl(ctx, a, 2, ne, offset, 0);
 
     result->nb[1] = nb1;
     result->nb[2] = result->nb[1]*ne1;
@@ -6601,7 +6593,7 @@ struct ggml_tensor * ggml_view_3d(
 
     const int64_t ne[3] = { ne0, ne1, ne2 };
 
-    struct ggml_tensor * result = ggml_view_impl(ctx, a, 3, ne, offset);
+    struct ggml_tensor * result = ggml_view_impl(ctx, a, 3, ne, offset, 0);
 
     result->nb[1] = nb1;
     result->nb[2] = nb2;
@@ -6626,11 +6618,47 @@ struct ggml_tensor * ggml_view_4d(
 
     const int64_t ne[4] = { ne0, ne1, ne2, ne3 };
 
-    struct ggml_tensor * result = ggml_view_impl(ctx, a, 4, ne, offset);
+    struct ggml_tensor * result = ggml_view_impl(ctx, a, 4, ne, offset, 0);
 
     result->nb[1] = nb1;
     result->nb[2] = nb2;
     result->nb[3] = nb3;
+
+    return result;
+}
+
+// ggml_view_blck_1d
+
+struct ggml_tensor * ggml_view_blck_1d(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * a,
+        int64_t               ne0,
+        size_t                offset,
+        size_t                i_blck) {
+
+    struct ggml_tensor * result = ggml_view_impl(ctx, a, 1, &ne0, offset, i_blck);
+
+    return result;
+}
+
+// ggml_view_blck_2d
+
+struct ggml_tensor * ggml_view_blck_2d(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * a,
+        int64_t               ne0,
+        int64_t               ne1,
+        size_t                nb1,
+        size_t                offset,
+        size_t                i_blck) {
+
+    const int64_t ne[2] = { ne0, ne1 };
+
+    struct ggml_tensor * result = ggml_view_impl(ctx, a, 2, ne, offset, i_blck);
+
+    result->nb[1] = nb1;
+    result->nb[2] = result->nb[1]*ne1;
+    result->nb[3] = result->nb[2];
 
     return result;
 }
@@ -6950,32 +6978,6 @@ struct ggml_tensor * ggml_soft_max_back_inplace(
         struct ggml_tensor  * a,
         struct ggml_tensor  * b) {
     return ggml_soft_max_back_impl(ctx, a, b, true);
-}
-
-struct ggml_tensor * ggml_scale_diag_mask_inf_softmax_inplace(
-        struct ggml_context * ctx,
-        float                 scale,
-        int                   n_past,
-        struct ggml_tensor  * a) {
-    //bool is_node = false;
-
-    //if (a->grad) {
-    //    is_node = true;
-    //}
-
-    struct ggml_tensor * result = ggml_view_tensor(ctx, a);
-
-    int32_t params[2];
-    memcpy(&params[0], &scale, sizeof(scale));
-    params[1] = n_past;
-    ggml_set_op_params(result, params, sizeof(params));
-
-    result->op   = GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX;
-    //result->grad = is_node ? ggml_dup_tensor(ctx, result) : NULL;
-    result->grad = NULL;
-    result->src[0] = a;
-
-    return result;
 }
 
 // ggml_rope
@@ -8729,6 +8731,47 @@ static void ggml_compute_forward_dup_f32(
                             if (++i13 == ne3) {
                                 i13 = 0;
                             }
+                        }
+                    }
+                }
+            }
+        }
+    } else if (type_traits[dst->type].from_float) {
+        GGML_ASSERT(ne00 == ne0);
+        GGML_ASSERT(ne01 == ne1);
+        GGML_ASSERT(ne02 == ne2);
+        GGML_ASSERT(ne03 == ne3);
+
+        size_t blck_index_0 = 0;
+        if (dst->src[1]->op == GGML_OP_VIEW) {
+            const size_t * op_params = (const size_t *) dst->src[1]->op_params;
+            blck_index_0 = op_params[1];
+        }
+
+        ggml_from_float_t const quantize_row_q = type_traits[dst->type].from_float;
+
+        for (int i03 = 0; i03 < ne03; i03++) {
+            for (int i02 = 0; i02 < ne02; i02++) {
+                for (int i01 = ir0; i01 < ir1; i01++) {
+                    const char * src0_row_ptr = (char *) src0->data + i01*nb01 + i02*nb02 + i03*nb03;
+                    char * dst_row_ptr = (char *) dst->data + i01*nb1 + i02*nb2 + i03*nb3;
+                    size_t blck_index = blck_index_0;
+
+                    for (int i00 = 0; i00 < ne00; ++i00) {
+                        char * dst_ptr = dst_row_ptr
+                            + ggml_element_size(dst) * ((i00 + blck_index_0) / ggml_blck_size(dst->type));
+                        float * dst_tmp_ptr = (float *) (dst_ptr + ggml_element_size(dst));
+
+                        if (blck_index == 0) {
+                            memset(dst_tmp_ptr, 0, ggml_blck_size(dst->type)*sizeof(float));
+                        }
+
+                        dst_tmp_ptr[blck_index] = *((const float *) (src0_row_ptr + i00*nb00));
+
+                        blck_index = (blck_index + 1) % ggml_blck_size(dst->type);
+
+                        if (blck_index == 0 || i00 == (ne00 - 1)) {
+                            quantize_row_q(dst_tmp_ptr, dst_ptr, ggml_blck_size(dst->type));
                         }
                     }
                 }
@@ -11348,7 +11391,8 @@ static void ggml_compute_forward_mul_mat(
     if (params->type == GGML_TASK_INIT) {
         if (src1->type != vec_dot_type) {
             char * wdata = params->wdata;
-            const size_t row_size = ne10*ggml_type_size(vec_dot_type)/ggml_blck_size(vec_dot_type);
+            const size_t row_size = ggml_type_size(vec_dot_type)*((ne10 + ggml_blck_size(vec_dot_type) - 1)
+                / ggml_blck_size(vec_dot_type));
 
             for (int64_t i13 = 0; i13 < ne13; ++i13) {
                 for (int64_t i12 = 0; i12 < ne12; ++i12) {
@@ -11368,7 +11412,8 @@ static void ggml_compute_forward_mul_mat(
     }
 
     const void * wdata    = (src1->type == vec_dot_type) ? src1->data : params->wdata;
-    const size_t row_size = ne10*ggml_type_size(vec_dot_type)/ggml_blck_size(vec_dot_type);
+    const size_t row_size = ggml_type_size(vec_dot_type)*((ne10 + ggml_blck_size(vec_dot_type) - 1)
+        / ggml_blck_size(vec_dot_type));
 
     const int64_t nr0 = ne01;           // src0 rows
     const int64_t nr1 = ne11*ne12*ne13; // src1 rows
@@ -16019,11 +16064,6 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
             {
                 // nop
             } break;
-        case GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX:
-            {
-                fprintf(stderr, "GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX not implemented\n");
-                GGML_ASSERT(false);
-            } break;
         case GGML_OP_COUNT:
             {
                 GGML_ASSERT(false);
@@ -16892,11 +16932,6 @@ static void ggml_compute_backward(struct ggml_context * ctx, struct ggml_tensor 
             {
                 // nop
             } break;
-        case GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX:
-            {
-                fprintf(stderr, "GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX not implemented\n");
-                GGML_ASSERT(false);
-            } break;
         case GGML_OP_COUNT:
             {
                 GGML_ASSERT(false);
@@ -17733,11 +17768,6 @@ struct ggml_cplan ggml_graph_plan(struct ggml_cgraph * cgraph, int n_threads) {
             case GGML_OP_NONE:
                 {
                     n_tasks = 1;
-                } break;
-            case GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX:
-                {
-                    fprintf(stderr, "GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX not implemented\n");
-                    GGML_ASSERT(false);
                 } break;
             case GGML_OP_COUNT:
                 {
@@ -18918,6 +18948,7 @@ static enum ggml_opt_result linesearch_backtracking(
                     // strong Wolfe condition (GGML_LINESEARCH_BACKTRACKING_STRONG_WOLFE)
                     return count;
                 }
+                return count;
             }
         }
 
@@ -20020,7 +20051,7 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
 
         struct ggml_tensor * data = NULL;
 
-        if (!params.no_alloc) {
+        if (params.no_alloc == false) {
             data = ggml_new_tensor_1d(ctx_data, GGML_TYPE_I8, ctx->size);
 
             ok = ok && data != NULL;
@@ -20061,7 +20092,7 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
             }
 
             // point the data member to the appropriate location in the binary blob using the tensor infos
-            if (!params.no_alloc) {
+            if (params.no_alloc == false) {
               //cur->data = (char *) data->data + ctx->infos[i].offset - ctx->offset; // offset from start of file
                 cur->data = (char *) data->data + ctx->infos[i].offset;               // offset from data
             }
@@ -20800,6 +20831,9 @@ int ggml_cpu_has_wasm_simd(void) {
 
 int ggml_cpu_has_blas(void) {
 #if defined(GGML_USE_ACCELERATE) || defined(GGML_USE_OPENBLAS) || defined(GGML_USE_CUBLAS) || defined(GGML_USE_CLBLAST)
+    #if defined(GGML_USE_OPENBLAS) 
+    openblas_set_num_threads(3);
+    #endif
     return 1;
 #else
     return 0;

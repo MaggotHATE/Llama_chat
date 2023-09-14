@@ -184,6 +184,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
+    if (checkJNum(config, "n_batch")) params.n_batch = loadNpring(config,"n_batch", true);
     if (checkJNum(config, "temp")) params.temp = loadNpring(config,"temp", true);
     if (checkJNum(config, "top_k")) params.top_k = loadNpring(config,"top_k", true);
     if (checkJNum(config, "top_p")) params.top_p = loadNpring(config,"top_p", true);
@@ -502,8 +503,13 @@ private:
     int n_past_guidance       = 0;
     int guidance_offset       = 0;
     int original_prompt_len   = 0;
-    int last_tokens_count           = 0;
-    
+    int last_tokens_count     = 0;
+    int t_eval_ms             = 0;
+    int n_eval                = 0;
+    int t_p_eval_ms           = 0;
+    int n_p_eval              = 0;
+    // since params.n_keep changes
+    int n_keep                = 0;
     
     std::vector<llama_token> embd;
     
@@ -567,6 +573,11 @@ public:
         n_past_guidance       = 0;
         guidance_offset       = 0;
         original_prompt_len   = 0;
+        t_eval_ms             = 0;
+        n_eval                = 0;
+        n_keep                = 0;
+        
+       
         
         params = paramsDefault;
     }
@@ -575,7 +586,7 @@ public:
         if (!cleared){
             cleared = true;
             
-            
+            params.n_keep = n_keep;
             
             llama_free(ctx);
             if (ctx_guidance) { llama_free(ctx_guidance); }
@@ -628,8 +639,19 @@ public:
     }
     
     float get_speed(){
-        //llama_print_timings(ctx);
-        return llama_string_eval(ctx);
+        const llama_timings timings = llama_get_timings(ctx);
+        
+        t_eval_ms = timings.t_eval_ms - t_eval_ms;
+        n_eval = timings.n_eval - n_eval;
+        
+        if (t_eval_ms != 0 && n_eval != 0) return (1e3 / t_eval_ms * n_eval);
+        else return 0;
+        //return llama_string_eval(ctx);
+    }
+    
+    void clear_speed(){
+        t_eval_ms = 0;
+        n_eval = 0;
     }
     
     std::string get_evalPrompt(){
@@ -830,7 +852,7 @@ public:
         }
         
         cleared = false;
-        
+        n_keep = params.n_keep;
         //fprintf(stderr, "%s: build = %d (%s)\n", __func__, BUILD_NUMBER, BUILD_COMMIT);
 
         g_params = &params;

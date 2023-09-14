@@ -724,6 +724,10 @@ int main(int, char**)
     std::string helpLabel = "Your question";
     std::string aTiming = "Not calculated yet...";
     std::string output = "...";
+    
+    std::string textFileContents = "";
+    
+    
     int maxString = 3000;
     int messageNum = 0;
     
@@ -1322,6 +1326,11 @@ int main(int, char**)
                     
                         
                         if (ImGui::Button("Send")) {
+                            if (textFileContents.size()) {
+                                inputStr += '"' + textFileContents + '"';
+                                textFileContents.clear();
+                            }
+                            
                             if (inputStr.size()){
                                 sessionHistory[localSettings.modelName].push_back(inputStr);
                             }
@@ -1357,6 +1366,27 @@ int main(int, char**)
                             ImGui::EndPopup();
                             
                         }
+                        
+                        if (ImGui::Button("Choose a text file")) {
+                            auto textFile = tinyfd_openFileDialog("Select a text file...", currPath,1, instructFilterPatterns, NULL,0);
+                                if (textFile) {
+                                    textFileContents.clear();
+                                    std::ifstream file(textFile);
+                                    if (file) {
+                                        std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(textFileContents));
+                                    }
+                                }
+                        }
+                        
+                        if (textFileContents.size()) {
+                            if (ImGui::Button("Clear text file")) {
+                                textFileContents.clear();
+                            }
+                            
+                            
+                        }
+                        
+                        
                             
                         if(cancelled){
                             //ImGui::SameLine();

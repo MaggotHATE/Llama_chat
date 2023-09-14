@@ -4,10 +4,8 @@
 
 #include "llama.h"
 
-#ifndef LOG_DISABLE_LOGS
-#   define LOG_NO_FILE_LINE_FUNCTION
-#   include "log.h"
-#endif
+#define LOG_NO_FILE_LINE_FUNCTION
+#include "log.h"
 
 #include <string>
 #include <vector>
@@ -36,7 +34,7 @@ struct gpt_params {
     int32_t n_keep                          = 0;    // number of tokens to keep from initial prompt
     int32_t n_draft                         = 16;   // number of tokens to draft during speculative decoding
     int32_t n_chunks                        = -1;   // max number of chunks to process (-1 = unlimited)
-    int32_t n_gpu_layers                    = -1;    // number of layers to store in VRAM
+    int32_t n_gpu_layers                    = -1;   // number of layers to store in VRAM (-1 - use default)
     int32_t main_gpu                        = 0;    // the GPU that is used for scratch and small tensors
     float   tensor_split[LLAMA_MAX_DEVICES] = {0};  // how split tensors should be distributed across GPUs
     int32_t n_probs                         = 0;    // if greater than 0, output the probabilities of top n_probs tokens.
@@ -86,9 +84,10 @@ struct gpt_params {
     bool hellaswag         = false; // compute HellaSwag score over random tasks from datafile supplied in prompt
     size_t hellaswag_tasks = 400;   // number of tasks to use when computing the HellaSwag score
 
+    ggml_type kv_type      = GGML_TYPE_Q8_0; // the type to use for the KV cache
+
     bool low_vram          = false; // if true, reduce VRAM usage at the cost of performance
     bool mul_mat_q         = true;  // if true, use mul_mat_q kernels instead of cuBLAS
-    bool memory_f16        = true;  // use f16 instead of f32 for memory kv
     bool random_prompt     = false; // do not randomize prompt if none provided
     bool use_color         = false; // use color to distinguish generations and inputs
     bool interactive       = false; // interactive mode

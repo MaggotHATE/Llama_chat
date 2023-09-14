@@ -346,6 +346,7 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                     isContinue = 'i';
                     isPregen = 'i';
                     getTimigsSimple();
+                    newChat.clear_speed();
                 }
                     
                 
@@ -599,8 +600,10 @@ struct configurableChat{
     }
     
     void getSettings(chat& aChat){
+        int n_keep = params.n_keep;
         params = paramsDefault;
         params = aChat.params;
+        params.n_keep = n_keep;
     }
     
     // void getSettings(){
@@ -653,6 +656,7 @@ struct configurableChat{
     void pushSettings(chat& aChat){
         //aChat.params.n_threads = n_threads;
         aChat.params.temp = params.temp;
+        //aChat.params.n_keep = params.n_keep;
         aChat.params.top_k = params.top_k;
         aChat.params.top_p = params.top_p;
         aChat.params.tfs_z = params.tfs_z;
@@ -759,6 +763,7 @@ struct configurableChat{
         if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
+        if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
@@ -806,6 +811,7 @@ struct configurableChat{
         if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[modelName]["cfg-scale"] = params.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[modelName]["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) modelConfig[modelName]["n_keep"] = params.n_keep;
+        if (params.n_batch != paramsDefault.n_batch) modelConfig[modelName]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         

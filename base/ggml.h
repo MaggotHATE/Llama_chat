@@ -415,8 +415,6 @@ extern "C" {
         GGML_OP_CROSS_ENTROPY_LOSS,
         GGML_OP_CROSS_ENTROPY_LOSS_BACK,
 
-        GGML_OP_SCALE_DIAG_MASK_INF_SOFTMAX,
-
         GGML_OP_COUNT,
     };
 
@@ -1139,6 +1137,22 @@ extern "C" {
             size_t                nb3,
             size_t                offset);
 
+    GGML_API struct ggml_tensor * ggml_view_blck_1d(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * a,
+            int64_t               ne0,
+            size_t                offset,
+            size_t                i_blck);
+
+    GGML_API struct ggml_tensor * ggml_view_blck_2d(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * a,
+            int64_t               ne0,
+            int64_t               ne1,
+            size_t                nb1, // row stride in bytes
+            size_t                offset,
+            size_t                i_blck);
+
     GGML_API struct ggml_tensor * ggml_permute(
             struct ggml_context * ctx,
             struct ggml_tensor  * a,
@@ -1210,12 +1224,6 @@ extern "C" {
             struct ggml_context * ctx,
             struct ggml_tensor  * a,
             struct ggml_tensor  * b);
-
-    GGML_API struct ggml_tensor * ggml_scale_diag_mask_inf_softmax_inplace(
-            struct ggml_context * ctx,
-            float                 scale,
-            int                   n_past,
-            struct ggml_tensor  * a);
 
     // rotary position embedding
     // if mode & 1 == 1, skip n_past elements
