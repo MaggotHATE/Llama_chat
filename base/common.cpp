@@ -57,7 +57,7 @@ int32_t get_num_physical_cores() {
             siblings.insert(line);
         }
     }
-    if (siblings.size() > 0) {
+    if (!siblings.empty()) {
         return static_cast<int32_t>(siblings.size());
     }
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -78,7 +78,7 @@ int32_t get_num_physical_cores() {
     return n_threads > 0 ? (n_threads <= 4 ? n_threads : n_threads / 2) : 4;
 }
 
-void process_escapes(std::string& input) {
+static void process_escapes(std::string& input) {
     std::size_t input_len = input.length();
     std::size_t output_idx = 0;
 
@@ -103,6 +103,7 @@ void process_escapes(std::string& input) {
 }
 
 bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
+    bool ethreads_set = false;
     bool invalid_param = false;
     std::string arg;
     gpt_params default_params;
@@ -129,6 +130,16 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             if (params.n_threads <= 0) {
                 params.n_threads = std::thread::hardware_concurrency();
             }
+        } else if (arg == "-e" || arg == "--eval-threads") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.e_threads = std::stoi(argv[i]);
+            if (params.e_threads <= 0) {
+                params.e_threads = std::thread::hardware_concurrency();
+            }
+            ethreads_set = true;
         } else if (arg == "-p" || arg == "--prompt") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -198,30 +209,8 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.rope_freq_scale = 1.0f/std::stof(argv[i]);
-        } else if (arg == "--kv-type" || arg == "-kvt") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-
-            std::string type_name(argv[i]);
-            for (char & c : type_name) {
-                c = std::tolower(c);
-            }
-
-            if (type_name == "q8_0") {
-                params.kv_type = GGML_TYPE_Q8_0;
-            } else if (type_name == "f16") {
-                params.kv_type = GGML_TYPE_F16;
-            } else if (type_name == "f32") {
-                params.kv_type = GGML_TYPE_F32;
-            } else {
-                fprintf(stderr, "error: unknown KV type: %s. Known types: Q8_0, F16, F32.\n", argv[i]);
-                invalid_param = true;
-                break;
-            }
         } else if (arg == "--memory-f32") {
-            params.kv_type = GGML_TYPE_F32;
+            params.memory_f16 = false;
         } else if (arg == "--top-p") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -397,6 +386,17 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers option will be ignored\n");
             fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
 #endif
+        } else if (arg == "--gpu-layers-draft" || arg == "-ngld" || arg == "--n-gpu-layers-draft") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+#ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
+            params.n_gpu_layers_draft = std::stoi(argv[i]);
+#else
+            fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers-draft option will be ignored\n");
+            fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
+#endif
         } else if (arg == "--main-gpu" || arg == "-mg") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -445,8 +445,6 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
 #endif // GGML_USE_CUBLAS
         } else if (arg == "--no-mmap") {
             params.use_mmap = false;
-        } else if (arg == "--mtest") {
-            params.mem_test = true;
         } else if (arg == "--numa") {
             params.numa = true;
         } else if (arg == "--export") {
@@ -583,6 +581,12 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             exit(1);
         }
     }
+    
+    // ensure that n_ethreads defaults to the system thread-max only when n_threads is not set
+    if (!ethreads_set) {
+        params.e_threads = params.n_threads;
+    }
+    
     if (invalid_param) {
         fprintf(stderr, "error: invalid parameter for argument: %s\n", arg.c_str());
         gpt_print_usage(argc, argv, default_params);
@@ -665,7 +669,8 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("  --rope-freq-scale N   RoPE frequency linear scaling factor, inverse of --rope-scale (default: %g)\n", params.rope_freq_scale);
     printf("  --ignore-eos          ignore end of stream token and continue generating (implies --logit-bias 2-inf)\n");
     printf("  --no-penalize-nl      do not penalize newline token\n");
-    printf("  -kvt, --kv-type       the type to use for the KV cache (default: q8_0; alternatives: f16, f32)\n");
+    printf("  --memory-f32          use f32 instead of f16 for memory key+value (default: disabled)\n");
+    printf("                        not recommended: doubles context memory required and no measurable increase in quality\n");
     printf("  --temp N              temperature (default: %.1f)\n", (double)params.temp);
     printf("  --perplexity          compute perplexity over each ctx window of the prompt\n");
     printf("  --hellaswag           compute HellaSwag score over random tasks from datafile supplied with -f\n");
@@ -685,6 +690,8 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
 #ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
     printf("  -ngl N, --n-gpu-layers N\n");
     printf("                        number of layers to store in VRAM\n");
+    printf("  -ngld N, --n-gpu-layers-draft N\n");
+    printf("                        number of layers to store in VRAM for the draft model\n");
     printf("  -ts SPLIT --tensor-split SPLIT\n");
     printf("                        how to split tensors across multiple GPUs, comma-separated list of proportions, e.g. 3,1\n");
     printf("  -mg i, --main-gpu i   the GPU to use for scratch and small tensors\n");
@@ -695,7 +702,6 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("                        Not recommended since this is both slower and uses more VRAM.\n");
 #endif // GGML_USE_CUBLAS
 #endif
-    printf("  --mtest               compute maximum memory usage\n");
     printf("  --export              export the computation graph to 'llama.ggml'\n");
     printf("  --verbose-prompt      print prompt before generation\n");
     fprintf(stderr, "  --simple-io           use basic IO for better compatibility in subprocesses and limited consoles\n");
@@ -746,7 +752,7 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     lparams.low_vram        = params.low_vram;
     lparams.mul_mat_q       = params.mul_mat_q;
     lparams.seed            = params.seed;
-    lparams.kv_type         = params.kv_type;
+    lparams.f16_kv          = params.memory_f16;
     lparams.use_mmap        = params.use_mmap;
     lparams.use_mlock       = params.use_mlock;
     lparams.logits_all      = params.perplexity;
@@ -791,10 +797,10 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
     }
 
     {
-        LOG("warming up the model with an empty run\n");
+        //LOG("warming up the model with an empty run\n");
 
         const std::vector<llama_token> tmp = { llama_token_bos(lctx), llama_token_eos(lctx), };
-        llama_eval(lctx, tmp.data(), tmp.size(), 0, params.n_threads);
+        llama_eval(lctx, tmp.data(), std::min(tmp.size(), (size_t) params.n_batch), 0, params.n_threads, params.e_threads);
         llama_reset_timings(lctx);
     }
 
@@ -812,12 +818,10 @@ std::vector<llama_token> llama_tokenize(
     // upper limit for the number of tokens
     int n_tokens = text.length() + add_bos;
     std::vector<llama_token> result(n_tokens);
-    //n_tokens = llama_tokenize(ctx, text.c_str(), result.data(), result.size(), add_bos);
-    n_tokens = llama_tokenize(ctx, text.c_str(), text.length(), result.data(), result.size(), add_bos);
+    n_tokens = llama_tokenize(ctx, text.data(), text.length(), result.data(), result.size(), add_bos);
     if (n_tokens < 0) {
         result.resize(-n_tokens);
-        //int check = llama_tokenize(ctx, text.c_str(), result.data(), result.size(), add_bos);
-        int check = llama_tokenize(ctx, text.c_str(), text.length(), result.data(), result.size(), add_bos);
+        int check = llama_tokenize(ctx, text.data(), text.length(), result.data(), result.size(), add_bos);
         GGML_ASSERT(check == -n_tokens);
     } else {
         result.resize(n_tokens);
@@ -968,19 +972,19 @@ llama_token llama_sample_token(
             llama_sample_top_p      (ctx, &cur_p, top_p, 1);
             llama_sample_temperature(ctx, &cur_p, temp);
 
-            {
-                const int n_top = 10;
-                LOG("top %d candidates:\n", n_top);
+            // {
+                // const int n_top = 10;
+                // LOG("top %d candidates:\n", n_top);
 
-                for (int i = 0; i < n_top; i++) {
-                    const llama_token id = cur_p.data[i].id;
-                    LOG(" - %5d: '%12s' (%.3f)\n", id, llama_token_to_piece(ctx, id).c_str(), cur_p.data[i].p);
-                }
-            }
+                // for (int i = 0; i < n_top; i++) {
+                    // const llama_token id = cur_p.data[i].id;
+                    // LOG(" - %5d: '%12s' (%.3f)\n", id, llama_token_to_piece(ctx, id).c_str(), cur_p.data[i].p);
+                // }
+            // }
 
             id = llama_sample_token(ctx, &cur_p);
 
-            LOG("sampled token: %5d: '%s'\n", id, llama_token_to_piece(ctx, id).c_str());
+            //LOG("sampled token: %5d: '%s'\n", id, llama_token_to_piece(ctx, id).c_str());
         }
     }
     // printf("`%d`", candidates_p.size);
@@ -1214,7 +1218,6 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "interactive: %s # default: false\n", params.interactive ? "true" : "false");
     fprintf(stream, "interactive_first: %s # default: false\n", params.interactive_first ? "true" : "false");
     fprintf(stream, "keep: %d # default: 0\n", params.n_keep);
-    fprintf(stream, "kv_type: %s # default: false\n", ggml_type_name(params.kv_type));
     fprintf(stream, "logdir: %s # default: unset (no logging)\n", params.logdir.c_str());
 
     fprintf(stream, "logit_bias:\n");
@@ -1229,13 +1232,13 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "lora_base: %s\n", params.lora_base.c_str());
     fprintf(stream, "low_vram: %s # default: false\n", params.low_vram ? "true" : "false");
     fprintf(stream, "main_gpu: %d # default: 0\n", params.main_gpu);
+    fprintf(stream, "memory_f32: %s # default: false\n", !params.memory_f16 ? "true" : "false");
     fprintf(stream, "mirostat: %d # default: 0 (disabled)\n", params.mirostat);
     fprintf(stream, "mirostat_ent: %f # default: 5.0\n", params.mirostat_tau);
     fprintf(stream, "mirostat_lr: %f # default: 0.1\n", params.mirostat_eta);
     fprintf(stream, "mlock: %s # default: false\n", params.use_mlock ? "true" : "false");
     fprintf(stream, "model: %s # default: models/7B/ggml-model.bin\n", params.model.c_str());
     fprintf(stream, "model_draft: %s # default:\n", params.model_draft.c_str());
-    fprintf(stream, "mtest: %s # default: false\n", params.mem_test ? "true" : "false");
     fprintf(stream, "multiline_input: %s # default: false\n", params.multiline_input ? "true" : "false");
     fprintf(stream, "n_gpu_layers: %d # default: -1\n", params.n_gpu_layers);
     fprintf(stream, "n_predict: %d # default: -1 (unlimited)\n", params.n_predict);

@@ -119,6 +119,15 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             if (params.n_threads <= 0) {
                 params.n_threads = std::thread::hardware_concurrency();
             }
+        } else if (arg == "-e" || arg == "--e_threads") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.e_threads = std::stoi(argv[i]);
+            if (params.e_threads <= 0) {
+                params.e_threads = std::thread::hardware_concurrency();
+            }
         } else if (arg == "-p" || arg == "--prompt") {
             if (++i >= argc) {
                 invalid_param = true;

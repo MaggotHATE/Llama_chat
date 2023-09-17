@@ -309,7 +309,8 @@ extern "C" {
                const llama_token * tokens,
                              int   n_tokens,
                              int   n_past,
-                             int   n_threads);
+                             int   n_threads,
+                             int   e_threads);
 
     // Same as llama_eval, but use float matrix input directly.
     LLAMA_API int llama_eval_embd(

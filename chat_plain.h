@@ -15,6 +15,8 @@
 #   include "base/grammar-parser.h"
 #endif */
 
+#pragma once
+
 #include "base/common.h"
 #include "base/llama.h"
 #include "base/grammar-parser.h"
@@ -48,57 +50,10 @@
 #define SESSIONS_FOLDER "sessions/"
 
 static llama_context ** g_ctx;
-static llama_model             ** g_model;
-static gpt_params               * g_params;
-static std::vector<llama_token> * g_input_tokens;
-static std::ostringstream       * g_output_ss;
-static std::vector<llama_token> * g_output_tokens;
+
 static gpt_params paramsDefault;
 
 static bool is_interacting = false;
-
-void write_logfile(
-    const llama_context * ctx, const gpt_params & params, const llama_model * model,
-    const std::vector<llama_token> input_tokens, const std::string output, const std::vector<llama_token> output_tokens) {
-
-    if (params.logdir.empty()) {
-        return;
-    }
-
-    const std::string timestamp = get_sortable_timestamp();
-
-    const bool success = create_directory_with_parents(params.logdir);
-    if (!success) {
-        fprintf(stderr, "%s: warning: failed to create logdir %s, cannot write logfile\n",
-                __func__, params.logdir.c_str());
-        return;
-    }
-
-    const std::string logfile_path = params.logdir + timestamp + ".yml";
-    FILE * logfile = fopen(logfile_path.c_str(), "w");
-
-    if (logfile == NULL) {
-        fprintf(stderr, "%s: failed to open logfile %s\n", __func__, logfile_path.c_str());
-        return;
-    }
-
-    fprintf(logfile, "binary: main\n");
-    char model_desc[128];
-    llama_model_desc(model, model_desc, sizeof(model_desc));
-    dump_non_result_info_yaml(logfile, params, ctx, timestamp, input_tokens, model_desc);
-
-    fprintf(logfile, "\n");
-    fprintf(logfile, "######################\n");
-    fprintf(logfile, "# Generation Results #\n");
-    fprintf(logfile, "######################\n");
-    fprintf(logfile, "\n");
-
-    dump_string_yaml_multiline(logfile, "output", output.c_str());
-    dump_vector_int_yaml(logfile, "output_tokens", output_tokens);
-
-    llama_dump_timing_info_yaml(logfile, ctx);
-    fclose(logfile);
-}
 
 void readGrammarFile(gpt_params& params, std::string fileName){
     std::ifstream file(fileName);
@@ -181,6 +136,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
         //params.use_mmap = false;
     }
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
+    if (checkJNum(config, "e_threads")) params.e_threads = loadNpring(config,"e_threads", true);
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
@@ -575,6 +531,8 @@ public:
         original_prompt_len   = 0;
         t_eval_ms             = 0;
         n_eval                = 0;
+        t_p_eval_ms           = 0;
+        n_p_eval              = 0;
         n_keep                = 0;
         
        
@@ -599,7 +557,6 @@ public:
             clearSoft();
         }
         
-        write_logfile(ctx, params, model, input_tokens, output_ss.str(), output_tokens);
     }
     
     void print_timings(){
@@ -645,6 +602,17 @@ public:
         n_eval = timings.n_eval - n_eval;
         
         if (t_eval_ms != 0 && n_eval != 0) return (1e3 / t_eval_ms * n_eval);
+        else return 0;
+        //return llama_string_eval(ctx);
+    }
+    
+    float get_speed_p(){
+        const llama_timings timings = llama_get_timings(ctx);
+        
+        t_p_eval_ms = timings.t_p_eval_ms - t_p_eval_ms;
+        n_p_eval = timings.n_p_eval - n_p_eval;
+        
+        if (t_p_eval_ms != 0 && n_p_eval != 0) return (1e3 / t_p_eval_ms * n_p_eval);
         else return 0;
         //return llama_string_eval(ctx);
     }
@@ -855,8 +823,6 @@ public:
         n_keep = params.n_keep;
         //fprintf(stderr, "%s: build = %d (%s)\n", __func__, BUILD_NUMBER, BUILD_COMMIT);
 
-        g_params = &params;
-        g_model = &model;
         
         //printf("%s: Model: successful load\n");
         // print system information
@@ -868,7 +834,7 @@ public:
 
         // determine the maximum memory usage needed to do inference for the given n_batch and n_ctx parameters
         // uncomment the "used_mem" line in llama.cpp to see the results
-        if (params.mem_test) {
+        /* if (params.mem_test) {
             {
                 // const std::vector<llama_token> tmp(params.n_batch, llama_token_bos());
                 // llama_eval(ctx, tmp.data(), tmp.size(), 0, params.n_threads);
@@ -888,7 +854,7 @@ public:
             llama_free_model(model);
 
             return 0;
-        }
+        } */
 
         // export the cgraph and exit
         if (params.export_cgraph) {
@@ -1102,10 +1068,7 @@ public:
         bool need_to_save_session = !path_session.empty() && n_matching_session_tokens < embd_inp.size();
 
         n_remain           = params.n_predict;
-        
-        g_input_tokens  = &input_tokens;
-        g_output_tokens = &output_tokens;
-        g_output_ss     = &output_ss;
+       
 
         // the first thing we will do is to output the prompt, so set color accordingly
 
@@ -1157,13 +1120,6 @@ public:
             // stop saving session if we run out of context
             path_session.clear();
 
-            //printf("\n---\n");
-            //printf("resetting: '");
-            //for (int i = 0; i < (int) embd.size(); i++) {
-            //    printf("%s", llama_token_to_str(ctx, embd[i]));
-            //}
-            //printf("'\n");
-            //printf("\n---\n");
         }
 
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
@@ -1211,11 +1167,7 @@ public:
 
                 input_buf = embd_guidance.data();
                 input_size = embd_guidance.size();
-                //fprintf(stderr, "\n---------------------\n");
-                //for (int i = 0; i < (int) embd_guidance.size(); i++) {
-                    //fprintf(stderr, "%s", llama_token_to_str(ctx, embd_guidance[i]));
-                //}
-                //fprintf(stderr, "\n---------------------\n");
+
             } else {
                 input_buf = embd.data();
                 input_size = embd.size();
@@ -1223,7 +1175,7 @@ public:
 
             for (int i = 0; i < input_size; i += params.n_batch) {
                 int n_eval = std::min(input_size - i, params.n_batch);
-                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads)) {
+                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads, params.e_threads)) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
                     return 1;
                 }
@@ -1237,7 +1189,7 @@ public:
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads)) {
+            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads, params.e_threads)) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 return 1;
             }

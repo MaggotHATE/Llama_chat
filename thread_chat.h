@@ -1,3 +1,5 @@
+#pragma once
+
 #include <future>
 #include <chrono>
 #include <thread>
@@ -75,6 +77,7 @@ struct modelThread{
     
     std::string lastTimings = "Not yet calculated...";
     float lastSpeed = 0.0f;
+    float lastSpeedPrompt = 0.0f;
     std::string lastResult = "";
     std::string shortModelName = "";
 
@@ -145,7 +148,9 @@ struct modelThread{
         
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
-        std::cout << lastTimings << std::endl;
+        std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.e_threads << '\n' << std::endl;
+        //std::cout << lastTimings << std::endl;
+        std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
         
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
@@ -227,14 +232,31 @@ struct modelThread{
         lastTimings = newChat.get_ts();
     }
     
+    
+    
+    void getTimigsPre(){
+        //lastTimings = newChat.get_timings_simple();
+        float tmp = newChat.get_speed_p();
+        if (tmp != 0) lastSpeedPrompt = tmp;
+    }
+    
     void getTimigsGen(){
         //lastTimings = newChat.get_timings_simple();
-        lastSpeed = newChat.get_speed();
+        float tmp = newChat.get_speed();
+        if (tmp != 0) lastSpeed = tmp;
+    } 
+
+    void getTimigsBoth(){
+        getTimigsPre();
+        getTimigsGen();
+        
+        lastTimings = "Eval speed: " + std::to_string(lastSpeedPrompt) + "\n Gen speed: " + std::to_string(lastSpeed) + '\n';
     }
     
     void startGen(){
         newChat.finished = false;
         isContinue = 'w';
+        isPregen = 'w';
         lastResult = "";
     }
     
@@ -242,7 +264,8 @@ struct modelThread{
         //newChat.finished = true;
         isContinue = 'i';
         resultsStringPairs.push_back(std::pair("AI",lastResult));
-        getTimigsSimple();
+        //getTimigsSimple();
+        getTimigsBoth();
     }
     
     // loading, preloading and generating threads  
@@ -251,11 +274,13 @@ struct modelThread{
         //std::cout << " ** " << input << std::endl;
         newChat.clearLastTokens();
         
+        
         futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
             
             std::string input = resultsStringPairs.back().second;
                 
             newChat.inputOnly(input);
+            isPregen = 'i';
             
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
@@ -273,7 +298,7 @@ struct modelThread{
                     
                     if (streaming) {
                         if (full) {
-                            getTimigsSimple();
+                            getTimigsBoth();
                             display();
                             std::cout << lastResult;
                         } else std::cout << output;
@@ -286,8 +311,7 @@ struct modelThread{
                         newChat.eraseAntiprompt(lastResult);
                         resultsStringPairs.push_back(std::pair("AI",lastResult));
                         isContinue = 'i';
-                        isPregen = 'i';
-                        getTimigsSimple();
+                        getTimigsBoth();
                     }
                     
                     return lastResult;
@@ -314,14 +338,18 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
         //std::cout << " ** " << input << std::endl;
         newChat.clearLastTokens();
         
+        
         futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
             
             std::string input = resultsStringPairs.back().second;
                 
+            getTimigsPre();
             newChat.inputOnly(input);
-            
+            isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
+            
+            getTimigsPre();
             
             while (isContinue != 'i'){
         
@@ -331,12 +359,17 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                 
                 if (streaming) {
                     if (full) {
-                        getTimigsSimple();
+                        //getTimigsBoth();
+                        //getTimigsPre();
+                        getTimigsGen();
                         display();
                         std::cout << lastResult;
                     } else std::cout << output;
                 } else {
-                    if (full) getTimigsGen();
+                    if (full) {
+                        getTimigsGen();
+                        //getTimigsPre();
+                    }
                 }
                 //getTimigsSimple();
                 
@@ -344,8 +377,8 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                     newChat.eraseAntiprompt(lastResult);
                     resultsStringPairs.push_back(std::pair("AI",lastResult));
                     isContinue = 'i';
-                    isPregen = 'i';
-                    getTimigsSimple();
+                    
+                    getTimigsBoth();
                     newChat.clear_speed();
                 }
                     
@@ -423,7 +456,7 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
             loaded = newChat.initGenerate(localConfig, false, soft);
 
             appendFirstPrompt();
-            getTimigsSimple();
+            getTimigsBoth();
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
@@ -443,7 +476,8 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
             loaded = newChat.initGenerate(jsonConfig, false);
 
             appendFirstPrompt();
-            getTimigsSimple();
+            //getTimigsSimple();
+            getTimigsBoth();
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
@@ -765,6 +799,7 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
+        if (params.e_threads != paramsDefault.e_threads) modelConfig[model]["e_threads"] = params.e_threads;
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT
@@ -813,6 +848,7 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[modelName]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[modelName]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
+        if (params.e_threads != paramsDefault.e_threads) modelConfig[modelName]["e_threads"] = params.e_threads;
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT

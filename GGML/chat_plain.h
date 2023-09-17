@@ -120,6 +120,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
         //params.use_mmap = false;
     }
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
+    if (checkJNum(config, "e_threads")) params.e_threads = loadNpring(config,"e_threads", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
     if (checkJNum(config, "temp")) params.temp = loadNpring(config,"temp", true);
@@ -394,6 +395,10 @@ private:
     int guidance_offset       = 0;
     int original_prompt_len   = 0;
     int last_tokens           = 0;
+    int t_eval_ms             = 0;
+    int n_eval                = 0;
+    int t_p_eval_ms           = 0;
+    int n_p_eval              = 0;
     
     
     std::vector<llama_token> embd;
@@ -451,6 +456,11 @@ public:
         n_past_guidance       = 0;
         guidance_offset       = 0;
         original_prompt_len   = 0;
+        t_eval_ms             = 0;
+        n_eval                = 0;
+        t_p_eval_ms           = 0;
+        n_p_eval              = 0;
+        
         
         params = paramsDefault;
     }
@@ -522,8 +532,30 @@ public:
     }
     
     float get_speed(){
-        //llama_print_timings(ctx);
-        return llama_string_eval(ctx);
+        const llama_timings timings = llama_get_timings(ctx);
+        
+        t_eval_ms = timings.t_eval_ms - t_eval_ms;
+        n_eval = timings.n_eval - n_eval;
+        
+        if (t_eval_ms != 0 && n_eval != 0) return (1e3 / t_eval_ms * n_eval);
+        else return 0;
+        //return llama_string_eval(ctx);
+    }
+    
+    float get_speed_p(){
+        const llama_timings timings = llama_get_timings(ctx);
+        
+        t_p_eval_ms = timings.t_p_eval_ms - t_p_eval_ms;
+        n_p_eval = timings.n_p_eval - n_p_eval;
+        
+        if (t_p_eval_ms != 0 && n_p_eval != 0) return (1e3 / t_p_eval_ms * n_p_eval);
+        else return 0;
+        //return llama_string_eval(ctx);
+    }
+    
+    void clear_speed(){
+        t_eval_ms = 0;
+        n_eval = 0;
     }
     
     // unsafe to run in threads;
@@ -732,7 +764,7 @@ public:
                 // const std::vector<llama_token> tmp = { 0, };
                 // llama_eval(ctx, tmp.data(), tmp.size(), params.n_predict - 1, params.n_threads);
                 const std::vector<llama_token> tmp(params.n_batch, llama_token_bos());
-                llama_eval(ctx, tmp.data(), tmp.size(), params.n_ctx, params.n_threads);
+                llama_eval(ctx, tmp.data(), tmp.size(), params.n_ctx, params.n_threads, params.e_threads);
             }
 
             llama_print_timings(ctx);
@@ -944,7 +976,7 @@ public:
         
         {
             const std::vector<llama_token> tmp = { llama_token_bos(), };
-            llama_eval(ctx, tmp.data(), tmp.size(), 0, params.n_threads);
+            llama_eval(ctx, tmp.data(), tmp.size(), 0, params.n_threads, params.e_threads);
             llama_reset_timings(ctx);
         }
         
@@ -1052,7 +1084,7 @@ public:
 
             for (int i = 0; i < input_size; i += params.n_batch) {
                 int n_eval = std::min(input_size - i, params.n_batch);
-                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads)) {
+                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads, params.e_threads)) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
                     return 1;
                 }
@@ -1066,7 +1098,7 @@ public:
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads)) {
+            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads, params.e_threads)) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 return 1;
             }

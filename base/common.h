@@ -3,9 +3,9 @@
 #pragma once
 
 #include "llama.h"
+#include "build-info.h"
 
 #define LOG_NO_FILE_LINE_FUNCTION
-#include "log.h"
 
 #include <string>
 #include <vector>
@@ -20,6 +20,14 @@
 #define DIRECTORY_SEPARATOR '/'
 #endif // _WIN32
 
+#define die(msg)          do { fputs("error: " msg "\n", stderr);                exit(1); } while (0)
+#define die_fmt(fmt, ...) do { fprintf(stderr, "error: " fmt "\n", __VA_ARGS__); exit(1); } while (0)
+
+#define print_build_info() do {                                                             \
+    fprintf(stderr, "%s: build = %d (%s)\n", __func__, BUILD_NUMBER, BUILD_COMMIT);         \
+    fprintf(stderr, "%s: built with %s for %s\n", __func__, BUILD_COMPILER, BUILD_TARGET);  \
+} while(0)
+
 //
 // CLI argument parsing
 //
@@ -28,6 +36,7 @@ int32_t get_num_physical_cores();
 struct gpt_params {
     uint32_t seed                           = -1;   // RNG seed
     int32_t n_threads                       = get_num_physical_cores();
+    int32_t e_threads                       = get_num_physical_cores();
     int32_t n_predict                       = -1;   // new tokens to predict
     int32_t n_ctx                           = 512;  // context size
     int32_t n_batch                         = 512;  // batch size for prompt processing (must be >=32 to use BLAS)
@@ -35,6 +44,7 @@ struct gpt_params {
     int32_t n_draft                         = 16;   // number of tokens to draft during speculative decoding
     int32_t n_chunks                        = -1;   // max number of chunks to process (-1 = unlimited)
     int32_t n_gpu_layers                    = -1;   // number of layers to store in VRAM (-1 - use default)
+    int32_t n_gpu_layers_draft              = -1;   // number of layers to store in VRAM for the draft model (-1 - use default)
     int32_t main_gpu                        = 0;    // the GPU that is used for scratch and small tensors
     float   tensor_split[LLAMA_MAX_DEVICES] = {0};  // how split tensors should be distributed across GPUs
     int32_t n_probs                         = 0;    // if greater than 0, output the probabilities of top n_probs tokens.
@@ -84,10 +94,9 @@ struct gpt_params {
     bool hellaswag         = false; // compute HellaSwag score over random tasks from datafile supplied in prompt
     size_t hellaswag_tasks = 400;   // number of tasks to use when computing the HellaSwag score
 
-    ggml_type kv_type      = GGML_TYPE_Q8_0; // the type to use for the KV cache
-
     bool low_vram          = false; // if true, reduce VRAM usage at the cost of performance
     bool mul_mat_q         = true;  // if true, use mul_mat_q kernels instead of cuBLAS
+    bool memory_f16        = true;  // use f16 instead of f32 for memory kv
     bool random_prompt     = false; // do not randomize prompt if none provided
     bool use_color         = false; // use color to distinguish generations and inputs
     bool interactive       = false; // interactive mode
@@ -107,7 +116,6 @@ struct gpt_params {
     bool perplexity        = false; // compute perplexity over the prompt
     bool use_mmap          = true;  // use mmap for faster loads
     bool use_mlock         = false; // use mlock to keep model in memory
-    bool mem_test          = false; // compute maximum memory usage
     bool numa              = false; // attempt optimizations that help on some NUMA systems
     bool export_cgraph     = false; // export the computation graph
     bool verbose_prompt    = false; // print prompt tokens before generation

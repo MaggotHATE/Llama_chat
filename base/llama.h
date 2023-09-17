@@ -140,11 +140,10 @@ extern "C" {
         // context pointer passed to the progress callback
         void * progress_callback_user_data;
 
-        enum ggml_type kv_type; // the type to use for the KV cache
-
         // Keep the booleans together to avoid misalignment during copy-by-value.
         bool low_vram;   // if true, reduce VRAM usage at the cost of performance
         bool mul_mat_q;  // if true, use experimental mul_mat_q kernels
+        bool f16_kv;     // use fp16 for KV cache
         bool logits_all; // the llama_eval() call computes all logits, not just the last one
         bool vocab_only; // only load the vocabulary, no weights
         bool use_mmap;   // use mmap if possible
@@ -246,15 +245,17 @@ extern "C" {
     LLAMA_API bool llama_mmap_supported (void);
     LLAMA_API bool llama_mlock_supported(void);
 
-    LLAMA_API int llama_n_vocab(const struct llama_context * ctx);
-    LLAMA_API int llama_n_ctx  (const struct llama_context * ctx);
-    LLAMA_API int llama_n_embd (const struct llama_context * ctx);
+    LLAMA_API int llama_n_vocab    (const struct llama_context * ctx);
+    LLAMA_API int llama_n_ctx      (const struct llama_context * ctx);
+    LLAMA_API int llama_n_ctx_train(const struct llama_context * ctx);
+    LLAMA_API int llama_n_embd     (const struct llama_context * ctx);
 
     LLAMA_API enum llama_vocab_type llama_vocab_type(const struct llama_context * ctx);
 
-    LLAMA_API int llama_model_n_vocab(const struct llama_model * model);
-    LLAMA_API int llama_model_n_ctx  (const struct llama_model * model);
-    LLAMA_API int llama_model_n_embd (const struct llama_model * model);
+    LLAMA_API int llama_model_n_vocab    (const struct llama_model * model);
+    LLAMA_API int llama_model_n_ctx      (const struct llama_model * model);
+    LLAMA_API int llama_model_n_ctx_train(const struct llama_model * model);
+    LLAMA_API int llama_model_n_embd     (const struct llama_model * model);
 
     // Get a string describing the model type
     LLAMA_API int llama_model_desc(const struct llama_model * model, char * buf, size_t buf_size);
@@ -320,7 +321,8 @@ extern "C" {
                const llama_token * tokens,
                              int   n_tokens,
                              int   n_past,
-                             int   n_threads);
+                             int   n_threads,
+                             int   e_threads);
 
     // Same as llama_eval, but use float matrix input directly.
     LLAMA_API int llama_eval_embd(
@@ -541,7 +543,9 @@ extern "C" {
 
 struct ggml_tensor;
 
-const std::vector<std::pair<std::string, struct ggml_tensor *>>& llama_internal_get_tensor_map(struct llama_context * ctx);
+const std::vector<std::pair<std::string, struct ggml_tensor *>> & llama_internal_get_tensor_map(
+    struct llama_context * ctx
+);
 
 #endif // LLAMA_API_INTERNAL
 

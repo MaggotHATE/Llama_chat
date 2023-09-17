@@ -11,6 +11,15 @@
 #include <stdio.h>
 #include <SDL.h>
 
+
+// #ifdef GGML_OLD_FORMAT
+// #   include "GGML/chat_plain.h"
+// #elif defined(GGML_OLD_FORMAT)
+// #   include "GGML/chat_plain.h"
+// #else
+// #   include "chat_plain.h"  
+// #endif
+
 #include "thread_chat.h"
 
 #if defined(IMGUI_IMPL_OPENGL_ES2)
@@ -506,8 +515,8 @@ void templatesListSelect(nlohmann::json& templatesJson, std::string& inputStr){
 }
 
 std::string openFile(const char* const* filterPatterns){
-    char const* currPath = (filesystem::current_path().string() + '/').c_str();
-    auto getFileName = tinyfd_openFileDialog("Select a file...", currPath,1, filterPatterns, NULL,0);
+    std::string currPath = filesystem::current_path().string() + '/';
+    auto getFileName = tinyfd_openFileDialog("Select a file...", currPath.c_str(),1, filterPatterns, NULL,0);
     if (getFileName) {
         std::string result = getFileName;
         
@@ -675,7 +684,7 @@ int main(int, char**)
 
     char const *instructFilterPatterns[1]={"*.txt"};
     char const *fontFilterPatterns[1]={"*.ttf"};
-    char const* currPath = (filesystem::current_path().string() + '/').c_str();
+    std::string currPath = filesystem::current_path().string() + '/';
     
     modelThread newChat;
     
@@ -869,7 +878,7 @@ int main(int, char**)
                     }
                 }
                 if (ImGui::MenuItem("Select models folder", "Ctrl+S"))   {
-                     auto getModelFolderName = tinyfd_selectFolderDialog("Select a model...", currPath);
+                     auto getModelFolderName = tinyfd_selectFolderDialog("Select a model...", currPath.c_str());
                      if (getModelFolderName) {
                          modelsFolderName = getModelFolderName;
                          modelsFolderName += "\\";
@@ -877,7 +886,7 @@ int main(int, char**)
                 }
                 
                 if (ImGui::MenuItem("Select prompts folder", "Ctrl+S"))   { 
-                     auto getPromptsFolderName = tinyfd_selectFolderDialog("Select a model...", currPath);
+                     auto getPromptsFolderName = tinyfd_selectFolderDialog("Select a model...", currPath.c_str());
                      if (getPromptsFolderName) {
                          localSettings.promptFilesFolder = getPromptsFolderName;
                          localSettings.promptFilesFolder += "\\";
@@ -1285,7 +1294,8 @@ int main(int, char**)
                                     }
                                 }
                                 //ImGui::SeparatorText(("Generating " + std::to_string(newChat.lastSpeed) + " t/s").c_str());
-                                ImGui::SeparatorText(std::format("Generating at {:.2f} t/s", newChat.lastSpeed).c_str());
+                                if (newChat.isPregen != 'i') ImGui::SeparatorText(std::format("Reading at {:.2f} t/s", newChat.lastSpeedPrompt).c_str());
+                                else ImGui::SeparatorText(std::format("Read at {:.2f} t/s, generating at {:.2f} t/s", newChat.lastSpeedPrompt, newChat.lastSpeed).c_str());
                                 
                                 tokens_this_session = newChat.last_tokens;
                                 consumed_this_session = newChat.consumed_tokens;
@@ -1368,7 +1378,7 @@ int main(int, char**)
                         }
                         
                         if (ImGui::Button("Choose a text file")) {
-                            auto textFile = tinyfd_openFileDialog("Select a text file...", currPath,1, instructFilterPatterns, NULL,0);
+                            auto textFile = tinyfd_openFileDialog("Select a text file...", currPath.c_str(),1, instructFilterPatterns, NULL,0);
                                 if (textFile) {
                                     textFileContents.clear();
                                     std::ifstream file(textFile);
@@ -1527,7 +1537,7 @@ int main(int, char**)
                             //ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y*0.2f), false);
                             if (ImGui::Button("Open an instruct file...")) {
                                 
-                                auto inputInstructFile = tinyfd_openFileDialog("Select an instruct file...", currPath,1, instructFilterPatterns, NULL,0);
+                                auto inputInstructFile = tinyfd_openFileDialog("Select an instruct file...", currPath.c_str(),1, instructFilterPatterns, NULL,0);
                                 if (inputInstructFile) {
                                     //localSettings.inputInstructFile = inputInstructFile;
                                     
