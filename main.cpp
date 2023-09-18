@@ -55,77 +55,34 @@ static void HelpMarker(const char* desc)
     }
 }
 
+static void HelpTooltip(const char* desc)
+{
+    if (ImGui::BeginItemTooltip())
+    {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
+static void TextWTooltip(const char* name, const char* desc)
+{
+    ImGui::Text(name);
+    if (ImGui::BeginItemTooltip())
+    {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
 bool initial = false;
 char waitGetline = 'i';
 std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
-
-void getInput(std::string& input) {
-    //std::cout << "getInput create " << std::endl;
-    futureInput = std::async(std::launch::async, [&input] { 
-        std::getline(std::cin, input); 
-        waitGetline = 'x';
-        //std::cout << "_getline status: " << waitGetline << "_ ";
-    });
-    
-}
-
-int catchInput() {
-    //std::cout << ".";
-    
-    if (waitGetline == 'x' && futureInput.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-        return 1;
-    }
-    
-    return 0;
-}
-
-void timerGetline(){
-    while(waitGetline){ 
-        //std::cout << waitGetline << std::endl;
-        
-        if(waitGetline == 'w' || waitGetline == 'x'){ 
-            if (waitGetline == 'x' && catchInput() == 1) waitGetline = 'r';
-            //std::cout << "timerGetline result: " << input << std::endl;
-        }
-        
-        //std::cout << waitGetline;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-    }
-    
-    //std::cout << "timerGetline finished " << waitGetline << std::endl;
-    
-}
-
-void startTimer(){
-    //std::cout << "startTimer " << waitGetline << std::endl;
-    
-    std::thread timerGet([](){
-        timerGetline();
-        }
-
-    );
-    
-    timerGet.detach();
-    
-}
-
-void load(modelThread& model) {
-    //std::cout << "getInput create " << std::endl;
-    totalResult = std::async(std::launch::async, [&model, &loaded] { 
-        //loaded = model.newChat.init();
-        loaded = model.newChat.initGenerate(false);
-        //model.appendQuestion(" ");
-
-        std::cout << "Loaded, you can type now! " << std::endl;
-        model.isContinue = 'i';
-        
-        return loaded;
-    });
-    
-}
 
 void sanitizePath(std::string& path){
     int slashes = path.rfind("\\");
@@ -133,44 +90,6 @@ void sanitizePath(std::string& path){
         path.replace(slashes,1,"/");
         slashes = path.rfind("\\");
     }
-}
-
-void load(modelThread& model, nlohmann::json localConfig, bool soft) {
-    
-    totalResult = std::async(std::launch::async, [&model, &loaded, localConfig, soft] { 
-
-        loaded = model.newChat.initGenerate(localConfig, false, soft);
-
-        model.appendFirstPrompt();
-        model.getTimigsSimple();
-
-        std::cout << "Loaded, you can type now! " << std::endl;
-        model.isContinue = 'i';
-        
-        return loaded;
-    });
-    
-}
-
-void load_task(modelThread& model, configurableChat& localSettings, bool soft){
-    
-    std::packaged_task<int()> loader([&model, &loaded, &localSettings, &soft]() {
-        loaded = model.newChat.initGenerate(localSettings.localConfig, false, soft);
-
-        model.appendFirstPrompt();
-        model.getTimigsSimple();
-
-        std::cout << "Loaded, you can type now! " << std::endl;
-        model.isContinue = 'i';
-        
-        return loaded;
-    });
-    
-    totalResult = std::async(std::launch::async, [&loader] { 
-            loader();
-            return 1;
-    });
-
 }
 
 std::string getStringFromJson(std::string fimeName, std::string stringName){
@@ -189,30 +108,6 @@ std::string getStringFromJson(std::string fimeName, std::string stringName){
     }
     
     return "NULL";
-}
-
-void paramsPanel(gpt_params& params, int& totalThreads, ImVec2 size){
-    ImGui::BeginChild("Params", size, false);
-    
-        //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
-        ImGui::SliderFloat("temp", &params.temp, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Adjust the randomness of the generated text. Lower means more robotic.");
-        
-        ImGui::SliderInt("top_k", &params.top_k, 0, 100); ImGui::SameLine(); HelpMarker("Top-k sampling. Selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output.");
-        ImGui::SliderFloat("top_p", &params.top_p, 0.5f, 1.0f); ImGui::SameLine(); HelpMarker("Top-p (Nucleus) sampling. Selects the next token from a subset of tokens that together have a cumulative probability of at least p. Higher values will lead to more diverse text, lower values will generate more focused and conservative text.");
-        ImGui::SliderFloat("repeat_penalty", &params.repeat_penalty, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Controls the repetition of token sequences in the generated text.");
-        ImGui::SliderFloat("frequency_penalty", &params.frequency_penalty, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Descreases the chance of repeating the same lines in the output. Affects the immediate result.");
-        ImGui::SliderFloat("presence_penalty", &params.presence_penalty, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Descreases the chance of repeating the same lines in the output. Affects the entrire dialog.");
-        ImGui::SliderFloat("tfs_z", &params.tfs_z, 0.5f, 1.0f); ImGui::SameLine(); HelpMarker("Tail free sampling, parameter z. TFS filters out logits based on the second derivative of their probabilities. Adding tokens is stopped after the sum of the second derivatives reaches the parameter z. In short: TFS looks how quickly the probabilities of the tokens decrease and cuts off the tail of unlikely tokens using the parameter z.");
-        ImGui::SliderFloat("typical_p", &params.typical_p, 0.5f, 1.0f); ImGui::SameLine(); HelpMarker("Locally typical sampling, parameter p. Promotes the generation of contextually coherent and diverse text by sampling tokens that are typical or expected based on the surrounding context");
-        
-        ImGui::SliderInt("mirostat", &params.mirostat, 0, 2); ImGui::SameLine(); HelpMarker("Uses Mirostat sampling. Top K, Nucleus (top_p), Tail Free (tfs_z) and Locally Typical (typical_p) samplers are ignored with this.");
-        ImGui::SliderFloat("mirostat_tau", &params.mirostat_tau, 0.0f, 10.0f); ImGui::SameLine(); HelpMarker("Mirostat learning rate.");
-        ImGui::SliderFloat("mirostat_eta", &params.mirostat_eta, 0.00f, 0.50f); ImGui::SameLine(); HelpMarker("Mirostat target entropy.");
-        ImGui::SliderFloat("cfg_scale", &params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
-        ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use, recommended to leave at least one for the system.");
-        // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
-
-    ImGui::EndChild();
 }
 
 void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
@@ -333,125 +228,6 @@ void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
     ImGui::EndChild();
 }
 
-// this is probably the most degenerate part of imgui: not having clamps in input fields without a
-// single reason, then giving a fake example of clamping that works through widgets that have clamps
-void paramsPanelInputs(gpt_params& params, int& totalThreads, ImVec2 size){
-    ImGui::BeginChild("Params", size, false);
-    
-        //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
-        ImGui::InputFloat("temp", &params.temp, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("temp"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.temp = paramsDefault.temp;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker( ("Adjust the randomness of the generated text. Lower means more robotic. Default: " + std::to_string(paramsDefault.temp)).c_str());
-        
-        ImGui::InputInt("top_k", &params.top_k, 1, 1);
-        if (ImGui::BeginPopupContextItem("top_k"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.top_k = paramsDefault.top_k;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Top-k sampling. Selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output. Default: " + std::to_string(paramsDefault.top_k)).c_str());
-        
-        ImGui::InputFloat("top_p", &params.top_p, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("top_p"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.top_p = paramsDefault.top_p;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Top-p (Nucleus) sampling. Selects the next token from a subset of tokens that together have a cumulative probability of at least p. Higher values will lead to more diverse text, lower values will generate more focused and conservative text. Default: " + std::to_string(paramsDefault.top_p)).c_str());
-        
-        ImGui::InputFloat("repeat_penalty", &params.repeat_penalty, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("repeat_penalty"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.repeat_penalty = paramsDefault.repeat_penalty;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Controls the repetition of token sequences in the generated text. Default: " + std::to_string(paramsDefault.repeat_penalty)).c_str());
-        
-        ImGui::InputFloat("frequency_penalty", &params.frequency_penalty, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("frequency_penalty"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.frequency_penalty = paramsDefault.frequency_penalty;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Descreases the chance of repeating the same lines in the output. Affects the immediate result. Default: " + std::to_string(paramsDefault.frequency_penalty)).c_str());
-        
-        ImGui::InputFloat("presence_penalty", &params.presence_penalty, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("presence_penalty"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.presence_penalty = paramsDefault.presence_penalty;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Descreases the chance of repeating the same lines in the output. Affects the entrire dialog. Default: " + std::to_string(paramsDefault.presence_penalty)).c_str());
-        
-        ImGui::InputFloat("tfs_z", &params.tfs_z, 0.001f, 0.01f, "%.3f"); ImGui::SameLine();
-        if (ImGui::BeginPopupContextItem("tfs_z"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.tfs_z = paramsDefault.tfs_z;
-            }
-            ImGui::EndPopup();
-        } HelpMarker(("Tail free sampling, parameter z. TFS filters out logits based on the second derivative of their probabilities. Adding tokens is stopped after the sum of the second derivatives reaches the parameter z. In short: TFS looks how quickly the probabilities of the tokens decrease and cuts off the tail of unlikely tokens using the parameter z. Default: " + std::to_string(paramsDefault.tfs_z)).c_str());
-        
-        ImGui::InputFloat("typical_p", &params.typical_p, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("typical_p"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.typical_p = paramsDefault.typical_p;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Locally typical sampling, parameter p. Promotes the generation of contextually coherent and diverse text by sampling tokens that are typical or expected based on the surrounding context. Default: " + std::to_string(paramsDefault.typical_p)).c_str());
-        
-        ImGui::SliderInt("mirostat", &params.mirostat, 0, 2); ImGui::SameLine();
-        if (ImGui::BeginPopupContextItem("mirostat"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.mirostat = paramsDefault.mirostat;
-            }
-            ImGui::EndPopup();
-        } HelpMarker(("Uses Mirostat sampling. Top K, Nucleus, Tail Free and Locally Typical samplers are ignored with this. Default: " + std::to_string(paramsDefault.mirostat)).c_str());
-        
-        ImGui::InputFloat("mirostat_tau", &params.mirostat_tau, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("mirostat_tau"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.mirostat_tau = paramsDefault.mirostat_tau;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Mirostat learning rate. Default: " + std::to_string(paramsDefault.mirostat_tau)).c_str());
-        
-        ImGui::InputFloat("mirostat_eta", &params.mirostat_eta, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("mirostat_eta"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.mirostat_eta = paramsDefault.mirostat_eta;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("Mirostat target entropy. Default: " + std::to_string(paramsDefault.mirostat_eta)).c_str());
-        
-        ImGui::InputFloat("cfg_scale", &params.cfg_scale, 0.001f, 0.01f, "%.3f");
-        if (ImGui::BeginPopupContextItem("cfg_scale"))
-        {
-            if (ImGui::Selectable("Reset to default")){
-                params.cfg_scale = paramsDefault.cfg_scale;
-            }
-            ImGui::EndPopup();
-        } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(paramsDefault.cfg_scale)).c_str());
-        
-        ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use, recommended to leave at least one for the system.");
-        // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
-
-    ImGui::EndChild();
-}
 
 void templatesList(nlohmann::json& templatesJson, std::string& inputStr){
     ImGui::BeginChild("Templates from json file");
@@ -496,17 +272,11 @@ void templatesListSelect(nlohmann::json& templatesJson, std::string& inputStr){
                 ImGui::SeparatorText(key.c_str());
                 for (auto& element : value) {
                   
-                  HelpMarker(element.get<std::string>().c_str());
-                  ImGui::SameLine();
+                  //HelpMarker(element.get<std::string>().c_str());
+                  //ImGui::SameLine();
                   if (ImGui::Selectable(element.get<std::string>().c_str()))
                       inputStr = element.get<std::string>();
-                  // if (ImGui::BeginItemTooltip())
-                    // {
-                        // //ImGui::BeginChild("", ImVec2( 400.0f, 200.0f));
-                            // ImGui::TextWrapped(element.get<std::string>().c_str());
-                        // //ImGui::EndChild();
-                        // ImGui::EndTooltip();
-                    // }
+                  HelpTooltip(element.get<std::string>().c_str());
                 }
             }
         }
@@ -1133,7 +903,10 @@ int main(int, char**)
                                     //std::cout << r.second;
                                     //ImGui::TextWrapped(r.second.c_str());
                                     if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.5f);
-                                    else ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
+                                    else {
+                                        if (messageNum > 1) ImGui::SeparatorText("answer");
+                                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
+                                    }
                                     
                                     if (messageNum == 1){
                                         ImGui::SeparatorText("Context");
@@ -1201,7 +974,7 @@ int main(int, char**)
                                     
                                     ImGui::PopTextWrapPos();
                                     
-                                    if (messageNum == 1){
+                                    if (messageNum == 1 && chatMode){
                                         ImGui::SeparatorText("Dialog");
                                     }
                                     //ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.5f);
@@ -1217,6 +990,7 @@ int main(int, char**)
                                     //std::string questionStr = r.first + r.second;
                                     //ImGui::SeparatorText(r.first.c_str());
                                     if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.40f);
+                                    else ImGui::SeparatorText("prompt");
                                     
                                     ImGui::TextWrapped((r.first + r.second).c_str());
                                     if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
@@ -1259,13 +1033,16 @@ int main(int, char**)
                             if (newChat.isContinue == 'w') {
                                 //ImGui::TextWrapped("...");
                                 if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.50f);
-                                else ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
+                                else {
+                                    ImGui::SeparatorText("answer");
+                                    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
+                                }    
                                 output = newChat.lastResult;
                                 //copiedTimings = false;
                                 //aTiming = newChat.lastTimings;
                                 
                                 if (output.size() < maxString){
-                                    ImGui::TextWrapped(output.c_str());
+                                    ImGui::Text(output.c_str());
                                 } else {
                                     std::string msg = output;
                                     while (msg.size() > maxString){
@@ -1284,7 +1061,7 @@ int main(int, char**)
                                     ImGui::Text((msg.c_str()));
                                 }
                                 
-                                ImGui::PopTextWrapPos();
+                                ImGui::PopTextWrapPos(); 
                                 //newChat.getResultAsyncString();
                                 if (autoscroll){
                                     scrolled = false;
@@ -1690,7 +1467,9 @@ int main(int, char**)
                         ImGui::SliderFloat("cfg_scale", &localSettings.params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
                         //ImGui::SliderInt("n_ctx", &localSettings.n_ctx, 2048, 16384, "%2048"); ImGui::SameLine(); HelpMarker("The size of context, must be 1024x");
                         
-                        ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use, recommended to leave at least one for the system.");
+                        ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+                        
+                        ImGui::SliderInt("e_threads", &localSettings.params.e_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
                         
                         if (clblast == 1) { 
                             ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
