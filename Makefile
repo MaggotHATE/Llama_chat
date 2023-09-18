@@ -41,6 +41,12 @@ else
 OPT = -O3
 endif
 
+FLAG_S = static
+
+ifdef LLAMA_SHARED
+FLAG_S = shared
+endif
+
 EXE = Llama_Chat_gguf
 EXE_OB = Llama_Chat_gguf_openblas
 EXE_CL = Llama_Chat_gguf_clblast
@@ -114,52 +120,22 @@ endif
 
 #for main ui
 CXXFLAGS_UI = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
-CXXFLAGS_UI_CL = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
-CXXFLAGS_UI_GGML = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w
-CXXFLAGS_UI_CL_GGML = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
-CXXFLAGS_UI_CL += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
-CXXFLAGS_UI_GGML += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
-CXXFLAGS_UI_CL_GGML += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI += -g -Wall -Wformat -pipe
-CXXFLAGS_UI_CL += -g -Wall -Wformat -pipe
-CXXFLAGS_UI_GGML += -g -Wall -Wformat -pipe
-CXXFLAGS_UI_CL_GGML += -g -Wall -Wformat -pipe
-
-
 
 #for general ggml-gguf
 CFLAGS = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_CL = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_GGML = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_CL_GGML = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
-CFLAGS_VK = $(OPT) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_VULKAN -DLOG_DISABLE_LOGS -w -pipe
-
 
 #for all chatTest
 CXXFLAGS = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_CL = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_GGML = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_CL_GGML = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT -DLOG_DISABLE_LOGS -w -pipe
-CXXFLAGS_VK = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DGGML_USE_VULKAN -DLOG_DISABLE_LOGS -w -pipe
-
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
 # https://github.com/ggerganov/llama.cpp/issues/2922
 ifneq '' '$(findstring mingw,$(shell $(CC) -dumpmachine))'
     CFLAGS   += -Xassembler -muse-unaligned-vector-move
-    CFLAGS_CL   += -Xassembler -muse-unaligned-vector-move
-    CFLAGS_GGML   += -Xassembler -muse-unaligned-vector-move
-    CFLAGS_CL_GGML   += -Xassembler -muse-unaligned-vector-move
     CXXFLAGS += -Xassembler -muse-unaligned-vector-move
     CXXFLAGS_UI   += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_UI_CL += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_UI_GGML   += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_UI_CL_GGML += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_CL += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_GGML += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_CL_GGML += -Xassembler -muse-unaligned-vector-move
 endif
 
 LIBS =
@@ -185,9 +161,6 @@ ifeq ($(UNAME_S), Linux) #LINUX
 	LIBS += $(LINUX_GL_LIBS) -ldl `sdl2-config --libs`
 
 	CXXFLAGS_UI += `sdl2-config --cflags`
-	CXXFLAGS_UI_CL += `sdl2-config --cflags`
-	CXXFLAGS_UI_GGML += `sdl2-config --cflags`
-	CXXFLAGS_UI_CL_GGML += `sdl2-config --cflags`
 	#CFLAGS = $(CXXFLAGS)
 	#CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
@@ -199,24 +172,15 @@ ifeq ($(UNAME_S), Darwin) #APPLE
 
     CXXFLAGS_UI += `sdl2-config --cflags`
     CXXFLAGS_UI += -I/usr/local/include -I/opt/local/include	
-    CXXFLAGS_UI_CL += `sdl2-config --cflags`
-    CXXFLAGS_UI_CL += -I/usr/local/include -I/opt/local/include
-    CXXFLAGS_UI_GGML += `sdl2-config --cflags`
-    CXXFLAGS_UI_GGML += -I/usr/local/include -I/opt/local/include
-    CXXFLAGS_UI_CL_GGML += `sdl2-config --cflags`
-    CXXFLAGS_UI_CL_GGML += -I/usr/local/include -I/opt/local/include
 	#CFLAGS = $(CXXFLAGS)
 	#CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
 
 ifeq ($(OS), Windows_NT)
     ECHO_MESSAGE = "MinGW"
-    LIBS += -static -lgdi32 -lopengl32 -limm32 `pkg-config --static --libs sdl2`
+    LIBS += -$(FLAG_S) -lgdi32 -lopengl32 -limm32 `pkg-config --$(FLAG_S) --libs sdl2`
 
     CXXFLAGS_UI += `pkg-config --cflags sdl2`
-    CXXFLAGS_UI_CL += `pkg-config --cflags sdl2`
-    CXXFLAGS_UI_GGML += `pkg-config --cflags sdl2`
-    CXXFLAGS_UI_CL_GGML += `pkg-config --cflags sdl2`
     #CFLAGS = $(CXXFLAGS)
     #CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
@@ -224,9 +188,20 @@ endif
 # For emojis
 
 CXXFLAGS_UI += -DIMGUI_USE_WCHAR32
-CXXFLAGS_UI_CL += -DIMGUI_USE_WCHAR32
-CXXFLAGS_UI_GGML += -DIMGUI_USE_WCHAR32
-CXXFLAGS_UI_CL_GGML += -DIMGUI_USE_WCHAR32
+
+CXXFLAGS_UI_CL = $(CXXFLAGS_UI) -DGGML_USE_CLBLAST
+CXXFLAGS_UI_GGML = $(CXXFLAGS_UI) -DGGML_OLD_FORMAT
+CXXFLAGS_UI_CL_GGML = $(CXXFLAGS_UI) -DGGML_OLD_FORMAT -DGGML_USE_CLBLAST
+
+CFLAGS_CL = $(CFLAGS) -DGGML_USE_CLBLAST
+CFLAGS_GGML = $(CFLAGS) -DGGML_OLD_FORMAT
+CFLAGS_CL_GGML = $(CFLAGS) -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT
+CFLAGS_VK = $(CFLAGS) -DGGML_USE_VULKAN
+
+CXXFLAGS_CL = $(CXXFLAGS) -DGGML_USE_CLBLAST
+CXXFLAGS_GGML = $(CXXFLAGS) -DGGML_OLD_FORMAT
+CXXFLAGS_CL_GGML = $(CXXFLAGS) -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT
+CXXFLAGS_VK = $(CXXFLAGS) -DGGML_USE_VULKAN
 
 ##---------------------------------------------------------------------
 ## BUILD RULES
@@ -330,7 +305,6 @@ o/grammar-parser_vk.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
 # GGUF
 
 OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/llama.o o/common.o o/k_quants.o o/grammar-parser.o
-OBJS_GGUF_STATIC = base/llama.cpp base/common.cpp base/grammar-parser.cpp base/ggml.c base/ggml-alloc.c base/k_quants.c base/ggml.h base/ggml-alloc.h base/llama.h base/common.h base/k_quants.h base/grammar-parser.h
   
 o/ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
