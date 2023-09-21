@@ -31,3 +31,4 @@
 *.out
 *.app
 /base/common — копия.cpp
+/base/ggml-opencl-bu.cpp
