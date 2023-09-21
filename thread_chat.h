@@ -12,6 +12,8 @@
 #   include "GGML/chat_plain.h"
 #elif defined(GGML_OLD_FORMAT)
 #   include "GGML/chat_plain.h"
+#elif defined(GGML_EXPERIMENTAL)
+#   include "experimental/chat_plain.h"
 #else
 #   include "chat_plain.h"  
 #endif
@@ -148,7 +150,9 @@ struct modelThread{
         
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
+        #ifndef GGML_EXPERIMENTAL
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.e_threads << '\n' << std::endl;
+        #endif
         //std::cout << lastTimings << std::endl;
         std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
         
@@ -799,7 +803,9 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
+        #ifndef GGML_EXPERIMENTAL
         if (params.e_threads != paramsDefault.e_threads) modelConfig[model]["e_threads"] = params.e_threads;
+        #endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT
@@ -848,7 +854,9 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[modelName]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[modelName]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
+        #ifndef GGML_EXPERIMENTAL
         if (params.e_threads != paramsDefault.e_threads) modelConfig[modelName]["e_threads"] = params.e_threads;
+        #endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT

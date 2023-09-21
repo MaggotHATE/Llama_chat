@@ -222,7 +222,10 @@ void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
             ImGui::EndPopup();
         } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(paramsDefault.cfg_scale)).c_str());
         
-        ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use, recommended to leave at least one for the system.");
+        ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+        #ifndef GGML_EXPERIMENTAL
+        ImGui::SliderInt("e_threads", &params.e_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+        #endif
         // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
 
     ImGui::EndChild();
@@ -510,7 +513,7 @@ int main(int, char**)
     int maxString = 3000;
     int messageNum = 0;
     
-    
+    int messageWidth = width;
     
     ImGuiStyle& style = ImGui::GetStyle();
     
@@ -855,6 +858,7 @@ int main(int, char**)
 // Chat tab (initial info and loading, or chat display)/////////////////////////////////////////////
             if (ImGui::BeginTabItem("Chat"))
             {
+                messageWidth = ImGui::GetWindowWidth();
 // staring main loop once loaded the model//////////////////////////////////////////////////////////
                 if (localSettings.noConfig){
                     ImGui::TextWrapped("No model config file found!");
@@ -879,7 +883,7 @@ int main(int, char**)
 
                     {
 /////// rendering dialogs ////////////////////////////////////////////////////////////////////////
-                        ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x * 0.99f, ImGui::GetContentRegionAvail().y*0.80f), false);
+                        ImGui::BeginChild("Dialog", ImVec2( messageWidth * 0.99f, ImGui::GetContentRegionAvail().y*0.80f), false);
                         ImGui::Indent();
                             // to avoid mutexes we only use a copy of dialog DB for UI
                             if (newChat.isContinue == 'i') {
@@ -902,7 +906,7 @@ int main(int, char**)
 ////////////////////generated
                                     //std::cout << r.second;
                                     //ImGui::TextWrapped(r.second.c_str());
-                                    if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.5f);
+                                    if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
                                     else {
                                         if (messageNum > 1) ImGui::SeparatorText("answer");
                                         ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
@@ -989,7 +993,7 @@ int main(int, char**)
                                     //std::cout << r.first << r.second;
                                     //std::string questionStr = r.first + r.second;
                                     //ImGui::SeparatorText(r.first.c_str());
-                                    if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.40f);
+                                    if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
                                     else ImGui::SeparatorText("prompt");
                                     
                                     ImGui::TextWrapped((r.first + r.second).c_str());
@@ -1032,7 +1036,7 @@ int main(int, char**)
 //////////////// streaming dialog token-after-token
                             if (newChat.isContinue == 'w') {
                                 //ImGui::TextWrapped("...");
-                                if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.50f);
+                                if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.50f);
                                 else {
                                     ImGui::SeparatorText("answer");
                                     ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
@@ -1468,9 +1472,9 @@ int main(int, char**)
                         //ImGui::SliderInt("n_ctx", &localSettings.n_ctx, 2048, 16384, "%2048"); ImGui::SameLine(); HelpMarker("The size of context, must be 1024x");
                         
                         ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
-                        
+                        #ifndef GGML_EXPERIMENTAL
                         ImGui::SliderInt("e_threads", &localSettings.params.e_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
-                        
+                        #endif
                         if (clblast == 1) { 
                             ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
                         }

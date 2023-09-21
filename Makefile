@@ -203,9 +203,14 @@ CXXFLAGS_GGML = $(CXXFLAGS) -DGGML_OLD_FORMAT
 CXXFLAGS_CL_GGML = $(CXXFLAGS) -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT
 CXXFLAGS_VK = $(CXXFLAGS) -DGGML_USE_VULKAN
 
+CXXFLAGS_E = $(CXXFLAGS) -DGGML_EXPERIMENTAL
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------
+
+GGUF_F = base
+GGML_F = GGML
   
 #GGML
 
@@ -410,6 +415,62 @@ o/k_quants_ob.o: base/k_quants.c base/k_quants.h
 o/grammar-parser_ob.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Experimental  
+    
+EXPER_F = experimental
+IND_E = e_
+
+
+
+OBJS_GGUF_E = o/$(IND_E)ggml.o o/$(IND_E)ggml-alloc.o o/$(IND_E)llama.o o/$(IND_E)common.o o/$(IND_E)k_quants.o o/$(IND_E)grammar-parser.o
+  
+o/$(IND_E)ggml.o: $(EXPER_F)/ggml.c $(EXPER_F)/ggml.h
+	$(CC)  $(CFLAGS)  -c $< -o $@
+    
+o/$(IND_E)ggml-alloc.o: $(EXPER_F)/ggml-alloc.c $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h
+	$(CC)  $(CFLAGS)  -c $< -o $@
+
+#base/threadpool.h
+o/$(IND_E)llama.o: $(EXPER_F)/llama.cpp $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h $(EXPER_F)/llama.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+o/$(IND_E)common.o: $(EXPER_F)/common.cpp $(EXPER_F)/common.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+o/$(IND_E)k_quants.o: $(EXPER_F)/k_quants.c $(EXPER_F)/k_quants.h
+	$(CC) $(CFLAGS) -c $< -o $@
+    
+o/$(IND_E)grammar-parser.o: $(EXPER_F)/grammar-parser.cpp $(EXPER_F)/grammar-parser.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+# experimental w clblast
+    
+IND_E_CL = e_cl_
+    
+OBJS_GGUF_E_CL = o/$(IND_E_CL)ggml.o o/$(IND_E_CL)ggml-alloc.o o/$(IND_E_CL)llama.o o/$(IND_E_CL)common.o o/$(IND_E_CL)k_quants.o o/$(IND_E_CL)grammar-parser.o o/$(IND_E_CL)ggml-opencl.o
+  
+o/$(IND_E_CL)ggml-opencl.o: $(EXPER_F)/ggml-opencl.cpp $(EXPER_F)/ggml-opencl.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+  
+o/$(IND_E_CL)ggml.o: $(EXPER_F)/ggml.c $(EXPER_F)/ggml.h
+	$(CC)  $(CFLAGS_CL)  -c $< -o $@
+    
+o/$(IND_E_CL)ggml-alloc.o: $(EXPER_F)/ggml-alloc.c $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h
+	$(CC)  $(CFLAGS_CL)  -c $< -o $@
+
+#base/threadpool.h
+o/$(IND_E_CL)llama.o: $(EXPER_F)/llama.cpp $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h $(EXPER_F)/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+o/$(IND_E_CL)common.o: $(EXPER_F)/common.cpp $(EXPER_F)/common.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+o/$(IND_E_CL)k_quants.o: $(EXPER_F)/k_quants.c $(EXPER_F)/k_quants.h
+	$(CC) $(CFLAGS_CL) -c $< -o $@
+    
+o/$(IND_E_CL)grammar-parser.o: $(EXPER_F)/grammar-parser.cpp $(EXPER_F)/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
 # general    
     
 o/imgui/%.o:$(IMGUI_DIR)/%.cpp
@@ -425,6 +486,12 @@ o/imgui/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
     
 demo: $(EXE)
 	@echo Build $(EXE) complete for $(ECHO_MESSAGE) 
+    
+demo_e: $(EXE)_e
+	@echo Build $(EXE)_e complete for $(ECHO_MESSAGE)
+    
+demo_e_cl: $(EXE)_e_cl
+	@echo Build $(EXE)_e_cl complete for $(ECHO_MESSAGE)
     
 demo_cl: $(EXE_CL)
 	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
@@ -509,6 +576,20 @@ $(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) include/json.hpp tinyfiledialogs/tinyfil
     
 chatTest_ggml_cl:class_chat.cpp include/json.hpp GGML/chat_plain.h thread_chat.h  $(OBJS_CL_GGML1)
 	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL_GGML)
+    
+# experimental
+
+$(EXE)_e: $(OBJS) $(OBJS_GGUF_E) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F)/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CXXFLAGS_E) $(LDFLAGS) $(LIBS)
+
+chatTestE:class_chat.cpp $(OBJS_GGUF_E) include/json.hpp $(EXPER_F)/chat_plain.h thread_chat.h
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS_E) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+    
+$(EXE)_e_cl: $(OBJS) $(OBJS_GGUF_E_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F)/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CXXFLAGS_E) $(LDFLAGS_CL) $(LIBS)
+        
+chatTest_e_cl:class_chat.cpp                                  include/json.hpp chat_plain.h thread_chat.h $(OBJS_GGUF_E_CL)
+	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL) $(CXXFLAGS_E)
     
 # additional
 
