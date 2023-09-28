@@ -129,6 +129,15 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             if (params.n_threads <= 0) {
                 params.n_threads = std::thread::hardware_concurrency();
             }
+        } else if (arg == "-tb" || arg == "--threads-batch") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.n_threads_batch = std::stoi(argv[i]);
+            if (params.n_threads_batch <= 0) {
+                params.n_threads_batch = std::thread::hardware_concurrency();
+            }
         } else if (arg == "-p" || arg == "--prompt") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -317,18 +326,6 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.n_chunks = std::stoi(argv[i]);
-        } else if (arg == "-np" || arg == "--parallel") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_parallel = std::stoi(argv[i]);
-        } else if (arg == "-ns" || arg == "--sequences") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_sequences = std::stoi(argv[i]);
         } else if (arg == "-m" || arg == "--model") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -372,8 +369,6 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             params.multiline_input = true;
         } else if (arg == "--simple-io") {
             params.simple_io = true;
-        } else if (arg == "-cb" || arg == "--cont-batching") {
-            params.cont_batching = true;
         } else if (arg == "--color") {
             params.use_color = true;
         } else if (arg == "--mlock") {
@@ -450,6 +445,8 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             params.use_mmap = false;
         } else if (arg == "--numa") {
             params.numa = true;
+        } else if (arg == "--export") {
+            params.export_cgraph = true;
         } else if (arg == "--verbose-prompt") {
             params.verbose_prompt = true;
         } else if (arg == "-r" || arg == "--reverse-prompt") {
@@ -468,8 +465,8 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             if (params.logdir.back() != DIRECTORY_SEPARATOR) {
                 params.logdir += DIRECTORY_SEPARATOR;
             }
-        } else if (arg == "--perplexity" || arg == "--all-logits") {
-            params.logits_all = true;
+        } else if (arg == "--perplexity") {
+            params.perplexity = true;
         } else if (arg == "--ppl-stride") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -618,7 +615,9 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("                        (can be specified more than once for multiple prompts).\n");
     printf("  --color               colorise output to distinguish prompt and user input from generations\n");
     printf("  -s SEED, --seed SEED  RNG seed (default: -1, use random seed for < 0)\n");
-    printf("  -t N, --threads N     number of threads to use during computation (default: %d)\n", params.n_threads);
+    printf("  -t N, --threads N     number of threads to use during generation (default: %d)\n", params.n_threads);
+    printf("  -tb N, --threads-batch N\n");
+    printf("                        number of threads to use during batch evaluation and prompt processing (default: same as --threads)\n");
     printf("  -p PROMPT, --prompt PROMPT\n");
     printf("                        prompt to start generation with (default: empty)\n");
     printf("  -e, --escape          process prompt escapes sequences (\\n, \\r, \\t, \\', \\\", \\\\)\n");
@@ -633,7 +632,7 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("  -f FNAME, --file FNAME\n");
     printf("                        prompt file to start generation.\n");
     printf("  -n N, --n-predict N   number of tokens to predict (default: %d, -1 = infinity, -2 = until context filled)\n", params.n_predict);
-    printf("  -c N, --ctx-size N    size of the prompt context (default: %d)\n", params.n_ctx);
+    printf("  -c N, --ctx-size N    size of the prompt context (default: %d, 0 = loaded from model)\n", params.n_ctx);
     printf("  -b N, --batch-size N  batch size for prompt processing (default: %d)\n", params.n_batch);
     printf("  --top-k N             top-k sampling (default: %d, 0 = disabled)\n", params.top_k);
     printf("  --top-p N             top-p sampling (default: %.1f, 1.0 = disabled)\n", (double)params.top_p);
@@ -667,15 +666,12 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("  --memory-f32          use f32 instead of f16 for memory key+value (default: disabled)\n");
     printf("                        not recommended: doubles context memory required and no measurable increase in quality\n");
     printf("  --temp N              temperature (default: %.1f)\n", (double)params.temp);
-    printf("  --logits-all          return logits for all tokens in the batch (default: disabled)\n");
+    printf("  --perplexity          compute perplexity over each ctx window of the prompt\n");
     printf("  --hellaswag           compute HellaSwag score over random tasks from datafile supplied with -f\n");
     printf("  --hellaswag-tasks N   number of tasks to use when computing the HellaSwag score (default: %zu)\n", params.hellaswag_tasks);
     printf("  --keep N              number of tokens to keep from the initial prompt (default: %d, -1 = all)\n", params.n_keep);
     printf("  --draft N             number of tokens to draft for speculative decoding (default: %d)\n", params.n_draft);
     printf("  --chunks N            max number of chunks to process (default: %d, -1 = all)\n", params.n_chunks);
-    printf("  -np N, --parallel N   number of parallel sequences to decode (default: %d)\n", params.n_parallel);
-    printf("  -ns N, --sequences N  number of sequences to decode (default: %d)\n", params.n_sequences);
-    printf("  -cb, --cont-batching  enable continuous batching (a.k.a dynamic batching) (default: disabled)\n");
     if (llama_mlock_supported()) {
         printf("  --mlock               force system to keep model in RAM rather than swapping or compressing\n");
     }
@@ -700,6 +696,7 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("                        Not recommended since this is both slower and uses more VRAM.\n");
 #endif // GGML_USE_CUBLAS
 #endif
+    printf("  --export              export the computation graph to 'llama.ggml'\n");
     printf("  --verbose-prompt      print prompt before generation\n");
     fprintf(stderr, "  --simple-io           use basic IO for better compatibility in subprocesses and limited consoles\n");
     printf("  --lora FNAME          apply LoRA adapter (implies --no-mmap)\n");
@@ -736,40 +733,52 @@ std::string gpt_random_prompt(std::mt19937 & rng) {
 // Model utils
 //
 
-struct llama_context_params llama_context_params_from_gpt_params(const gpt_params & params) {
-    auto lparams = llama_context_default_params();
+struct llama_model_params llama_model_params_from_gpt_params(const gpt_params & params) {
+    auto mparams = llama_model_default_params();
 
-    lparams.n_ctx           = params.n_ctx;
-    lparams.n_batch         = params.n_batch;
     if (params.n_gpu_layers != -1) {
-        lparams.n_gpu_layers = params.n_gpu_layers;
+        mparams.n_gpu_layers = params.n_gpu_layers;
     }
-    lparams.main_gpu        = params.main_gpu;
-    lparams.tensor_split    = params.tensor_split;
-    lparams.low_vram        = params.low_vram;
-    lparams.mul_mat_q       = params.mul_mat_q;
-    lparams.seed            = params.seed;
-    lparams.f16_kv          = params.memory_f16;
-    lparams.use_mmap        = params.use_mmap;
-    lparams.use_mlock       = params.use_mlock;
-    lparams.logits_all      = params.logits_all;
-    lparams.embedding       = params.embedding;
-    lparams.rope_freq_base  = params.rope_freq_base;
-    lparams.rope_freq_scale = params.rope_freq_scale;
+    mparams.main_gpu        = params.main_gpu;
+    mparams.tensor_split    = params.tensor_split;
+    mparams.low_vram        = params.low_vram;
+    mparams.use_mmap        = params.use_mmap;
+    mparams.use_mlock       = params.use_mlock;
 
-    return lparams;
+    return mparams;
+}
+
+struct llama_context_params llama_context_params_from_gpt_params(const gpt_params & params) {
+    auto cparams = llama_context_default_params();
+
+    cparams.n_ctx           = params.n_ctx;
+    cparams.n_batch         = params.n_batch;
+    cparams.n_threads       = params.n_threads;
+    cparams.n_threads_batch = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
+    cparams.low_vram        = params.low_vram;
+    cparams.mul_mat_q       = params.mul_mat_q;
+    cparams.seed            = params.seed;
+    cparams.f16_kv          = params.memory_f16;
+    cparams.logits_all      = params.perplexity;
+    cparams.embedding       = params.embedding;
+    cparams.rope_freq_base  = params.rope_freq_base;
+    cparams.rope_freq_scale = params.rope_freq_scale;
+
+    return cparams;
 }
 
 std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_params(gpt_params & params) {
-    auto lparams = llama_context_params_from_gpt_params(params);
+    auto mparams = llama_model_params_from_gpt_params(params);
 
-    llama_model * model  = llama_load_model_from_file(params.model.c_str(), lparams);
+    llama_model * model  = llama_load_model_from_file(params.model.c_str(), mparams);
     if (model == NULL) {
         fprintf(stderr, "%s: error: failed to load model '%s'\n", __func__, params.model.c_str());
         return std::make_tuple(nullptr, nullptr);
     }
 
-    llama_context * lctx = llama_new_context_with_model(model, lparams);
+    auto cparams = llama_context_params_from_gpt_params(params);
+
+    llama_context * lctx = llama_new_context_with_model(model, cparams);
     if (lctx == NULL) {
         fprintf(stderr, "%s: error: failed to create context with model '%s'\n", __func__, params.model.c_str());
         llama_free_model(model);
@@ -794,10 +803,10 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
     }
 
     {
+        //LOG("warming up the model with an empty run\n");
 
-        std::vector<llama_token> tmp = { llama_token_bos(lctx), llama_token_eos(lctx), };
-        llama_decode(lctx, llama_batch_get_one(tmp.data(), std::min(tmp.size(), (size_t) params.n_batch), 0, 0), params.n_threads);
-        llama_kv_cache_tokens_rm(lctx, -1, -1);
+        const std::vector<llama_token> tmp = { llama_token_bos(lctx), llama_token_eos(lctx), };
+        llama_eval(lctx, tmp.data(), std::min(tmp.size(), (size_t) params.n_batch), 0);
         llama_reset_timings(lctx);
     }
 
@@ -904,7 +913,7 @@ llama_token llama_sample_token(
 
     llama_token id = 0;
 
-    float * logits = llama_get_logits_ith(ctx, idx);
+    float * logits = llama_get_logits(ctx) + idx * n_vocab;
 
     // Apply params.logit_bias map
     for (auto it = params.logit_bias.begin(); it != params.logit_bias.end(); it++) {
@@ -955,11 +964,11 @@ llama_token llama_sample_token(
         if (mirostat == 1) {
             static float mirostat_mu = 2.0f * mirostat_tau;
             const int mirostat_m = 100;
-            llama_sample_temp(ctx, &cur_p, temp);
+            llama_sample_temperature(ctx, &cur_p, temp);
             id = llama_sample_token_mirostat(ctx, &cur_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
         } else if (mirostat == 2) {
             static float mirostat_mu = 2.0f * mirostat_tau;
-            llama_sample_temp(ctx, &cur_p, temp);
+            llama_sample_temperature(ctx, &cur_p, temp);
             id = llama_sample_token_mirostat_v2(ctx, &cur_p, mirostat_tau, mirostat_eta, &mirostat_mu);
         } else {
             // Temperature sampling
@@ -967,12 +976,21 @@ llama_token llama_sample_token(
             llama_sample_tail_free  (ctx, &cur_p, tfs_z, 1);
             llama_sample_typical    (ctx, &cur_p, typical_p, 1);
             llama_sample_top_p      (ctx, &cur_p, top_p, 1);
-            llama_sample_temp(ctx, &cur_p, temp);
+            llama_sample_temperature(ctx, &cur_p, temp);
 
+            {
+                const int n_top = 10;
+                //LOG("top %d candidates:\n", n_top);
 
+                for (int i = 0; i < n_top; i++) {
+                    const llama_token id = cur_p.data[i].id;
+                    //LOG(" - %5d: '%12s' (%.3f)\n", id, llama_token_to_piece(ctx, id).c_str(), cur_p.data[i].p);
+                }
+            }
 
             id = llama_sample_token(ctx, &cur_p);
 
+            //LOG("sampled token: %5d: '%s'\n", id, llama_token_to_piece(ctx, id).c_str());
         }
     }
     // printf("`%d`", candidates_p.size);
@@ -1187,6 +1205,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "color: %s # default: false\n", params.use_color ? "true" : "false");
     fprintf(stream, "ctx_size: %d # default: 512\n", params.n_ctx);
     fprintf(stream, "escape: %s # default: false\n", params.escape ? "true" : "false");
+    fprintf(stream, "export: %s # default: false\n", params.export_cgraph ? "true" : "false");
     fprintf(stream, "file: # never logged, see prompt instead. Can still be specified for input.\n");
     fprintf(stream, "frequency_penalty: %f # default: 0.0 \n", params.frequency_penalty);
     dump_string_yaml_multiline(stream, "grammar", params.grammar.c_str());
@@ -1260,7 +1279,6 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "rope_freq_scale: %f # default: 1.0\n", params.rope_freq_scale);
     fprintf(stream, "seed: %d # default: -1 (random seed)\n", params.seed);
     fprintf(stream, "simple_io: %s # default: false\n", params.simple_io ? "true" : "false");
-    fprintf(stream, "cont_batching: %s # default: false\n", params.cont_batching ? "true" : "false");
     fprintf(stream, "temp: %f # default: 0.8\n", params.temp);
 
     const std::vector<float> tensor_split_vector(params.tensor_split, params.tensor_split + LLAMA_MAX_DEVICES);

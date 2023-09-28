@@ -730,7 +730,7 @@ __kernel void KERNEL_NAME(__global X_TYPE* x, __global float* y) {
     const uint qk = QUANT_K;
     const uint qr = QUANT_R;
 
-    const int ib = i/qk; // block index
+    const int ib = (i+get_global_offset(0))/qk; // block index
     const int iqs = (i%qk)/qr; // quant index
     const int iybs = i - i%qk; // y block start index
     const int y_offset = qr == 1 ? 1 : qk/2;
@@ -1334,7 +1334,7 @@ void ggml_cl_free_data(const struct ggml_tensor* tensor) {
         return;
     }
 
-    cl_mem mem = (cl_mem)tensor->extra;
+    cl_mem mem = (cl_mem)tensor->data;
     clReleaseMemObject(mem);
 }
 
@@ -1351,6 +1351,7 @@ static cl_int ggml_cl_h2d_tensor_2d(cl_command_queue queue, cl_mem dst, size_t o
     const size_t bs = ggml_blck_size(type);
 
     const void * x = (const void *) ((const char *) src->data + i2*nb2 + i3*nb3);
+    offset *= ts;
     if (nb0 == ts && nb1 == ts*ne0/bs) {
         err = clEnqueueWriteBuffer(queue, dst, CL_FALSE, offset, ne1*nb1, x, 0, NULL, ev);
         return err;
@@ -1393,7 +1394,7 @@ static void ggml_cl_mul_f32(const ggml_tensor * src0, const ggml_tensor * src1, 
     size_t d_size;
 
     cl_mem d_X = ggml_cl_pool_malloc(ne0 * sizeof(float), &x_size); // src0
-    cl_mem d_Y = (cl_mem) src1->extra; // src1 is already on device, broadcasted.
+    cl_mem d_Y = (cl_mem) src1->data; // src1 is already on device, broadcasted.
     cl_mem d_D = ggml_cl_pool_malloc(ne0 * sizeof(float), &d_size); // dst
 
 
@@ -1496,15 +1497,14 @@ static void ggml_cl_mul_mat_f32(const ggml_tensor * src0, const ggml_tensor * sr
     size_t d_size;
     cl_mem d_X;
     if (src0->backend == GGML_BACKEND_GPU) { // NOLINT
-        d_X = (cl_mem) src0->extra;
+        d_X = (cl_mem) src0->data;
     } else {
         d_X = ggml_cl_pool_malloc(sizeof(float) * x_ne, &x_size);
     }
     cl_mem d_Y = ggml_cl_pool_malloc(sizeof(float) * y_ne, &y_size);
     cl_mem d_D = ggml_cl_pool_malloc(sizeof(float) * d_ne, &d_size);
 
-    int64_t pi02 = -1;
-    int64_t pi03 = -1;
+    size_t x_offset = 0;
 
     for (int64_t i13 = 0; i13 < ne13; i13++) {
         int64_t i03 = i13 / r3;
@@ -1514,11 +1514,11 @@ static void ggml_cl_mul_mat_f32(const ggml_tensor * src0, const ggml_tensor * sr
 
             // copy data to device
             if (src0->backend != GGML_BACKEND_GPU) {
-                if (i02 != pi02 || i03 != pi03) {
+                if (i12 % r2 == 0) {
                     CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_X, 0, src0, i03, i02, NULL));
-                    pi02 = i02;
-                    pi03 = i03;
                 }
+            } else {
+                x_offset = (i03 * ne02 + i02) * x_ne;
             }
             CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_Y, 0, src1, i13, i12, NULL));
 
@@ -1530,7 +1530,7 @@ static void ggml_cl_mul_mat_f32(const ggml_tensor * src0, const ggml_tensor * sr
                                                        clblast::Transpose::kYes, clblast::Transpose::kNo,
                                                        ne01, ne11, ne10,
                                                        alpha,
-                                                       d_X, 0, ne00,
+                                                       d_X, x_offset, ne00,
                                                        d_Y, 0, ne10,
                                                        beta,
                                                        d_D, 0, ne01,
@@ -1588,7 +1588,7 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
     size_t d_size;
     cl_mem d_X;
     if (src0->backend == GGML_BACKEND_GPU) { // NOLINT
-        d_X = (cl_mem) src0->extra;
+        d_X = (cl_mem) src0->data;
     } else {
         d_X = ggml_cl_pool_malloc(sizeof(ggml_fp16_t) * x_ne, &x_size);
     }
@@ -1598,8 +1598,7 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
     bool src1_cont_rows = nb10 == sizeof(float);
     bool src1_cont_cols = (size_t)nb11 == ne11*sizeof(float);
 
-    int64_t pi02 = -1;
-    int64_t pi03 = -1;
+    size_t x_offset = 0;
 
     for (int64_t i13 = 0; i13 < ne13; i13++) {
         int64_t i03 = i13 / r3;
@@ -1609,11 +1608,11 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
 
             // copy src0 to device
             if (src0->backend != GGML_BACKEND_GPU) {
-                if (i02 != pi02 || i03 != pi03) {
+                if (i12 % r2 == 0) {
                     CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_X, 0, src0, i03, i02, NULL));
-                    pi02 = i02;
-                    pi03 = i03;
                 }
+            } else {
+                x_offset = (i03 * ne02 + i02) * x_ne;
             }
 
             // convert src1 to fp16
@@ -1631,10 +1630,10 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
                 }
             }
             else {
-                for (int64_t i11 = 0; i11 < ne11; i11++) {
-                    for (int64_t i10 = 0; i10 < ne10; i10++) {
+                for (int64_t i01 = 0; i01 < ne11; i01++) {
+                    for (int64_t i00 = 0; i00 < ne10; i00++) {
                         // very slow due to no inlining
-                        tmp[i11*ne10 + i10] = ggml_fp32_to_fp16(*(float *) (src1i + i11*nb11 + i10*nb10));
+                        tmp[i01*ne10 + i00] = ggml_fp32_to_fp16(*(float *) (src1i + i01*nb11 + i00*nb10));
                     }
                 }
             }
@@ -1650,7 +1649,7 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
                                                        clblast::Transpose::kYes, clblast::Transpose::kNo,
                                                        ne01, ne11, ne10,
                                                        alpha,
-                                                       d_X, 0, ne00,
+                                                       d_X, x_offset, ne00,
                                                        d_Y, 0, ne10,
                                                        beta,
                                                        d_D, 0, ne01,
@@ -1727,9 +1726,6 @@ static void ggml_cl_mul_mat_q_f32(const ggml_tensor * src0, const ggml_tensor * 
     size_t ev_idx = 0;
     std::vector<cl_event> events;
 
-    int64_t pi02 = -1;
-    int64_t pi03 = -1;
-
     for (int64_t i13 = 0; i13 < ne13; i13++) {
         int64_t i03 = i13 / r3;
 
@@ -1738,14 +1734,12 @@ static void ggml_cl_mul_mat_q_f32(const ggml_tensor * src0, const ggml_tensor * 
 
             // copy src0 to device if necessary
             if (src0->backend == GGML_BACKEND_CPU) {
-                if (i02 != pi02 || i03 != pi03) {
+                if (i12 % r2 == 0) {
                     events.emplace_back();
                     CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_Q, 0, src0, i03, i02, events.data() + ev_idx++));
-                    pi02 = i02;
-                    pi03 = i03;
                 }
             } else if (src0->backend == GGML_BACKEND_GPU) {
-                d_Q = (cl_mem) src0->extra;
+                d_Q = (cl_mem) src0->data;
             } else {
                 GGML_ASSERT(false);
             }
@@ -1768,9 +1762,10 @@ static void ggml_cl_mul_mat_q_f32(const ggml_tensor * src0, const ggml_tensor * 
             } else { // general dequantization kernel + CLBlast matrix matrix multiplication
                 // convert src0 to fp32 on device
                 const size_t global = x_ne / global_denom;
+                const size_t offset = src0->backend == GGML_BACKEND_GPU ? (i03 * ne02 + i02) * global : 0;
                 CL_CHECK(clSetKernelArg(*to_fp32_cl, 0, sizeof(cl_mem), &d_Q));
                 CL_CHECK(clSetKernelArg(*to_fp32_cl, 1, sizeof(cl_mem), &d_X));
-                CL_CHECK(clEnqueueNDRangeKernel(queue, *to_fp32_cl, 1, NULL, &global, local > 0 ? &local : NULL, events.size(), !events.empty() ? events.data() : NULL, NULL));
+                CL_CHECK(clEnqueueNDRangeKernel(queue, *to_fp32_cl, 1, offset > 0 ? &offset : NULL, &global, local > 0 ? &local : NULL, events.size(), !events.empty() ? events.data() : NULL, NULL));
 
                 // copy src1 to device
                 CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_Y, 0, src1, i13, i12, NULL));
@@ -1908,6 +1903,6 @@ void ggml_cl_transform_tensor(void * data, ggml_tensor * tensor) {
 
     CL_CHECK(clFinish(queue));
 
-    tensor->extra = dst;
+    tensor->data = dst;
     GGML_ASSERT(tensor->backend == GGML_BACKEND_GPU);
 }

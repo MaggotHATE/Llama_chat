@@ -74,7 +74,13 @@ int main(int argc, char ** argv) {
         } else {
             
             threadedChat.display();
-            std::cout << ">";
+            //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
+            if (threadedChat.newChat.params.antiprompt.size() && 
+                threadedChat.newChat.params.antiprompt[0] != threadedChat.newChat.params.input_prefix) 
+                 std::cout << threadedChat.newChat.params.antiprompt[0] << threadedChat.newChat.params.input_prefix;
+            else std::cout << threadedChat.newChat.params.input_prefix;
+            
+            //std::cout << threadedChat.newChat.params.input_prefix << ">";
             
             std::string input;
             std::getline(std::cin, input);

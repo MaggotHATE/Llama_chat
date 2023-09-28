@@ -136,6 +136,8 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
         //params.use_mmap = false;
     }
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
+    if (checkJString(config, "input_prefix")) params.input_prefix = loadNpring(config,"input_prefix", true);
+    if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
     //if (checkJNum(config, "e_threads")) params.e_threads = loadNpring(config,"e_threads", true);
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
@@ -153,6 +155,8 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJNum(config, "mirostat_tau")) params.mirostat_tau = loadNpring(config,"mirostat_tau", true);
     if (checkJNum(config, "mirostat_eta")) params.mirostat_eta = loadNpring(config,"mirostat_eta", true);
     //if (config["color"].is_boolean()) params.use_color = loadNpring(config,"color", false);
+    if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = loadNpring(config,"input_prefix_bos", false);
+    if (config["penalize_nl"].is_boolean()) params.penalize_nl = loadNpring(config,"penalize_nl", false);
     
     if (checkJString(config, "grammar")) params.grammar = config["grammar"];
     if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
@@ -1261,6 +1265,8 @@ public:
         
         return 1;
     }
+    
+   
 // main generation end////////////////////////////////////////////////////////////////
 
     void clearLastEmbd(){
@@ -1452,54 +1458,223 @@ public:
                     if (debug) fprintf(stderr, "6");
                     is_antiprompt = true;
                     fflush(stdout);
-                    break;
+                    //break;
+                    return 1;
                 }
             }
         }
         
-        return 1;
+        return 0;
+    }
+    
+    int checkPrefix(){
+        // check for reverse prompt
+        if (!params.input_prefix.empty()) {
+            std::string last_output;
+            //for (auto id : last_n_tokens) {
+            for (auto id : last_tokens) {
+                last_output += llama_token_to_piece(ctx, id);
+            }
+
+            // Check if input_prefix appears at the end of the output.
+            size_t extra_padding = params.interactive ? 0 : 2;
+            size_t search_start_pos = last_output.length() > static_cast<size_t>(params.input_prefix.length() + extra_padding)
+                ? last_output.length() - static_cast<size_t>(params.input_prefix.length() + extra_padding)
+                : 0;
+            
+            if (last_output.find(params.input_prefix, search_start_pos) != std::string::npos) {
+                if (params.interactive) {
+                    return 1;
+                }
+            }
+        }
+        
+        return 0;
+    }
+    
+    int checkAntiPrefix(){
+        // check for reverse prompt
+        if (params.antiprompt.size() || !params.input_prefix.empty()){
+            std::string last_output;
+            //for (auto id : last_n_tokens) {
+            for (auto id : last_tokens) {
+                last_output += llama_token_to_piece(ctx, id);
+            }
+        
+            if (params.antiprompt.size()) {
+                
+                is_antiprompt = false;
+                // Check if each of the reverse prompts appears at the end of the output.
+                // If we're not running interactively, the reverse prompt might be tokenized with some following characters
+                // so we'll compensate for that by widening the search window a bit.
+                for (std::string & antiprompt : params.antiprompt) {
+                    size_t extra_padding = params.interactive ? 0 : 2;
+                    size_t search_start_pos = last_output.length() > static_cast<size_t>(antiprompt.length() + extra_padding)
+                        ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
+                        : 0;
+
+                    if (last_output.find(antiprompt, search_start_pos) != std::string::npos) {
+                        if (params.interactive) {
+                            is_interacting = true;
+                        }
+                        if (debug) fprintf(stderr, "6");
+                        finished = true;
+                        
+                        return 1;
+                    }
+                }
+                
+            }
+            
+            if (!params.input_prefix.empty()) {
+                std::string last_output;
+                //for (auto id : last_n_tokens) {
+                for (auto id : last_tokens) {
+                    last_output += llama_token_to_piece(ctx, id);
+                }
+
+                // Check if input_prefix appears at the end of the output.
+                size_t extra_padding = params.interactive ? 0 : 2;
+                size_t search_start_pos = last_output.length() > static_cast<size_t>(params.input_prefix.length() + extra_padding)
+                    ? last_output.length() - static_cast<size_t>(params.input_prefix.length() + extra_padding)
+                    : 0;
+                
+                if (last_output.find(params.input_prefix, search_start_pos) != std::string::npos) {
+                    if (params.interactive) {
+                        
+                        is_interacting = true;
+                        
+                    }
+                    finished = true;
+                    return 2;
+                }
+            }
+        }
+        return 0;
+    }
+    
+    void tokenizeAndInsert(std::string& stop){
+        const auto stopString = ::llama_tokenize(ctx, stop, false);
+        embd_inp.insert(embd_inp.end(), stopString.begin(), stopString.end());
     }
     
     int setEOS(){
         // deal with end of text token in interactive mode
         //if (last_n_tokens.back() == llama_token_eos(ctx)) {
         if (last_tokens.back() == llama_token_eos(ctx)) {
+            is_interacting = true;
+            
             if (params.interactive) {
-                if (params.antiprompt.size() != 0) {
-                    // tokenize and inject first reverse prompt
-                    const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false);
-                    embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
+                if (params.input_prefix.empty()){
+                    if (params.antiprompt.size() != 0) {
+                        // tokenize and inject first reverse prompt
+                        
+                        //const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false);
+                        //embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
+                        
+                        tokenizeAndInsert(params.antiprompt.front());
+                        is_antiprompt = true;
+                    }
+                } else {
+                    tokenizeAndInsert(params.input_prefix);
                     is_antiprompt = true;
                 }
-
-                is_interacting = true;
+                
                 //printf("\n");
-            } else if (params.instruct) {
-                is_interacting = true;
             }
         }
         
         return 1;
     }
     
+    int setEOSantiprompt(){
+        // deal with end of text token in interactive mode
+        //if (last_n_tokens.back() == llama_token_eos(ctx)) {
+        if (last_tokens.back() == llama_token_eos(ctx)) {
+            is_interacting = true;
+            
+            if (params.interactive) {
+                if (params.antiprompt.size() != 0) {
+                    // tokenize and inject first reverse prompt
+                    tokenizeAndInsert(params.antiprompt.front());
+                    is_antiprompt = true;
+                }
+                //printf("\n");
+            }
+        }
+        
+        return 1;
+    }
+    
+    int setEOSfinished(){
+        // deal with end of text token in interactive mode
+        //if (last_n_tokens.back() == llama_token_eos(ctx)) {
+        if (last_tokens.back() == llama_token_eos(ctx)) {
+            is_interacting = true;
+            finished = true;
+            
+            if (params.interactive) {
+                if (params.input_prefix.empty()){
+                    if (params.antiprompt.size() != 0) {
+                        // tokenize and inject first reverse prompt
+                        
+                        //const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false);
+                        //embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
+                        
+                        tokenizeAndInsert(params.antiprompt.front());
+                        is_antiprompt = true;
+                    }
+                }
+
+            }
+        }
+        
+        return 1;
+    }
+    
+    void appendSuffix(std::string& buffer){
+        if (!params.input_suffix.empty()) {
+            buffer += params.input_suffix;
+        }
+    }
+    
+    void appendPrefix(std::string& buffer){
+        if (!params.input_prefix.empty()) {
+            buffer = params.input_prefix + buffer;
+            printf("%s", buffer.c_str());
+        }
+    }
+    
+    void appendPrefixBos(){
+        if (params.input_prefix_bos) {
+            embd_inp.push_back(llama_token_bos(ctx));
+        }
+    }
+    
     // input assembly, DELIMINER is important for proper model functioning since we use getline
-    int subInput(std::string& buffer, std::string line){
-        buffer += line + DELIMINER;
+    int subInput(std::string& buffer, std::string& line){
+        //buffer += line + DELIMINER;
+        
+        
+        
+        
+               
         //if (debug) fprintf(stderr, "7");
         //std::cout << " *** *** " << line << std::endl;
         // Add tokens to embd only if the input buffer is non-empty
         // Entering a empty line lets the user pass control back
-        if (params.input_prefix_bos) {
-            embd_inp.push_back(llama_token_bos(ctx));
-        }
         
-        if (buffer.length() > 1) {
+        
+        //if (buffer.length() > 1) {
+        if (line.length() > 1) {
             if (debug) fprintf(stderr, "<");
+            
+            buffer += params.input_prefix + line + DELIMINER + params.input_suffix;
+            
+            //appendPrefix(buffer);
+            
             // append input suffix if any
-            if (!params.input_suffix.empty()) {
-                buffer += params.input_suffix;
-                printf("%s", params.input_suffix.c_str());
-            }
+            //appendSuffix(buffer);
             
             const size_t original_size = embd_inp.size();
 
@@ -1538,15 +1713,22 @@ public:
     // 3 4! 5 6 1 3 4! 5 6 > < 3 [5 1 2 4!] 1 3 4! 5 6
     // forwarding, print, preInput, postInput, check Emb, forwarding, print, preInput, postIput (waiting for input), postInput(getting input ), forwarding, [preInput, check Emb, generate, print], check, forwarding, print Anti, preInput, postIput (waiting for input)    
     
+    
+    
+// NEW //////////////////////////////////////////////////////////////////////////////////////////
+
     //input, which requires preemptive processing (checking, adding prompt leftovers, antiprompt processing)
     
-    int inputOnly(std::string input){
+    int inputOnly(std::string& input){
         //std::cout << " ***** " << input << std::endl;
         if (n_past > 0 && is_interacting) {
 
+            //appendPrefixBos();
+            
             std::string buffer;
             
             //std::cout << " ***** " << input << std::endl;
+            appendPrefixBos();
             
             subInput(buffer, input);     
             input_echo = false; // do not echo this again        
@@ -1561,8 +1743,6 @@ public:
 
         return 1;
     }
-    
-// NEW //////////////////////////////////////////////////////////////////////////////////////////
 
     std::string generate(bool consoleOutput = true){
         std::string result;
@@ -1585,6 +1765,9 @@ public:
                 checkAntiprompt();
                 
                 if (n_past > 0 && is_interacting) {
+                    
+                    appendPrefixBos();
+                    
                     if (!streaming) 
                         std::cout << result << " ";
                     
@@ -1618,7 +1801,31 @@ public:
         }
     }
     
-    std::string preEmbNew(bool& fastStop){ // 1 2 3 4
+    void eraseLast(std::string& result, std::string& stop){
+        int cutAntiPos = result.rfind(stop);
+        if (cutAntiPos != std::string::npos){
+            result.erase(cutAntiPos);
+        }
+    }
+    
+    void forwardInput(){
+        while ((int) embd_inp.size() > n_consumed) {
+            //fprintf(stderr, ">");
+            embd.push_back(embd_inp[n_consumed]);
+            //last_n_tokens.erase(last_n_tokens.begin());
+            //last_n_tokens.push_back(embd_inp[n_consumed]);
+            last_tokens.erase(last_tokens.begin());
+            last_tokens.push_back(embd_inp[n_consumed]);
+            
+            
+            ++n_consumed;
+            if ((int) embd.size() >= params.n_batch) {
+                break;
+            }
+        }
+    }
+    
+    std::string preEmbNew(bool fastStop){ // 1 2 3 4
         //std::cout << " ** " << std::endl;
         
         if (embd.size() > 0) {
@@ -1634,20 +1841,7 @@ public:
             if (debug) fprintf(stderr, "3");
             fastStop = true;
             // some user input remains from prompt or interaction, forward it to processing
-            while ((int) embd_inp.size() > n_consumed) {
-                //fprintf(stderr, ">");
-                embd.push_back(embd_inp[n_consumed]);
-                //last_n_tokens.erase(last_n_tokens.begin());
-                //last_n_tokens.push_back(embd_inp[n_consumed]);
-                last_tokens.erase(last_tokens.begin());
-                last_tokens.push_back(embd_inp[n_consumed]);
-                
-                
-                ++n_consumed;
-                if ((int) embd.size() >= params.n_batch) {
-                    break;
-                }
-            }
+            forwardInput();
         }
 
         // display text
@@ -1668,38 +1862,45 @@ public:
         //std::cout << " * " << input << std::endl;
         
         std::string result;
-        bool fastStop = false;
+        
     
         //generate(false);  // do not forget to include it elsewhere after loading the model  
         //inputOnly(input); // MOVED
         
-        std::string bit = preEmbNew(fastStop);
+        std::string bit = preEmbNew(false);
             
         //if (stream || streaming) std::cout << bit;
     
         result += bit;
         
+        //setEOSfinished();
+        
         if ((int) embd_inp.size() <= n_consumed) {
             if (debug) fprintf(stderr, "5");
             //fprintf(stderr, "5");
             
-            checkAntiprompt();
             
-            setEOS();
+            //setEOS();
+            setEOSfinished();
             
-            if (n_past > 0 && is_interacting) {
+            int checkEnd = checkAntiPrefix();
+            if (checkEnd == 1) eraseAntiprompt(result);
+            else if (checkEnd == 2) eraseLast(result, params.input_prefix);
+                
+            /* if (n_past > 0 && is_interacting) {
                 //fprintf(stderr, "6");
+                appendPrefixBos();
+                if (checkPrefix() == 1) {
+                    is_interacting = true;
+                    eraseLast(result, params.input_prefix);
+                }
                 
-                //eraseAntiprompt(result);
-                finished = true;
-                
-                checkAntiprompt();
-                setEOS();
-                
-                return result;
-            }
-            
+                eraseAntiprompt(result);
+                //finished = true;
+            } */
         }
+        
+        
         
         // if ((n_remain != 0 && !is_antiprompt) || params.interactive) {
         

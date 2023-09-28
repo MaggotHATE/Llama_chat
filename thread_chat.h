@@ -12,6 +12,8 @@
 #   include "GGML/chat_plain.h"
 #elif defined(GGML_OLD_FORMAT)
 #   include "GGML/chat_plain.h"
+#elif defined(GGML_EXPERIMENTAL1)
+#   include "experimental1/chat_plain.h"
 #elif defined(GGML_EXPERIMENTAL)
 #   include "experimental/chat_plain.h"
 #else
@@ -129,7 +131,9 @@ struct modelThread{
     
     void appendQuestion(std::string input){
         //resultsString.push_back(input);
-        resultsStringPairs.push_back(std::pair(newChat.params.antiprompt[0],input));
+        //if(newChat.params.input_prefix.empty()) 
+            resultsStringPairs.push_back(std::pair(newChat.params.antiprompt[0],input));
+        //else resultsStringPairs.push_back(std::pair(newChat.params.input_prefix,input));
     }
     
     void displayResults(){
@@ -150,8 +154,11 @@ struct modelThread{
         
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
-        #ifndef GGML_EXPERIMENTAL
-        std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.e_threads << '\n' << std::endl;
+        std::cout << "input_prefix: " << newChat.params.input_prefix << '\n' << std::endl;
+        std::cout << "input_suffix: " << newChat.params.input_suffix << '\n' << std::endl;
+        
+        #ifdef GGML_EXPERIMENTAL1
+        std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
         #endif
         //std::cout << lastTimings << std::endl;
         std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
@@ -163,7 +170,8 @@ struct modelThread{
                 //fromUTF8(r.second, converted);
                 //std::wcout << converted;
             } else {
-                std::cout << r.first << r.second;
+                if (newChat.params.input_prefix.empty()) std::cout << r.first << r.second;
+                else std::cout << newChat.params.input_prefix << r.second;
             }
             
             if (r.second.back() != '\n') std::cout<< DELIMINER;
@@ -261,7 +269,7 @@ struct modelThread{
         newChat.finished = false;
         isContinue = 'w';
         isPregen = 'w';
-        lastResult = "";
+        lastResult = newChat.params.input_suffix;
     }
     
     void stop(){
@@ -337,6 +345,7 @@ struct modelThread{
         
     }
     
+/// CURRENT
 void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
@@ -354,6 +363,7 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
             past_tokens = newChat.getPastTokens();
             
             getTimigsPre();
+            
             
             while (isContinue != 'i'){
         
@@ -378,7 +388,10 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                 //getTimigsSimple();
                 
                 if (newChat.finished){
+                    //newChat.eraseAntiprompt(lastResult);
                     newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
+                    
                     resultsStringPairs.push_back(std::pair("AI",lastResult));
                     isContinue = 'i';
                     
@@ -787,6 +800,13 @@ struct configurableChat{
         else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
             processInstructFile(instructFileFromJson, params);
         
+        if (!params.input_suffix.empty()) modelConfig[model]["input_suffix"] = params.input_suffix;
+        if (!params.input_prefix.empty()) modelConfig[model]["input_prefix"] = params.input_prefix;
+        if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[model]["input_prefix_bos"] = params.input_prefix_bos;
+        
+        if (params.penalize_nl != paramsDefault.penalize_nl) modelConfig[model]["penalize_nl"] = params.penalize_nl;
+        
+        
         if (params.temp != paramsDefault.temp) modelConfig[model]["temp"] = params.temp;
         if (params.top_k != paramsDefault.top_k) modelConfig[model]["top_k"] = params.top_k;
         if (params.top_p != paramsDefault.top_p) modelConfig[model]["top_p"] = params.top_p;
@@ -803,8 +823,9 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
-        #ifndef GGML_EXPERIMENTAL
-        if (params.e_threads != paramsDefault.e_threads) modelConfig[model]["e_threads"] = params.e_threads;
+        
+        #if GGML_EXPERIMENTAL1
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
         #endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
@@ -838,6 +859,12 @@ struct configurableChat{
         else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
             processInstructFile(instructFileFromJson, params);
         
+        if (!params.input_suffix.empty()) modelConfig[modelName]["input_suffix"] = params.input_suffix;
+        if (!params.input_prefix.empty()) modelConfig[modelName]["input_prefix"] = params.input_prefix;
+        if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[modelName]["input_prefix_bos"] = params.input_prefix_bos;
+        
+        if (params.penalize_nl != paramsDefault.penalize_nl) modelConfig[modelName]["penalize_nl"] = params.penalize_nl;
+        
         if (params.temp != paramsDefault.temp) modelConfig[modelName]["temp"] = params.temp;
         if (params.top_k != paramsDefault.top_k) modelConfig[modelName]["top_k"] = params.top_k;
         if (params.top_p != paramsDefault.top_p) modelConfig[modelName]["top_p"] = params.top_p;
@@ -854,8 +881,9 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[modelName]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[modelName]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
-        #ifndef GGML_EXPERIMENTAL
-        if (params.e_threads != paramsDefault.e_threads) modelConfig[modelName]["e_threads"] = params.e_threads;
+        
+        #ifdef GGML_EXPERIMENTAL1
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[modelName]["n_threads_batch"] = params.n_threads_batch;
         #endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         
@@ -877,6 +905,14 @@ struct configurableChat{
             modelConfig[modelName]["reverse-prompt"] = "### Instruction:";
             params.antiprompt.push_back("### Instruction:");
         }
+    }
+    
+    void applySuffix(chat& aChat){
+        aChat.params.input_suffix = params.input_suffix;
+    }
+    
+    bool isNewSuffix(chat& aChat){
+        return aChat.params.input_suffix != params.input_suffix;
     }
     
     void updateInput(){

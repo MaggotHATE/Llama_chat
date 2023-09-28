@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include "ggml.h"
-
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -34,8 +32,6 @@ struct ggml_cgraph;
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void ggml_metal_log_set_callback(ggml_log_callback log_callback, void * user_data);
 
 struct ggml_metal_context;
 

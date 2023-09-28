@@ -14,6 +14,18 @@
 #CXX = g++
 #CXX = clang++
 
+ifndef UNAME_S
+UNAME_S := $(shell uname -s)
+endif
+
+ifndef UNAME_P
+UNAME_P := $(shell uname -p)
+endif
+
+ifndef UNAME_M
+UNAME_M := $(shell uname -m)
+endif
+
 # detect Windows
 ifneq ($(findstring _NT,$(UNAME_S)),)
 	_WIN32 := 1
@@ -141,6 +153,11 @@ endif
 LIBS =
 LDFLAGS  =
 
+# Windows Sockets 2 (Winsock) for network-capable apps
+ifeq ($(_WIN32),1)
+	LWINSOCK2 := -lws2_32
+endif
+
 ##---------------------------------------------------------------------
 ## OPENGL ES
 ##---------------------------------------------------------------------
@@ -203,7 +220,8 @@ CXXFLAGS_GGML = $(CXXFLAGS) -DGGML_OLD_FORMAT
 CXXFLAGS_CL_GGML = $(CXXFLAGS) -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT
 CXXFLAGS_VK = $(CXXFLAGS) -DGGML_USE_VULKAN
 
-CXXFLAGS_E = $(CXXFLAGS) -DGGML_EXPERIMENTAL
+CXXFLAGS_E = -DGGML_EXPERIMENTAL
+CXXFLAGS_E1 = -DGGML_EXPERIMENTAL1 -DGGML_EXPERIMENTAL
 
 ##---------------------------------------------------------------------
 ## BUILD RULES
@@ -471,6 +489,63 @@ o/$(IND_E_CL)k_quants.o: $(EXPER_F)/k_quants.c $(EXPER_F)/k_quants.h
 o/$(IND_E_CL)grammar-parser.o: $(EXPER_F)/grammar-parser.cpp $(EXPER_F)/grammar-parser.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
+    
+# Experimental 1 
+    
+EXPER_F1 = experimental1
+IND_E1 = e1_
+
+
+
+OBJS_GGUF_E1 = o/$(IND_E1)ggml.o o/$(IND_E1)ggml-alloc.o o/$(IND_E1)llama.o o/$(IND_E1)common.o o/$(IND_E1)k_quants.o o/$(IND_E1)grammar-parser.o
+  
+o/$(IND_E1)ggml.o: $(EXPER_F1)/ggml.c $(EXPER_F1)/ggml.h
+	$(CC)  $(CFLAGS)  -c $< -o $@
+    
+o/$(IND_E1)ggml-alloc.o: $(EXPER_F1)/ggml-alloc.c $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h
+	$(CC)  $(CFLAGS)  -c $< -o $@
+
+#base/threadpool.h
+o/$(IND_E1)llama.o: $(EXPER_F1)/llama.cpp $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h $(EXPER_F1)/llama.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+o/$(IND_E1)common.o: $(EXPER_F1)/common.cpp $(EXPER_F1)/common.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+o/$(IND_E1)k_quants.o: $(EXPER_F1)/k_quants.c $(EXPER_F1)/k_quants.h
+	$(CC) $(CFLAGS) -c $< -o $@
+    
+o/$(IND_E1)grammar-parser.o: $(EXPER_F1)/grammar-parser.cpp $(EXPER_F1)/grammar-parser.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+# experimental 1 w clblast
+    
+IND_E1_CL = e1_cl_
+    
+OBJS_GGUF_E1_CL = o/$(IND_E1_CL)ggml.o o/$(IND_E1_CL)ggml-alloc.o o/$(IND_E1_CL)llama.o o/$(IND_E1_CL)common.o o/$(IND_E1_CL)k_quants.o o/$(IND_E1_CL)grammar-parser.o o/$(IND_E1_CL)ggml-opencl.o
+  
+o/$(IND_E1_CL)ggml-opencl.o: $(EXPER_F1)/ggml-opencl.cpp $(EXPER_F1)/ggml-opencl.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+  
+o/$(IND_E1_CL)ggml.o: $(EXPER_F1)/ggml.c $(EXPER_F1)/ggml.h
+	$(CC)  $(CFLAGS_CL)  -c $< -o $@
+    
+o/$(IND_E1_CL)ggml-alloc.o: $(EXPER_F1)/ggml-alloc.c $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h
+	$(CC)  $(CFLAGS_CL)  -c $< -o $@
+
+#base/threadpool.h
+o/$(IND_E1_CL)llama.o: $(EXPER_F1)/llama.cpp $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h $(EXPER_F1)/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+o/$(IND_E1_CL)common.o: $(EXPER_F1)/common.cpp $(EXPER_F1)/common.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+o/$(IND_E1_CL)k_quants.o: $(EXPER_F1)/k_quants.c $(EXPER_F1)/k_quants.h
+	$(CC) $(CFLAGS_CL) -c $< -o $@
+    
+o/$(IND_E1_CL)grammar-parser.o: $(EXPER_F1)/grammar-parser.cpp $(EXPER_F1)/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@   
+    
 # general    
     
 o/imgui/%.o:$(IMGUI_DIR)/%.cpp
@@ -490,8 +565,14 @@ demo: $(EXE)
 demo_e: $(EXE)_e
 	@echo Build $(EXE)_e complete for $(ECHO_MESSAGE)
     
+demo_e1: $(EXE)_e1
+	@echo Build $(EXE)_e1 complete for $(ECHO_MESSAGE)
+    
 demo_e_cl: $(EXE)_e_cl
 	@echo Build $(EXE)_e_cl complete for $(ECHO_MESSAGE)
+    
+demo_e1_cl: $(EXE)_e1_cl
+	@echo Build $(EXE)_e1_cl complete for $(ECHO_MESSAGE)
     
 demo_cl: $(EXE_CL)
 	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
@@ -588,11 +669,28 @@ chatTestE:class_chat.cpp $(OBJS_GGUF_E) include/json.hpp $(EXPER_F)/chat_plain.h
 $(EXE)_e_cl: $(OBJS) $(OBJS_GGUF_E_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F)/chat_plain.h thread_chat.h llama_chat1.res
 	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CXXFLAGS_E) $(LDFLAGS_CL) $(LIBS)
         
-chatTest_e_cl:class_chat.cpp                                  include/json.hpp chat_plain.h thread_chat.h $(OBJS_GGUF_E_CL)
+chatTest_e_cl:class_chat.cpp                                  include/json.hpp $(EXPER_F)/chat_plain.h thread_chat.h $(OBJS_GGUF_E_CL)
 	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL) $(CXXFLAGS_E)
+    
+# experimental 1
+
+$(EXE)_e1: $(OBJS) $(OBJS_GGUF_E1) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F1)/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CXXFLAGS_E1) $(LDFLAGS) $(LIBS)
+
+chatTestE1:class_chat.cpp $(OBJS_GGUF_E1_CL) include/json.hpp $(EXPER_F1)/chat_plain.h thread_chat.h
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS_E1) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+    
+$(EXE)_e1_cl: $(OBJS) $(OBJS_GGUF_E1_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F1)/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CXXFLAGS_E1) $(LDFLAGS_CL) $(LIBS)
+        
+chatTest_e1_cl:class_chat.cpp                                  include/json.hpp $(EXPER_F1)/chat_plain.h thread_chat.h $(OBJS_GGUF_E1_CL)
+	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL) $(CXXFLAGS_E1)
     
 # additional
 
 libss: o/libllama$(DSO_EXT) o/old_libllama$(DSO_EXT)
 
 libss_cl: o/cl_libllama$(DSO_EXT) o/old_cl_libllama$(DSO_EXT)
+
+chatTestHTTP:class_chat_http.cpp $(OBJS_GGUF) include/json.hpp include/httplib.h chat_plain.h thread_chat.h
+	$(CXX) $(CXXFLAGS) -Iinclude $(filter-out %.h,$^) -o $@ $(LWINSOCK2)

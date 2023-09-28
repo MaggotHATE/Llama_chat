@@ -135,8 +135,9 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
         params.lora_adapter = config["lora"];
         //params.use_mmap = false;
     }
+    if (checkJString(config, "input_prefix")) params.input_prefix = loadNpring(config,"input_prefix", true);
+    if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
-    if (checkJNum(config, "e_threads")) params.e_threads = loadNpring(config,"e_threads", true);
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
@@ -712,14 +713,6 @@ public:
     
     int checkPreLoad(){
 
-        if (params.perplexity) {
-            printf("\n************\n");
-            printf("%s: please use the 'perplexity' tool for perplexity calculations\n", __func__);
-            printf("************\n\n");
-
-            return 0;
-        }
-
         if (params.embedding) {
             printf("\n************\n");
             printf("%s: please use the 'embedding' tool for embedding calculations\n", __func__);
@@ -856,14 +849,7 @@ public:
             return 0;
         } */
 
-        // export the cgraph and exit
-        if (params.export_cgraph) {
-            llama_eval_export(ctx, "llama.ggml");
-            llama_free(ctx);
-            llama_free_model(model);
-
-            return 0;
-        }
+        
 
         path_session = params.path_prompt_cache;
 
@@ -1086,9 +1072,7 @@ public:
 //-----------------------------------------MAIN CYCLES------------------------------------------- 
 //-----------------------------------------MAIN CYCLES-------------------------------------------     
     
-    //checking already existing contex
-    int checkEmb(){
-        if (debug) fprintf(stderr, "1");
+    void checkSize(){
         // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
         // --prompt or --file which uses the same value.
         int max_embd_size = n_ctx - 4;
@@ -1100,35 +1084,47 @@ public:
             fflush(stdout);
             
         }
-
+    }
+    
+    void resetContext(){
         // infinite text generation via context swapping
         // if we run out of context:
         // - take the n_keep first tokens from the original prompt (via n_past)
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
         if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) > n_ctx) {
             printf("....");
-            const int n_left = n_past - params.n_keep;
+            const int n_left    = n_past - params.n_keep - 1;
+            const int n_discard = n_left/2;
 
             // always keep the first token - BOS
-            n_past = std::max(1, params.n_keep);
-            n_past_guidance = std::max(1, params.n_keep + guidance_offset);
+            //n_past = std::max(1, params.n_keep);
+            //n_past_guidance = std::max(1, params.n_keep + guidance_offset);
+            llama_kv_cache_seq_rm   (ctx, 0, params.n_keep + 1            , params.n_keep + n_discard + 1);
+            llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
 
             // insert n_left/2 tokens at the start of embd from last_n_tokens
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
-            embd.insert(embd.begin(), last_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_tokens.end() - embd.size());
+            //embd.insert(embd.begin(), last_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_tokens.end() - embd.size());
+            n_past -= n_discard;
+
+            if (ctx_guidance) {
+                n_past_guidance -= n_discard;
+            }
 
             // stop saving session if we run out of context
             path_session.clear();
 
         }
-
+    }
+    
+    int reuse(){
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (n_session_consumed < (int) session_tokens.size()) {
             size_t i = 0;
             for ( ; i < embd.size(); i++) {
                 if (embd[i] != session_tokens[n_session_consumed]) {
                     session_tokens.resize(n_session_consumed);
-                    break;
+                    return 0;
                 }
 
                 n_past++;
@@ -1136,17 +1132,18 @@ public:
 
                 if (n_session_consumed >= (int) session_tokens.size()) {
                     ++i;
-                    break;
+                    return 0;
                 }
             }
             if (i > 0) {
                 embd.erase(embd.begin(), embd.begin() + i);
             }
         }
-
-        // evaluate tokens in batches
-        // embd is typically prepared beforehand to fit within a batch, but not always
         
+        return 1;
+    }
+    
+    int evaluate_guidance(){
         if (ctx_guidance) {
             int input_size = 0;
             llama_token* input_buf = NULL;
@@ -1175,31 +1172,64 @@ public:
 
             for (int i = 0; i < input_size; i += params.n_batch) {
                 int n_eval = std::min(input_size - i, params.n_batch);
-                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads, params.e_threads)) {
+                if (llama_decode(ctx_guidance, llama_batch_get_one(input_buf + i, n_eval, n_past_guidance, 0), params.n_threads)) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
-                    return 1;
+                    return 0;
                 }
 
                 n_past_guidance += n_eval;
             }
         }
         
+        return 1;
+    }
+    
+    int evaluate_main(){
         for (int i = 0; i < (int) embd.size(); i += params.n_batch) {
             int n_eval = (int) embd.size() - i;
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads, params.e_threads)) {
+            if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval, n_past, 0), params.n_threads)) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
-                return 1;
+                return 0;
             }
             n_past += n_eval;
         }
-
+        
+        return 1;
+    }
+    void evaluate_session(){
         if (embd.size() > 0 && !path_session.empty()) {
             session_tokens.insert(session_tokens.end(), embd.begin(), embd.end());
             n_session_consumed = session_tokens.size();
         }
+    }
+    
+    //checking already existing contex
+    int checkEmb(){
+        if (debug) fprintf(stderr, "1");
+        // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
+        // --prompt or --file which uses the same value.
+        checkSize();
+
+        // infinite text generation via context swapping
+        // if we run out of context:
+        // - take the n_keep first tokens from the original prompt (via n_past)
+        // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
+        resetContext();
+
+        // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
+        if (reuse() == 0) return 0;
+
+        // evaluate tokens in batches
+        // embd is typically prepared beforehand to fit within a batch, but not always
+        
+        if (evaluate_guidance() == 0) return 0;
+        
+        if (evaluate_main() == 0) return 0;
+
+        evaluate_session();
         
         return 1;
     }
@@ -1219,16 +1249,6 @@ public:
         
         last_tokens.erase(last_tokens.begin());
         last_tokens.push_back(id);
-
-        // replace end of text token with newline token when in interactive mode
-        // if (id == llama_token_eos() && params.interactive && !params.instruct) {
-            // id = llama_token_newline.front();
-            // if (params.antiprompt.size() != 0 && !fastStop) {
-                // // tokenize and inject first reverse prompt
-                // const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false);
-                // embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
-            // }
-        // }
 
         // add it to the context
         embd.push_back(id);
@@ -1463,6 +1483,19 @@ public:
         return 1;
     }
     
+    void appendSuffix(std::string& buffer){
+        if (!params.input_suffix.empty()) {
+            buffer += params.input_suffix;
+        }
+    }
+    
+    void appendPrefix(std::string& buffer){
+        if (!params.input_prefix.empty()) {
+            buffer = params.input_prefix + buffer;
+            printf("%s", buffer.c_str());
+        }
+    }
+    
     // input assembly, DELIMINER is important for proper model functioning since we use getline
     int subInput(std::string& buffer, std::string line){
         buffer += line + DELIMINER;
@@ -1474,13 +1507,15 @@ public:
             embd_inp.push_back(llama_token_bos(ctx));
         }
         
+        
+        
         if (buffer.length() > 1) {
             if (debug) fprintf(stderr, "<");
+            
+            appendPrefix(buffer);
+            
             // append input suffix if any
-            if (!params.input_suffix.empty()) {
-                buffer += params.input_suffix;
-                printf("%s", params.input_suffix.c_str());
-            }
+            appendSuffix(buffer);
             
             const size_t original_size = embd_inp.size();
 
@@ -1596,6 +1631,13 @@ public:
             if (cutAntiPos != std::string::npos){
                 result.erase(cutAntiPos);
             }
+        }
+    }
+    
+    void eraseLast(std::string& result, std::string& stop){
+        int cutAntiPos = result.rfind(stop);
+        if (cutAntiPos != std::string::npos){
+            result.erase(cutAntiPos);
         }
     }
     

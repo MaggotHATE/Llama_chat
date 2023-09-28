@@ -223,8 +223,10 @@ void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
         } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(paramsDefault.cfg_scale)).c_str());
         
         ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
-        #ifndef GGML_EXPERIMENTAL
-        ImGui::SliderInt("e_threads", &params.e_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+        
+        
+        #ifdef GGML_EXPERIMENTAL1
+        ImGui::SliderInt("n_threads_batch", &params.n_threads_batch, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
         #endif
         // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
 
@@ -883,7 +885,7 @@ int main(int, char**)
 
                     {
 /////// rendering dialogs ////////////////////////////////////////////////////////////////////////
-                        ImGui::BeginChild("Dialog", ImVec2( messageWidth * 0.99f, ImGui::GetContentRegionAvail().y*0.80f), false);
+                        ImGui::BeginChild("Dialog", ImVec2( messageWidth * 0.99f, ImGui::GetContentRegionAvail().y*0.75f), false);
                         ImGui::Indent();
                             // to avoid mutexes we only use a copy of dialog DB for UI
                             if (newChat.isContinue == 'i') {
@@ -1106,6 +1108,12 @@ int main(int, char**)
                     
                     // still need to make input field wrapping
                     //ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.65f);
+                    ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );  
+                    if (localSettings.isNewSuffix(newChat.newChat)){ 
+                        ImGui::SameLine();
+                        if (ImGui::Button("Apply")) { localSettings.applySuffix(newChat.newChat); } 
+                    }
+                    
                     ImGui::InputTextMultiline(helpLabel.c_str(), &inputStr);
                     //ImGui::PopTextWrapPos();
                     
@@ -1213,6 +1221,10 @@ int main(int, char**)
                             ImGui::TextWrapped(( "Models folder: " + modelsFolderName).c_str());
                             ImGui::Separator();
                         }
+                        
+                        //if (!localSettings.params.input_prefix.empty()) ImGui::TextWrapped(( "Prefix: " + localSettings.params.input_prefix).c_str());
+                        //if (!localSettings.params.input_suffix.empty()) ImGui::TextWrapped(( "input_suffix: " + localSettings.params.input_suffix).c_str());
+                        
                         if(localSettings.modelName != "NULL") 
                             ImGui::TextWrapped(( "Selected model: " + localSettings.modelName).c_str());
                         else
@@ -1462,6 +1474,10 @@ int main(int, char**)
                                 } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
                                     localSettings.inputAntiprompt = "NULL";
                                 }
+                        ImGui::InputText("Prefix", &localSettings.params.input_prefix); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
+                                
+                        ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
+                                
                         ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." ); 
                         if (ImGui::Button("Apply CFG antiprompt")) {
                                     localSettings.inputAntiCFG = inputAntiCFG;
@@ -1472,8 +1488,10 @@ int main(int, char**)
                         //ImGui::SliderInt("n_ctx", &localSettings.n_ctx, 2048, 16384, "%2048"); ImGui::SameLine(); HelpMarker("The size of context, must be 1024x");
                         
                         ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
-                        #ifndef GGML_EXPERIMENTAL
-                        ImGui::SliderInt("e_threads", &localSettings.params.e_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+                        
+                        
+                        #ifdef GGML_EXPERIMENTAL1
+                        ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
                         #endif
                         if (clblast == 1) { 
                             ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");

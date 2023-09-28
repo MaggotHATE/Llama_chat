@@ -6066,7 +6066,20 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
         nthread = std::thread::hardware_concurrency();
     }
 
-    std::unique_ptr<llama_model_loader> ml(new llama_model_loader(fname_inp, /*use_mmap*/ false));
+    //std::unique_ptr<llama_model_loader> ml(new llama_model_loader(fname_inp, /*use_mmap*/ false));
+    
+    // mmap consistently increases speed Linux, and also increases speed on Windows with
+    // hot cache. It may cause a slowdown on macOS, possibly related to free memory.
+#if defined(__linux__) || defined(_WIN32)
+    constexpr bool use_mmap = true;
+#else
+    constexpr bool use_mmap = false;
+#endif
+
+    std::unique_ptr<llama_model_loader> ml(new llama_model_loader(fname_inp, use_mmap));
+    if (ml->use_mmap) {
+        ml->mapping.reset(new llama_mmap(&ml->file, /* prefetch */ 0, ggml_is_numa()));
+    }
 
     llama_model model;
     llm_load_arch(*ml, model);
@@ -6144,8 +6157,13 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
 
         const std::string name = ggml_get_name(tensor);
 
-        if (read_data.size() < ggml_nbytes(tensor)) {
-            read_data.resize(ggml_nbytes(tensor));
+        //if (read_data.size() < ggml_nbytes(tensor)) {
+        //    read_data.resize(ggml_nbytes(tensor));
+        if (!ml->use_mmap) {
+            if (read_data.size() < ggml_nbytes(tensor)) {
+                read_data.resize(ggml_nbytes(tensor));
+            }
+            tensor->data = read_data.data();
         }
         tensor->data = read_data.data();
         ml->load_data_for(tensor);
