@@ -1513,12 +1513,10 @@ static void ggml_cl_mul_mat_f32(const ggml_tensor * src0, const ggml_tensor * sr
             int64_t i02 = i12 / r2;
 
             // copy data to device
-            if (src0->backend != GGML_BACKEND_GPU) {
-                if (i02 != pi02 || i03 != pi03) {
-                    CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_X, 0, src0, i03, i02, NULL));
-                    pi02 = i02;
-                    pi03 = i03;
-                }
+            if (src0->backend != GGML_BACKEND_GPU && (i02 != pi02 || i03 != pi03)) {
+                CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_X, 0, src0, i03, i02, NULL));
+                pi02 = i02;
+                pi03 = i03;
             }
             CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_Y, 0, src1, i13, i12, NULL));
 
@@ -1608,12 +1606,10 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
             int64_t i02 = i12 / r2;
 
             // copy src0 to device
-            if (src0->backend != GGML_BACKEND_GPU) {
-                if (i02 != pi02 || i03 != pi03) {
-                    CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_X, 0, src0, i03, i02, NULL));
-                    pi02 = i02;
-                    pi03 = i03;
-                }
+            if (src0->backend != GGML_BACKEND_GPU && (i02 != pi02 || i03 != pi03)) {
+                CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_X, 0, src0, i03, i02, NULL));
+                pi02 = i02;
+                pi03 = i03;
             }
 
             // convert src1 to fp16

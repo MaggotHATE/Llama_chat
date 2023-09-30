@@ -129,6 +129,14 @@ struct modelThread{
         resultsStringPairs.push_back(std::pair("AI",input));
     }
     
+    void applySuffix(std::string& suffix){
+        newChat.params.input_suffix = suffix;
+    }
+    
+    bool isNewSuffix(std::string& suffix){
+        return newChat.params.input_suffix != suffix;
+    }
+    
     void appendQuestion(std::string input){
         //resultsString.push_back(input);
         //if(newChat.params.input_prefix.empty()) 
@@ -157,9 +165,9 @@ struct modelThread{
         std::cout << "input_prefix: " << newChat.params.input_prefix << '\n' << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << '\n' << std::endl;
         
-        #ifdef GGML_EXPERIMENTAL1
+        //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
-        #endif
+        //#endif
         //std::cout << lastTimings << std::endl;
         std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
         
@@ -824,13 +832,15 @@ struct configurableChat{
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
         
-        #if GGML_EXPERIMENTAL1
+        //#if GGML_EXPERIMENTAL1
         if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
-        #endif
+        //#endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT
         if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
+        #else 
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
         #endif
         
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
@@ -852,7 +862,9 @@ struct configurableChat{
     void fillLocalJson(){
         modelConfig.clear();
         
-        modelConfig["model"] = modelName;
+        //modelConfig["model"] = modelName;
+        
+        fillLocalJson(modelName);
         
         if (inputInstructFile != "NULL") //modelConfig[modelName]["file"] = inputInstructFile;
             processInstructFile(inputInstructFile, params);
@@ -882,14 +894,17 @@ struct configurableChat{
         if (params.n_batch != paramsDefault.n_batch) modelConfig[modelName]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
         
-        #ifdef GGML_EXPERIMENTAL1
-        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[modelName]["n_threads_batch"] = params.n_threads_batch;
-        #endif
+        //#ifdef GGML_EXPERIMENTAL1
+        
+        //#endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
         
         #if GGML_OLD_FORMAT
         if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[modelName]["rms-norm-eps"] = params.rms_norm_eps;
         #endif
+        
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[modelName]["n_threads_batch"] = params.n_threads_batch;
+        
         
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[modelName]["rope_freq_base"] = params.rope_freq_base;
         if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[modelName]["rope_freq_scale"] = params.rope_freq_scale;

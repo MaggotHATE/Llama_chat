@@ -154,6 +154,8 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJNum(config, "mirostat_tau")) params.mirostat_tau = loadNpring(config,"mirostat_tau", true);
     if (checkJNum(config, "mirostat_eta")) params.mirostat_eta = loadNpring(config,"mirostat_eta", true);
     //if (config["color"].is_boolean()) params.use_color = loadNpring(config,"color", false);
+    if (config["penalize_nl"].is_boolean()) params.penalize_nl = loadNpring(config,"penalize_nl", false);
+    if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = loadNpring(config,"input_prefix_bos", false);
     
     if (checkJString(config, "grammar")) params.grammar = config["grammar"];
     if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
@@ -380,7 +382,7 @@ float llama_string_evalPrompt(const llama_timings & timings) {
 
 //STRUCT/////////////////////////////////////////
 
-struct modelData{
+/* struct modelData{
     llama_context * ctx;
     llama_model * model;
     
@@ -417,7 +419,7 @@ struct modelData{
     
     std::vector<int>   input_tokens;
     std::vector<int>   output_tokens;
-};
+}; */
 
 
 //CLASS////////////////////////////////////////////////////////////////////////////////////////////
@@ -721,13 +723,12 @@ public:
             return 0;
         }
         
-        if (params.rope_freq_base != 10000.0) {
-            fprintf(stderr, "%s: warning: changing RoPE frequency base to %g (default 10000.0)\n", __func__, params.rope_freq_base);
-        }
-
-        if (params.rope_freq_scale != 1.0) {
+        if (params.rope_freq_scale != 0.0) {
             fprintf(stderr, "%s: warning: scaling RoPE frequency by %g (default 1.0)\n", __func__, params.rope_freq_scale);
         }
+        
+        //const int n_ctx_train = llama_n_ctx_train(model);
+        //n_ctx = llama_n_ctx(ctx);
 
         //fprintf(stderr, "Context size %zu \n", params.n_ctx);
         // if (params.n_ctx > 2048) {
@@ -848,7 +849,7 @@ public:
 
             return 0;
         } */
-
+        n_ctx = llama_n_ctx(ctx);
         
 
         path_session = params.path_prompt_cache;
@@ -860,8 +861,8 @@ public:
             FILE * fp = std::fopen(path_session.c_str(), "rb");
             if (fp != NULL) {
                 std::fclose(fp);
-
-                session_tokens.resize(params.n_ctx);
+                
+                session_tokens.resize(n_ctx);
                 size_t n_token_count_out = 0;
                 if (!llama_load_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.capacity(), &n_token_count_out)) {
                     fprintf(stderr, "%s: error: failed to load session file '%s'\n", __func__, path_session.c_str());
@@ -897,7 +898,7 @@ public:
         
         //const bool is_spm = llama_vocab_type(ctx) == LLAMA_VOCAB_TYPE_SPM;
         // Add BOS if SPM tokenizer
-        const bool add_bos = llama_vocab_type(ctx) == LLAMA_VOCAB_TYPE_SPM;
+        const bool add_bos = llama_vocab_type(model) == LLAMA_VOCAB_TYPE_SPM;
 
         /* // tokenize the prompt
         if (llama_vocab_type(ctx) == LLAMA_VOCAB_TYPE_SPM) {
@@ -929,7 +930,7 @@ public:
             guidance_offset = (int)guidance_inp.size() - original_prompt_len;
         }
         
-        n_ctx = llama_n_ctx(ctx);
+        //n_ctx = llama_n_ctx(ctx);
 
         if ((int) embd_inp.size() > n_ctx - 4) {
             fprintf(stderr, "%s: error: prompt is too long (%d tokens, max %d)\n", __func__, (int) embd_inp.size(), n_ctx - 4);
@@ -1172,7 +1173,7 @@ public:
 
             for (int i = 0; i < input_size; i += params.n_batch) {
                 int n_eval = std::min(input_size - i, params.n_batch);
-                if (llama_decode(ctx_guidance, llama_batch_get_one(input_buf + i, n_eval, n_past_guidance, 0), params.n_threads)) {
+                if (llama_decode(ctx_guidance, llama_batch_get_one(input_buf + i, n_eval, n_past_guidance, 0))) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
                     return 0;
                 }
@@ -1190,7 +1191,7 @@ public:
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-            if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval, n_past, 0), params.n_threads)) {
+            if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval, n_past, 0))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 return 0;
             }
@@ -1586,7 +1587,7 @@ public:
         //char* result = new char[2048];
         bool fastStop = false;
         
-        n_vocab = llama_n_vocab(ctx);
+        n_vocab = llama_n_vocab(model);
         
         candidates.reserve(n_vocab);
         

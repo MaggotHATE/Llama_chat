@@ -78,13 +78,7 @@ static void TextWTooltip(const char* name, const char* desc)
     }
 }
 
-bool initial = false;
-char waitGetline = 'i';
-std::future<void> futureInput;
-std::future<int> totalResult;
-int loaded = 0;
-
-void sanitizePath(std::string& path){
+static void sanitizePath(std::string& path){
     int slashes = path.rfind("\\");
     while (slashes != path.npos){
         path.replace(slashes,1,"/");
@@ -110,7 +104,7 @@ std::string getStringFromJson(std::string fimeName, std::string stringName){
     return "NULL";
 }
 
-void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
+static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
     ImGui::BeginChild("Params", size, false);
     
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
@@ -225,16 +219,16 @@ void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
         ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
         
         
-        #ifdef GGML_EXPERIMENTAL1
+        //#ifdef GGML_EXPERIMENTAL1
         ImGui::SliderInt("n_threads_batch", &params.n_threads_batch, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
-        #endif
+        //#endif
         // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
 
     ImGui::EndChild();
 }
 
 
-void templatesList(nlohmann::json& templatesJson, std::string& inputStr){
+static void templatesList(nlohmann::json& templatesJson, std::string& inputStr){
     ImGui::BeginChild("Templates from json file");
         int numTemplates = 0;
         for (auto& [key, value] : templatesJson.items() ){
@@ -270,7 +264,7 @@ void templatesList(nlohmann::json& templatesJson, std::string& inputStr){
     ImGui::EndChild();
 }
 
-void templatesListSelect(nlohmann::json& templatesJson, std::string& inputStr){
+static void templatesListSelect(nlohmann::json& templatesJson, std::string& inputStr){
     ImGui::BeginChild("Templates from json file");
         for (auto& [key, value] : templatesJson.items() ){
             if (value.is_array()) {
@@ -289,7 +283,7 @@ void templatesListSelect(nlohmann::json& templatesJson, std::string& inputStr){
     ImGui::EndChild();
 }
 
-std::string openFile(const char* const* filterPatterns){
+static std::string openFile(const char* const* filterPatterns){
     std::string currPath = filesystem::current_path().string() + '/';
     auto getFileName = tinyfd_openFileDialog("Select a file...", currPath.c_str(),1, filterPatterns, NULL,0);
     if (getFileName) {
@@ -1109,9 +1103,9 @@ int main(int, char**)
                     // still need to make input field wrapping
                     //ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.65f);
                     ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );  
-                    if (localSettings.isNewSuffix(newChat.newChat)){ 
+                    if (newChat.isNewSuffix(localSettings.params.input_suffix)){ 
                         ImGui::SameLine();
-                        if (ImGui::Button("Apply")) { localSettings.applySuffix(newChat.newChat); } 
+                        if (ImGui::Button("Apply")) { newChat.applySuffix(localSettings.params.input_suffix); } 
                     }
                     
                     ImGui::InputTextMultiline(helpLabel.c_str(), &inputStr);
@@ -1490,9 +1484,9 @@ int main(int, char**)
                         ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
                         
                         
-                        #ifdef GGML_EXPERIMENTAL1
+                        //#ifdef GGML_EXPERIMENTAL1
                         ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
-                        #endif
+                        //#endif
                         if (clblast == 1) { 
                             ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
                         }
