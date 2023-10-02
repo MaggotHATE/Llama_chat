@@ -310,7 +310,7 @@ extern "C" {
                              int   n_tokens,
                              int   n_past,
                              int   n_threads,
-                             int   e_threads);
+                             int   n_threads_batch);
 
     // Same as llama_eval, but use float matrix input directly.
     LLAMA_API int llama_eval_embd(

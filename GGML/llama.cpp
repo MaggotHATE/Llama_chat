@@ -1795,7 +1795,7 @@ static bool llama_eval_internal(
                    int   n_tokens,
                    int   n_past,
                    int   n_threads,
-                   int   e_threads,
+                   int   n_threads_batch,
             const char * cgraph_fname) {
 
     LLAMA_ASSERT((!tokens && embd) || (tokens && !embd));
@@ -1839,7 +1839,7 @@ static bool llama_eval_internal(
 
     // for big prompts, if BLAS is enabled, it is better to use only one thread
     // otherwise, the threads are spin-lock waiting for the BLAS calls and are degrading the performance
-    n_threads = N >= 32 && ggml_cpu_has_blas() && !ggml_cpu_has_gpublas() ? 1 : (N == 1 ? n_threads : e_threads );
+    n_threads = N >= 32 && ggml_cpu_has_blas() && !ggml_cpu_has_gpublas() ? 1 : (N == 1 ? n_threads : n_threads_batch );
 
     struct ggml_tensor * res = gf->nodes[gf->n_nodes - 1];
     struct ggml_tensor * embeddings = gf->nodes[gf->n_nodes - 2];
@@ -4178,8 +4178,8 @@ int llama_eval(
                          int   n_tokens,
                          int   n_past,
                          int   n_threads,
-                         int   e_threads) {
-    if (!llama_eval_internal(*ctx, tokens, nullptr, n_tokens, n_past, n_threads, e_threads, nullptr)) {
+                         int   n_threads_batch) {
+    if (!llama_eval_internal(*ctx, tokens, nullptr, n_tokens, n_past, n_threads, n_threads_batch, nullptr)) {
         LLAMA_LOG_ERROR("%s: failed to eval\n", __func__);
         return 1;
     }

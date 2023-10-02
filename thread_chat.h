@@ -365,7 +365,8 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
             std::string input = resultsStringPairs.back().second;
                 
             getTimigsPre();
-            newChat.inputOnly(input);
+            //newChat.inputOnly(input);
+            newChat.inputOnlyNew(input);
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
@@ -543,6 +544,7 @@ struct configurableChat{
     std::string inputInstructFile = "NULL";
     std::string modelName = "NULL";
     std::string modelShortName = "NULL";
+    std::string grammarFile = "";
     std::string localJsonDump;
     
     void getModelsList(){
@@ -857,69 +859,12 @@ struct configurableChat{
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
             params.antiprompt.push_back("### Instruction:");
         }
+        
+        if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
     }
     
     void fillLocalJson(){
-        modelConfig.clear();
-        
-        //modelConfig["model"] = modelName;
-        
         fillLocalJson(modelName);
-        
-        if (inputInstructFile != "NULL") //modelConfig[modelName]["file"] = inputInstructFile;
-            processInstructFile(inputInstructFile, params);
-        else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
-            processInstructFile(instructFileFromJson, params);
-        
-        if (!params.input_suffix.empty()) modelConfig[modelName]["input_suffix"] = params.input_suffix;
-        if (!params.input_prefix.empty()) modelConfig[modelName]["input_prefix"] = params.input_prefix;
-        if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[modelName]["input_prefix_bos"] = params.input_prefix_bos;
-        
-        if (params.penalize_nl != paramsDefault.penalize_nl) modelConfig[modelName]["penalize_nl"] = params.penalize_nl;
-        
-        if (params.temp != paramsDefault.temp) modelConfig[modelName]["temp"] = params.temp;
-        if (params.top_k != paramsDefault.top_k) modelConfig[modelName]["top_k"] = params.top_k;
-        if (params.top_p != paramsDefault.top_p) modelConfig[modelName]["top_p"] = params.top_p;
-        if (params.tfs_z != paramsDefault.tfs_z) modelConfig[modelName]["tfs_z"] = params.tfs_z;
-        if (params.typical_p != paramsDefault.typical_p) modelConfig[modelName]["typical_p"] = params.typical_p;
-        if (params.repeat_penalty != paramsDefault.repeat_penalty) modelConfig[modelName]["repeat_penalty"] = params.repeat_penalty;
-        if (params.frequency_penalty != paramsDefault.frequency_penalty) modelConfig[modelName]["frequency_penalty"] = params.frequency_penalty;
-        if (params.presence_penalty != paramsDefault.presence_penalty) modelConfig[modelName]["presence_penalty"] = params.presence_penalty;
-        if (params.mirostat != paramsDefault.mirostat) modelConfig[modelName]["mirostat"] = params.mirostat;
-        if (params.mirostat_tau != paramsDefault.mirostat_tau) modelConfig[modelName]["mirostat_tau"] = params.mirostat_tau;
-        if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[modelName]["mirostat_eta"] = params.mirostat_eta;
-        if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[modelName]["cfg-scale"] = params.cfg_scale;
-        if (params.n_ctx != paramsDefault.n_ctx) modelConfig[modelName]["ctx-size"] = params.n_ctx;
-        if (params.n_keep != paramsDefault.n_keep) modelConfig[modelName]["n_keep"] = params.n_keep;
-        if (params.n_batch != paramsDefault.n_batch) modelConfig[modelName]["n_batch"] = params.n_batch;
-        if (params.n_threads != paramsDefault.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
-        
-        //#ifdef GGML_EXPERIMENTAL1
-        
-        //#endif
-        if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
-        
-        #if GGML_OLD_FORMAT
-        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[modelName]["rms-norm-eps"] = params.rms_norm_eps;
-        #endif
-        
-        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[modelName]["n_threads_batch"] = params.n_threads_batch;
-        
-        
-        if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[modelName]["rope_freq_base"] = params.rope_freq_base;
-        if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[modelName]["rope_freq_scale"] = params.rope_freq_scale;
-
-        modelConfig[modelName]["cfg-negative-prompt"] = params.cfg_negative_prompt;
-        if (params.prompt.size()) modelConfig[modelName]["prompt"] = params.prompt;
-        else {
-            modelConfig[modelName]["prompt"] = "### Instruction:";
-            params.prompt = "### Instruction:";
-        }
-        if(params.antiprompt.size()) modelConfig[modelName]["reverse-prompt"] = params.antiprompt[0];
-        else {
-            modelConfig[modelName]["reverse-prompt"] = "### Instruction:";
-            params.antiprompt.push_back("### Instruction:");
-        }
     }
     
     void applySuffix(chat& aChat){

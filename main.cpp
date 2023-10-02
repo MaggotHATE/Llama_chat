@@ -216,11 +216,11 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
             ImGui::EndPopup();
         } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(paramsDefault.cfg_scale)).c_str());
         
-        ImGui::SliderInt("n_threads", &params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+        ImGui::SliderInt("n_threads", &params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
         
         
         //#ifdef GGML_EXPERIMENTAL1
-        ImGui::SliderInt("n_threads_batch", &params.n_threads_batch, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+        ImGui::SliderInt("n_threads_batch", &params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
         //#endif
         // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
 
@@ -294,6 +294,18 @@ static std::string openFile(const char* const* filterPatterns){
         return result;
     }
     return "NULL";
+}
+
+static std::string openGrammar(){
+    char const *FilterPatterns[1]={"*.gbnf"};
+    std::string currPath = filesystem::current_path().string() + '\\';
+    auto getFileName = tinyfd_openFileDialog("Select a grammar file...", currPath.c_str(),1, FilterPatterns, NULL,0);
+    if (getFileName) {
+        std::string result = getFileName;
+        sanitizePath(result);
+        return result;
+    }
+    return "";
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -502,6 +514,7 @@ int main(int, char**)
     std::string helpLabel = "Your question";
     std::string aTiming = "Not calculated yet...";
     std::string output = "...";
+    std::string inputGrammar = "";
     
     std::string textFileContents = "";
     
@@ -874,6 +887,7 @@ int main(int, char**)
                     
                     if (!copiedSettings){
                         localSettings.getSettings(newChat.newChat);
+                        helpLabel = localSettings.params.antiprompt[0];
                         copiedSettings = true;
                     }
 
@@ -1257,6 +1271,7 @@ int main(int, char**)
                         
                         if (ImGui::Button("Apply to config")) {
                             //localSettings.getFromJson("config.json");
+                            localSettings.grammarFile = inputGrammar; 
                             localSettings.updateInput();
                             localSettings.fillLocalJson();
                             localSettings.syncInputs();
@@ -1468,6 +1483,10 @@ int main(int, char**)
                                 } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
                                     localSettings.inputAntiprompt = "NULL";
                                 }
+                        ImGui::InputText("Grammar", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
+                        if (ImGui::Button("Choose grammar")) {
+                                inputGrammar = openGrammar();
+                            }
                         ImGui::InputText("Prefix", &localSettings.params.input_prefix); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
                                 
                         ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
@@ -1481,11 +1500,11 @@ int main(int, char**)
                         ImGui::SliderFloat("cfg_scale", &localSettings.params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
                         //ImGui::SliderInt("n_ctx", &localSettings.n_ctx, 2048, 16384, "%2048"); ImGui::SameLine(); HelpMarker("The size of context, must be 1024x");
                         
-                        ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+                        ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
                         
                         
                         //#ifdef GGML_EXPERIMENTAL1
-                        ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, 0, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+                        ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
                         //#endif
                         if (clblast == 1) { 
                             ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");

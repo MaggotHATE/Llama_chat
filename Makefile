@@ -44,13 +44,23 @@ else
 endif
 
 CCC = c2x
-CCPP = c++20
+CCPP = c++2a
 
 # -Ofast tends to produce faster code, but may not be available for some compilers.
 ifdef LLAMA_FAST
 OPT = -Ofast
 else
 OPT = -O3
+endif
+
+CONFLAG =
+
+ifdef CON
+CONFLAG = -mconsole
+endif
+
+ifdef CONW
+CONFLAG = -mconsole -mwindows
 endif
 
 FLAG_S = static
@@ -616,7 +626,7 @@ all_ggml: $(EXE_GGML) chatTest_ggml
 # MAIN EXE's    
     
 $(EXE): $(OBJS) $(OBJS_GGUF) include/json.hpp tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(LDFLAGS) $(LIBS)
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
     
 chatTest:class_chat.cpp $(OBJS_GGUF) include/json.hpp chat_plain.h thread_chat.h
 	$(CXX) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
@@ -624,7 +634,7 @@ chatTest:class_chat.cpp $(OBJS_GGUF) include/json.hpp chat_plain.h thread_chat.h
 #CLBLAST
     
 $(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(LDFLAGS_CL) $(LIBS)
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
         
 chatTest_cl:class_chat.cpp                                  include/json.hpp chat_plain.h thread_chat.h $(OBJS_GGUF_CL)
 	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
@@ -632,7 +642,7 @@ chatTest_cl:class_chat.cpp                                  include/json.hpp cha
 #OpenBLAS
 
 $(EXE_OB): $(OBJS) $(OBJS_GGUF_OB) include/json.hpp tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(LDFLAGS) $(LDFLAGS_OB) $(LIBS)
+	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LDFLAGS_OB) $(LIBS)
     
 chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_chat.h
 	$(CXX) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) $(LDFLAGS_OB) -o $@

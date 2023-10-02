@@ -121,8 +121,12 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
         params.lora_adapter = config["lora"];
         //params.use_mmap = false;
     }
+    
+    if (checkJString(config, "input_prefix")) params.input_prefix = loadNpring(config,"input_prefix", true);
+    if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
+    
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
-    if (checkJNum(config, "e_threads")) params.e_threads = loadNpring(config,"e_threads", true);
+    if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = loadNpring(config,"n_threads_batch", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
     if (checkJNum(config, "temp")) params.temp = loadNpring(config,"temp", true);
@@ -766,7 +770,7 @@ public:
                 // const std::vector<llama_token> tmp = { 0, };
                 // llama_eval(ctx, tmp.data(), tmp.size(), params.n_predict - 1, params.n_threads);
                 const std::vector<llama_token> tmp(params.n_batch, llama_token_bos());
-                llama_eval(ctx, tmp.data(), tmp.size(), params.n_ctx, params.n_threads, params.e_threads);
+                llama_eval(ctx, tmp.data(), tmp.size(), params.n_ctx, params.n_threads, params.n_threads_batch);
             }
 
             llama_print_timings(ctx);
@@ -978,7 +982,7 @@ public:
         
         {
             const std::vector<llama_token> tmp = { llama_token_bos(), };
-            llama_eval(ctx, tmp.data(), tmp.size(), 0, params.n_threads, params.e_threads);
+            llama_eval(ctx, tmp.data(), tmp.size(), 0, params.n_threads, params.n_threads_batch);
             llama_reset_timings(ctx);
         }
         
@@ -1086,7 +1090,7 @@ public:
 
             for (int i = 0; i < input_size; i += params.n_batch) {
                 int n_eval = std::min(input_size - i, params.n_batch);
-                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads, params.e_threads)) {
+                if (llama_eval(ctx_guidance, input_buf + i, n_eval, n_past_guidance, params.n_threads, params.n_threads_batch)) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
                     return 1;
                 }
@@ -1100,7 +1104,7 @@ public:
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads, params.e_threads)) {
+            if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads, params.n_threads_batch)) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 return 1;
             }
@@ -1620,6 +1624,69 @@ public:
     }
     
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
+    void appendPrefixBos(){
+        if (params.input_prefix_bos) {
+            embd_inp.push_back(llama_token_bos());
+        }
+    }
+    
+    int subInputNew(std::string& line){
+        
+        //std::string buffer = line + DELIMINER;
+        
+        if (line.length() > 1) {
+            if (debug) fprintf(stderr, "<");
+            
+            // Add tokens to embd only if the input buffer is non-empty
+            // Entering a empty line lets the user pass control back
+            appendPrefixBos();
+            
+            std::string buffer = params.input_prefix + line + DELIMINER + params.input_suffix;
+            
+            const size_t original_size = embd_inp.size();
+
+            // instruct mode: insert instruction prefix
+            if (params.instruct && !is_antiprompt) {
+                n_consumed = embd_inp.size();
+                if (debug) printf("|");
+                embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
+            }
+
+            auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+
+            // instruct mode: insert response suffix
+            if (params.instruct) {
+                if (debug) printf("^");
+                embd_inp.insert(embd_inp.end(), inp_sfx.begin(), inp_sfx.end());
+            }
+
+            n_remain -= line_inp.size();
+        }
+
+        //is_antiprompt = false;
+        
+        return 1;
+    }
+    
+    int inputOnlyNew(std::string& input){
+        //std::cout << " ***** " << input << std::endl;
+        if (n_past > 0 && is_interacting) {
+
+            subInputNew(input);     
+            input_echo = false; // do not echo this again        
+        }
+        
+        if (n_past > 0) {
+            resetGrammar();
+            is_interacting = false;
+        }
+        
+        //checkInfinite();
+
+        return 1;
+    }
+
 
     std::string generate(bool consoleOutput = true){
         std::string result;
@@ -1667,6 +1734,13 @@ public:
             if (cutAntiPos != std::string::npos){
                 result.erase(cutAntiPos);
             }
+        }
+    }
+    
+    void eraseLast(std::string& result, std::string& stop){
+        int cutAntiPos = result.rfind(stop);
+        if (cutAntiPos != std::string::npos){
+            result.erase(cutAntiPos);
         }
     }
     

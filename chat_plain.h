@@ -138,6 +138,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJString(config, "input_prefix")) params.input_prefix = loadNpring(config,"input_prefix", true);
     if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
+    if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = loadNpring(config,"n_threads_batch", true);
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
@@ -909,6 +910,9 @@ public:
         // if (!params.prompt.empty() || session_tokens.empty()) {
             // // Add a space in front of the first character to match OG llama tokenizer behavior
             // params.prompt.insert(0, 1, ' ');
+            
+        
+        
         if (params.interactive_first || params.instruct || !params.prompt.empty() || session_tokens.empty()) {
             embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos);
         } else {
@@ -918,6 +922,10 @@ public:
         if (embd_inp.empty()) {
             embd_inp.push_back(llama_token_bos(ctx));
         }
+        
+        //if (embd_inp.empty()) {
+        //    embd_inp.push_back(llama_token_bos(ctx));
+        //}
 
         // Tokenize negative prompt
 
@@ -1581,11 +1589,92 @@ public:
     
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
 
+    void appendPrefixBos(){
+        if (params.input_prefix_bos) {
+            embd_inp.push_back(llama_token_bos(ctx));
+        }
+    }
+    
+    int subInputNew(std::string& line){
+        
+        //std::string buffer = line + DELIMINER;
+        
+        if (line.length() > 1) {
+            if (debug) fprintf(stderr, "<");
+            
+            // Add tokens to embd only if the input buffer is non-empty
+            // Entering a empty line lets the user pass control back
+            appendPrefixBos();
+            
+            std::string buffer = params.input_prefix + line + DELIMINER + params.input_suffix;
+            
+            const size_t original_size = embd_inp.size();
+
+            // instruct mode: insert instruction prefix
+            if (params.instruct && !is_antiprompt) {
+                n_consumed = embd_inp.size();
+                if (debug) printf("|");
+                embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
+            }
+
+            //auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            const auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+            
+            
+            
+            for (size_t i = original_size; i < embd_inp.size(); ++i) {
+                const llama_token token = embd_inp[i];
+                output_tokens.push_back(token);
+                output_ss << llama_token_to_piece(ctx, token);
+            }
+
+            // instruct mode: insert response suffix
+            if (params.instruct) {
+                if (debug) printf("^");
+                embd_inp.insert(embd_inp.end(), inp_sfx.begin(), inp_sfx.end());
+            }
+            
+            
+
+            n_remain -= line_inp.size();
+        }
+
+        //is_antiprompt = false;
+        
+        return 1;
+    }
+    
+//input, which requires preemptive processing (checking, adding prompt leftovers, antiprompt processing)
+    
+    int inputOnlyNew(std::string& input){
+        //std::cout << " ***** " << input << std::endl;
+        if (n_past > 0 && is_interacting) {
+
+            subInputNew(input);     
+            input_echo = false; // do not echo this again        
+        }
+        
+        if (n_past > 0) {
+            resetGrammar();
+            is_interacting = false;
+        }
+        
+        //checkInfinite();
+
+        return 1;
+    }
+
+
     std::string generate(bool consoleOutput = true){
         std::string result;
         //std::cout << " * " << std::endl;
         //char* result = new char[2048];
         bool fastStop = false;
+        
+        //appendPrefixBos();
+        
+        if (hasAntiprompt(params.prompt) == -1 && params.input_prefix.empty())  params.prompt += DELIMINER + params.antiprompt[0];
         
         n_vocab = llama_n_vocab(model);
         
@@ -1624,6 +1713,24 @@ public:
             //return llama_token_to_string(ctx, id); 
             return llama_token_to_piece(ctx, id); 
         }
+    }
+    
+    int hasAntiprompt(std::string& result){
+        if (params.antiprompt.size()) {
+            int cutAntiPos = result.rfind(params.antiprompt[0]);
+            if (cutAntiPos != std::string::npos){
+                return cutAntiPos;
+            }
+        }
+        return -1;
+    }
+    
+    int hasLast(std::string& result, std::string& stop){
+        int cutAntiPos = result.rfind(stop);
+        if (cutAntiPos != std::string::npos){
+            return cutAntiPos;
+        }
+        return -1;
     }
     
     void eraseAntiprompt(std::string& result){
