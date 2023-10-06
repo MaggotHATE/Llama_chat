@@ -81,6 +81,11 @@ SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp $(IMGUI_DIR)/backends/imgui
 SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
 OBJS0 = $(addprefix o/imgui/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 OBJS = $(subst o/imgui/main.o,main.cpp,$(OBJS0))
+OBJS += o/tinyfiledialogs.o
+
+FILE_D = -Itinyfiledialogs
+I_GGUF = -Ibase -Iinclude
+I_GGML = -Iggml -Iinclude
 
 #OBJS_OB = $(subst main.o,main_ob.o,$(OBJS))
 #OBJS_CL = $(subst main.o,cl_main.o,$(OBJS))
@@ -341,6 +346,10 @@ OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/llama.o o/common.o o/k_quants.o o/grammar-
   
 o/ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
+    
+o/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+    
     
 o/ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
@@ -625,48 +634,43 @@ all_ggml: $(EXE_GGML) chatTest_ggml
 
 # MAIN EXE's    
     
-$(EXE): $(OBJS) $(OBJS_GGUF) include/json.hpp tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
+$(EXE): $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h llama_chat1.res
+	 $(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
     
-chatTest:class_chat.cpp $(OBJS_GGUF) include/json.hpp chat_plain.h thread_chat.h
-	$(CXX) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
+	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
     
 #CLBLAST
     
-$(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
+$(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
         
-chatTest_cl:class_chat.cpp                                  include/json.hpp chat_plain.h thread_chat.h $(OBJS_GGUF_CL)
-	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
+chatTest_cl:class_chat.cpp                                  chat_plain.h thread_chat.h $(OBJS_GGUF_CL)
+	$(CXX) $(I_GGUF) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
     
 #OpenBLAS
 
-$(EXE_OB): $(OBJS) $(OBJS_GGUF_OB) include/json.hpp tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LDFLAGS_OB) $(LIBS)
+$(EXE_OB): $(OBJS) $(OBJS_GGUF_OB) tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) -Ibase -Iinclude -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LDFLAGS_OB) $(LIBS)
     
 chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_chat.h
-	$(CXX) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) $(LDFLAGS_OB) -o $@
+	$(CXX) -Ibase -Iinclude $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) $(LDFLAGS_OB) -o $@
     
 #GGML format
 
-$(EXE_GGML):$(OBJS) $(OBJS_GGML1) include/json.hpp tinyfiledialogs/tinyfiledialogs.c GGML/chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
+$(EXE_GGML):$(OBJS) $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
     
-chatTest_ggml:class_chat.cpp $(OBJS_GGML1) include/json.hpp GGML/chat_plain.h thread_chat.h 
-	$(CXX) $(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
-    
-# VULKAN
-
-chatTest_vk:class_chat.cpp $(OBJS_VK) include/json.hpp VULKAN/chat_plain.h thread_chat.h 
-	$(CXX) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) -o $@
+chatTest_ggml:class_chat.cpp $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h 
+	$(CXX) $(I_GGML)$(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
     
 #GGML format w CLBLAST
 
-$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) include/json.hpp tinyfiledialogs/tinyfiledialogs.c GGML/chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
+$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) GGML/chat_plain.h thread_chat.h llama_chat1.res
+	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
     
 chatTest_ggml_cl:class_chat.cpp include/json.hpp GGML/chat_plain.h thread_chat.h  $(OBJS_CL_GGML1)
-	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL_GGML)
+	$(CXX) $(I_GGML) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL_GGML)
     
 # experimental
 
@@ -695,6 +699,11 @@ $(EXE)_e1_cl: $(OBJS) $(OBJS_GGUF_E1_CL) include/json.hpp tinyfiledialogs/tinyfi
         
 chatTest_e1_cl:class_chat.cpp                                  include/json.hpp $(EXPER_F1)/chat_plain.h thread_chat.h $(OBJS_GGUF_E1_CL)
 	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL) $(CXXFLAGS_E1)
+    
+# VULKAN
+
+chatTest_vk:class_chat.cpp $(OBJS_VK) include/json.hpp VULKAN/chat_plain.h thread_chat.h 
+	$(CXX) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) -o $@
     
 # additional
 
