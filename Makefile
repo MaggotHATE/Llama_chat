@@ -658,11 +658,11 @@ chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_
     
 #GGML format
 
-$(EXE_GGML):$(OBJS) $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h llama_chat1.res
+$(EXE_GGML):$(OBJS) $(OBJS_GGML1) tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
     
 chatTest_ggml:class_chat.cpp $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h 
-	$(CXX) $(I_GGML)$(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+	$(CXX) $(I_GGML) $(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
     
 #GGML format w CLBLAST
 

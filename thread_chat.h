@@ -144,6 +144,10 @@ struct modelThread{
         //else resultsStringPairs.push_back(std::pair(newChat.params.input_prefix,input));
     }
     
+    void removeLastAnswer(){
+        resultsStringPairs.pop_back();
+    }
+    
     void displayResults(){
         Clear();
         
@@ -425,42 +429,64 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
         
     }
     
-    void getResultAsyncStringRepeat(bool streaming = false) {
+    void getResultAsyncStringRepeat(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
-        
+        removeLastAnswer();
         
         newChat.clearLastEmbd();
         
-        futureTextString = std::async(std::launch::async, [this, &streaming] mutable {
+        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
+            
+            //std::string input = resultsStringPairs.back().second;
+                
+            getTimigsPre();
+            //newChat.inputOnly(input);
+            //newChat.inputOnlyNew(input);
+            isPregen = 'i';
+            //consumed_tokens = newChat.getConsumedTokens();
+            //past_tokens = newChat.getPastTokens();
+            
+            //getTimigsPre();
+            
             
             while (isContinue != 'i'){
         
-                futureTextSubString = std::async(std::launch::async, [this, &streaming] mutable {
-                    //char* result = newChat.cycleInputSingleOutputString(input); 
-                    
-                    //std::string result = newChat.cycleStringsOnly(resultsString.back()); 
-                    //resultsString.push_back(result);
-                    //std::string input = resultsStringPairs.back().second;
-                    std::string output = newChat.cycleStringsOnly(false);
-                    if (streaming) std::cout << output;
-                    lastResult += output;
-                    //getTimigsSimple();
-                    
-                    if (newChat.finished){
-                        newChat.eraseAntiprompt(lastResult);
-                        resultsStringPairs.push_back(std::pair("AI",lastResult));
-                        isContinue = 'i';
-                        isPregen = 'i';
-                        getTimigsSimple();
-                        //last_tokens = newChat.getLastTokens();
+
+                std::string output = newChat.cycleStringsOnly(false);
+                lastResult += output;
+                
+                if (streaming) {
+                    if (full) {
+                        //getTimigsBoth();
+                        //getTimigsPre();
+                        getTimigsGen();
+                        display();
+                        std::cout << lastResult;
+                    } else std::cout << output;
+                } else {
+                    if (full) {
+                        getTimigsGen();
+                        //getTimigsPre();
                     }
+                }
+                //getTimigsSimple();
+                
+                if (newChat.finished){
+                    //newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
                     
-                    return lastResult;
-                });
+                    resultsStringPairs.push_back(std::pair("AI",lastResult));
+                    isContinue = 'i';
+                    
+                    getTimigsBoth();
+                    newChat.clear_speed();
+                }
+                    
                 
                 //futureTextString.get();
-                futureTextSubString.wait();
+
                 last_tokens = newChat.getLastTokens();
                 //remain_tokens = newChat.getRemainTokens();
                 consumed_tokens = newChat.getConsumedTokens();

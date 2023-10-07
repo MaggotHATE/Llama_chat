@@ -132,6 +132,13 @@ kernel void kernel_relu(
     dst[tpig] = max(0.0f, src0[tpig]);
 }
 
+kernel void kernel_sqr(
+        device const float * src0,
+        device       float * dst,
+        uint tpig[[thread_position_in_grid]]) {
+    dst[tpig] = src0[tpig] * src0[tpig];
+}
+
 constant float GELU_COEF_A    = 0.044715f;
 constant float SQRT_2_OVER_PI = 0.79788456080286535587989211986876f;
 
@@ -830,7 +837,9 @@ kernel void kernel_alibi_f32(
         constant  uint64_t & nb1,
         constant  uint64_t & nb2,
         constant  uint64_t & nb3,
-        constant      float & m0,
+        constant     float & m0,
+        constant     float & m1,
+        constant       int & n_heads_log2_floor,
         uint3 tgpig[[threadgroup_position_in_grid]],
         uint3 tpitg[[thread_position_in_threadgroup]],
         uint3   ntg[[threads_per_threadgroup]]) {
@@ -846,7 +855,12 @@ kernel void kernel_alibi_f32(
     const int64_t i0 = (n - i3*ne2*ne1*ne0 - i2*ne1*ne0 - i1*ne0);
 
     device float * dst_data = (device float *) ((device char *) dst + i3*nb3 + i2*nb2 + i1*nb1 + i0*nb0);
-    float m_k = pow(m0, i2 + 1);
+    float m_k;
+    if (i2 < n_heads_log2_floor) {
+        m_k = pow(m0, i2 + 1);
+    } else {
+        m_k = pow(m1, 2 * (i2 - n_heads_log2_floor) + 1);
+    }
     for (int64_t i00 = tpitg.x; i00 < ne00; i00 += ntg.x) {
         device const float * src = (device float *)((device char *) src0 + i03*nb03 + i02*nb02 + i01*nb01 + i00*nb00);
         dst_data[i00] = src[0] + m_k * (i00 - ne00 + 1);
@@ -1088,6 +1102,62 @@ kernel void kernel_cpy_f32_f32(
         device const float * src = (device float *)((device char *) src0 + i03*nb03 + i02*nb02 + i01*nb01 + i00*nb00);
 
         dst_data[i00] = src[0];
+    }
+}
+
+kernel void kernel_concat(
+    device const char * src0,
+    device const char * src1,
+    device       char * dst,
+    constant   int64_t & ne00,
+    constant   int64_t & ne01,
+    constant   int64_t & ne02,
+    constant   int64_t & ne03,
+    constant  uint64_t & nb00,
+    constant  uint64_t & nb01,
+    constant  uint64_t & nb02,
+    constant  uint64_t & nb03,
+    constant   int64_t & ne10,
+    constant   int64_t & ne11,
+    constant   int64_t & ne12,
+    constant   int64_t & ne13,
+    constant  uint64_t & nb10,
+    constant  uint64_t & nb11,
+    constant  uint64_t & nb12,
+    constant  uint64_t & nb13,
+    constant   int64_t & ne0,
+    constant   int64_t & ne1,
+    constant   int64_t & ne2,
+    constant   int64_t & ne3,
+    constant  uint64_t & nb0,
+    constant  uint64_t & nb1,
+    constant  uint64_t & nb2,
+    constant  uint64_t & nb3,
+    uint3 tgpig[[threadgroup_position_in_grid]],
+    uint3 tpitg[[thread_position_in_threadgroup]],
+    uint3   ntg[[threads_per_threadgroup]]) {
+
+    const int64_t i03 = tgpig.z;
+    const int64_t i02 = tgpig.y;
+    const int64_t i01 = tgpig.x;
+
+    const int64_t i13 = i03 % ne13;
+    const int64_t i12 = i02 % ne12;
+    const int64_t i11 = i01 % ne11;
+
+    device const char * src0_ptr = src0 + i03 * nb03 + i02 * nb02 + i01 * nb01 + tpitg.x*nb00;
+    device const char * src1_ptr = src1 + i13*nb13 + i12*nb12 + i11*nb11 + tpitg.x*nb10;
+    device       char * dst_ptr  = dst  + i03*nb3  + i02*nb2  + i01*nb1  + tpitg.x*nb0;
+
+    for (int i0 = tpitg.x; i0 < ne0; i0 += ntg.x) {
+        if (i02 < ne02) {
+            ((device float *)dst_ptr)[0] = ((device float *)src0_ptr)[0];
+            src0_ptr += ntg.x*nb00;
+        } else {
+            ((device float *)dst_ptr)[0] = ((device float *)src1_ptr)[0];
+            src1_ptr += ntg.x*nb10;
+        }
+        dst_ptr += ntg.x*nb0;
     }
 }
 
