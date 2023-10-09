@@ -46,12 +46,18 @@ endif
 CCC = c2x
 CCPP = c++2a
 
+ifdef COMPACT
+OPT = -Os
+CXXFLAGS_UI = -Os
+endif
+
 # -Ofast tends to produce faster code, but may not be available for some compilers.
 ifdef LLAMA_FAST
-OPT = -Ofast
+OPT += -Ofast
 else
-OPT = -O3
+OPT += -O3
 endif
+
 
 CONFLAG =
 
@@ -75,12 +81,24 @@ EXE_CL = Llama_Chat_gguf_clblast
 EXE_GGML = Llama_Chat_ggml
 EXE_CL_GGML = Llama_Chat_ggml_clblast
 IMGUI_DIR = imgui
+VULKAN_DIR = VulkanSDK
 SOURCES = main.cpp
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
-SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp
+
+ifndef SDL2
+SOURCES += $(IMGUI_DIR)/backends/imgui_impl_vulkan.cpp
+else 
+SOURCES += $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+endif
+
 SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
 OBJS0 = $(addprefix o/imgui/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
+ifndef SDL2
+OBJS = $(subst o/imgui/main.o,main_vk.cpp,$(OBJS0))
+else
 OBJS = $(subst o/imgui/main.o,main.cpp,$(OBJS0))
+endif
 OBJS += o/tinyfiledialogs.o
 
 FILE_D = -Itinyfiledialogs
@@ -146,7 +164,7 @@ ifeq ($(UNAME_S),OpenBSD)
 endif
 
 #for main ui
-CXXFLAGS_UI = -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
+CXXFLAGS_UI += -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI += -g -Wall -Wformat -pipe
 
@@ -217,6 +235,11 @@ ifeq ($(OS), Windows_NT)
     #CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
 
+ifndef SDL2
+LIBS +=  -lshell32 -lvulkan-1
+CXXFLAGS_UI += -I$(VULKAN_DIR)/include
+endif
+
 # For emojis
 
 CXXFLAGS_UI += -DIMGUI_USE_WCHAR32
@@ -276,10 +299,10 @@ o/old_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
 ifeq ($(UNAME_S),Darwin)
     LDFLAGS_CL_GGML += -lclblast -framework OpenCL
 else
-    #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
+    #LDFLAGS2 += -lclblast -lOpenCL
     LDFLAGS_CL_GGML += -Llib/OpenCL.lib -Llib/clblast.lib
 endif
-    #LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib -lclblast -lOpenCL
+    #LDFLAGS_CL += -lclblast -lOpenCL
 CXXFLAGS_CL_GGML += -lclblast -lOpenCL
 CXXFLAGS_UI_CL_GGML += -lclblast -lOpenCL
 
@@ -313,36 +336,35 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
 #VULKAN
 
 LDFLAGS_VK = -lvulkan -lopenblas -lglslang -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lshaderc_combined
+#CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
+OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_llama.o o/vk_common.o o/vk_k_quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
 
+o/vk_ggml-vulkan.o: VULKAN/ggml-vulkan.cpp VULKAN/ggml-vulkan.h
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
 
-OBJS_VK = o/ggml_vk.o o/ggml-alloc_vk.o o/llama_vk.o o/common_vk.o o/k_quants_vk.o o/grammar-parser_vk.o o/ggml-vulkan.o
-
-o/ggml-vulkan.o: VULKAN/ggml-vulkan.cpp VULKAN/ggml-vulkan.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-
-o/ggml_vk.o: VULKAN/ggml.c GGML/ggml.h
+o/vk_ggml.o: VULKAN/ggml.c GGML/ggml.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
     
-o/ggml-alloc_vk.o: VULKAN/ggml-alloc.c VULKAN/ggml.h VULKAN/ggml-alloc.h
+o/vk_ggml-alloc.o: VULKAN/ggml-alloc.c VULKAN/ggml.h VULKAN/ggml-alloc.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
 
-o/llama_vk.o: VULKAN/llama.cpp VULKAN/ggml.h VULKAN/ggml-alloc.h VULKAN/llama.h  VULKAN/llama-util.h
+o/vk_llama.o: VULKAN/llama.cpp VULKAN/ggml.h VULKAN/ggml-alloc.h VULKAN/llama.h  VULKAN/llama-util.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-o/common_vk.o: VULKAN/common.cpp VULKAN/common.h
+o/vk_common.o: VULKAN/common.cpp VULKAN/common.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-o/k_quants_vk.o: VULKAN/k_quants.c VULKAN/k_quants.h
+o/vk_k_quants.o: VULKAN/k_quants.c VULKAN/k_quants.h
 	$(CC) $(CFLAGS_VK) -c $< -o $@
     
-o/grammar-parser_vk.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
+o/vk_grammar-parser.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
   
   
 # GGUF
 
-OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/llama.o o/common.o o/k_quants.o o/grammar-parser.o
+OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/ggml-backend.o o/llama.o o/common.o o/k_quants.o o/grammar-parser.o
   
 o/ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
@@ -353,9 +375,12 @@ o/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiled
     
 o/ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
+    
+o/ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
 
 #base/threadpool.h
-o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h
+o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/common.o: base/common.cpp base/common.h
@@ -380,16 +405,16 @@ o/grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 ifeq ($(UNAME_S),Darwin)
     LDFLAGS_CL += -lclblast -framework OpenCL
 else
-    #LDFLAGS2 += -Llib/OpenCL.lib -Llib/clblast.lib  -lclblast -lOpenCL
+    #LDFLAGS2 += -lclblast -lOpenCL
     LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib
-    #LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib -lclblast -lOpenCL
+    #LDFLAGS_CL += -lclblast -lOpenCL
 endif
 
 CXXFLAGS_CL += -lclblast -lOpenCL
 CXXFLAGS_UI_CL += -lclblast -lOpenCL
 
 
-OBJS_GGUF_CL    = o/cl_k_quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml.o o/cl_ggml-alloc.o o/cl_llama.o o/cl_common.o o/cl_grammar-parser.o
+OBJS_GGUF_CL    = o/cl_k_quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml.o o/cl_ggml-alloc.o o/cl_ggml-backend.o o/cl_llama.o o/cl_common.o o/cl_grammar-parser.o
 
 o/cl_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
@@ -399,9 +424,12 @@ o/cl_ggml.o: base/ggml.c base/ggml.h
     
 o/cl_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+    
+o/cl_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
 
 #base/threadpool.h
-o/cl_llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h
+o/cl_llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
 o/cl_common.o: base/common.cpp base/common.h
@@ -658,7 +686,7 @@ chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_
     
 #GGML format
 
-$(EXE_GGML):$(OBJS) $(OBJS_GGML1) tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
+$(EXE_GGML):$(OBJS) $(OBJS_GGML1) chat_plain.h thread_chat.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
     
 chatTest_ggml:class_chat.cpp $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h 
@@ -666,7 +694,7 @@ chatTest_ggml:class_chat.cpp $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h
     
 #GGML format w CLBLAST
 
-$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) GGML/chat_plain.h thread_chat.h llama_chat1.res
+$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) chat_plain.h thread_chat.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
     
 chatTest_ggml_cl:class_chat.cpp include/json.hpp GGML/chat_plain.h thread_chat.h  $(OBJS_CL_GGML1)
@@ -702,8 +730,9 @@ chatTest_e1_cl:class_chat.cpp                                  include/json.hpp 
     
 # VULKAN
 
-chatTest_vk:class_chat.cpp $(OBJS_VK) include/json.hpp VULKAN/chat_plain.h thread_chat.h 
-	$(CXX) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) -o $@
+chatTest_vk:VULKAN/class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h 
+	$(CXX) -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) -o $@ $(LDFLAGS_VK)
+    
     
 # additional
 
