@@ -1058,6 +1058,7 @@ struct chatUI{
     }
     
     
+    // separating this into more functions breaks "realtime" speed display
     void dialogTab(const ImGuiViewport* viewport){
         
         messageWidth = ImGui::GetWindowWidth();
@@ -1419,319 +1420,309 @@ struct chatUI{
         } else {
 // Initial buttons and settings to load a model////////////////////////////////////////////////////
             if (newChat.isContinue == '_') {
-              ImGui::BeginChild("InitSettings");
-              
-                if(modelsFolderName != "NULL") {
-                    ImGui::TextWrapped(( "Models folder: " + modelsFolderName).c_str());
-                    ImGui::Separator();
-                }
-                
-                //if (!localSettings.params.input_prefix.empty()) ImGui::TextWrapped(( "Prefix: " + localSettings.params.input_prefix).c_str());
-                //if (!localSettings.params.input_suffix.empty()) ImGui::TextWrapped(( "input_suffix: " + localSettings.params.input_suffix).c_str());
-                
-                if(localSettings.modelName != "NULL") 
-                    ImGui::TextWrapped(( "Selected model: " + localSettings.modelName).c_str());
-                else
-                    ImGui::TextWrapped(( "Default model: " + localSettings.modelFromJson).c_str());
-                ImGui::Separator();
-                
-                if (localSettings.instructFileFromJson != "NULL") {
-                    ImGui::TextWrapped( ("Default instruct file: " + localSettings.instructFileFromJson).c_str() );
-                    ImGui::Separator();
-                }
-                //ImGui::TextWrapped( ("Font file: " + fontFile).c_str() );
-                ImGui::Spacing();
-                
-                ImGui::Indent();
-                // int checkInputs = localSettings.checkChangedInputs();
-                // if (checkInputs != 0){
-                    // if (checkInputs != 2 && checkInputs != 4 && checkInputs != 6) ImGui::TextWrapped( ("Set prompt to " + localSettings.inputPrompt).c_str() );
-                    // if (checkInputs != 1 && checkInputs != 4 && checkInputs != 5) ImGui::TextWrapped( ("Set antiprompt to " + localSettings.inputAntiprompt).c_str() );
-                    // if (localSettings.inputAntiCFG != "NULL" && checkInputs != 2 && checkInputs != 1 && checkInputs != 3) ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
-                // }
-                
-                if (!localSettings.checkInputPrompt()) ImGui::TextWrapped( ("Set prompt to " + localSettings.inputPrompt).c_str() );
-                
-                if (!localSettings.checkInputAntiprompt()) ImGui::TextWrapped( ("Set antiprompt to " + localSettings.inputAntiprompt).c_str() );
-                
-                if (!localSettings.checkInputAntiCFG()) ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
-                
-                if (localSettings.params.cfg_scale > 1.0) {
-                    ImGui::TextWrapped( ("Set CFG cfg_scale to " + std::to_string(localSettings.params.cfg_scale)).c_str() );
-                    ImGui::Separator();
-                }
-                ImGui::Unindent();
-                
-                
-                ImGui::Spacing();
-                
-                if (ImGui::Button("Apply to config")) {
-                    //localSettings.getFromJson("config.json");
-                    localSettings.grammarFile = inputGrammar; 
-                    localSettings.updateInput();
-                    localSettings.fillLocalJson();
-                    localSettings.syncInputs();
-                    //localJsonDump = localSettings.modelConfig.dump(3);
-                    localSettings.updateDump();
-                }
-                
-                ImGui::SameLine();
-                
-                if (!localSettings.noConfig){
-                    if (!hasModel) {
-                        if (ImGui::Button("Load and init model")) {
-                            //localSettings.fillLocalJson();
-                            
-                            // if(localSettings.modelName != "NULL" || localSettings.inputPrompt != "NULL" || localSettings.inputAntiprompt != "NULL" || localSettings.inputAntiCFG != "NULL") load(newChat, localSettings);
-                            // else load(newChat);
-                            //load(newChat, localSettings.localConfig, hasModel);
-                            
-                            //newChat.load(localSettings.modelConfig, hasModel);
-                            newChat.jsonConfig = localSettings.modelConfig;
-                            newChat.load();
-                            
-                            hasModel = true;
-                            copiedDialog = false;
-                            copiedSettings = false;
-                            newChat.isContinue = 'l';
-                        }
-                    } else {
-                        if (ImGui::Button("Init model")) {
-                            //localSettings.fillLocalJson();
-                            
-                            // if(localSettings.modelName != "NULL" || localSettings.inputPrompt != "NULL" || localSettings.inputAntiprompt != "NULL" || localSettings.inputAntiCFG != "NULL") load(newChat, localSettings);
-                            // else load(newChat);
-                            copiedDialog = false;
-                            copiedSettings = false;
-                            copiedTimings = false;
-                            //load(newChat, localSettings.localConfig, hasModel);
-                            newChat.load(localSettings.modelConfig, hasModel);
-                            //load_task(newChat, localSettings, hasModel);
-                            newChat.isContinue = 'l';
-                        }
-                    }
-                } else {
-                    if(localSettings.modelName == "NULL") ImGui::TextWrapped( "Choose a model first!" );
-                    if(localSettings.inputPrompt == "NULL") ImGui::TextWrapped( "Add prompt first! Also, add antiprompt if you don't want endless NN conversation." );
-                    
-                }
-                
-                
-                ImGui::Separator();
-                ImGui::Spacing();
-                
-              //ImGui::BeginChild("InitSettings");
-                ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );                        
-                if (localSettings.inputInstructFile == "NULL"){
-                    
-                    if (localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
-                    
-                    ImGui::InputTextMultiline("Prompt", &inputPrompt); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
-                    if (ImGui::Button("Apply prompt")) {
-                            localSettings.inputPrompt = inputPrompt;
-                        } ImGui::SameLine(); if (ImGui::Button("Clear prompt")) {
-                            localSettings.inputPrompt = "NULL";
-                    }
-                    ImGui::SameLine();
-                    //ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y*0.2f), false);
-                    if (ImGui::Button("Open an instruct file...")) {
-                        
-                        auto inputInstructFile = tinyfd_openFileDialog("Select an instruct file...", currPath.c_str(),1, instructFilterPatterns, NULL,0);
-                        if (inputInstructFile) {
-                            //localSettings.inputInstructFile = inputInstructFile;
-                            
-                            localSettings.readInstructFile(inputInstructFile, inputPrompt, inputAntiprompt);
-                            //localSettings.syncInputs();
-                        }
-                    }
-                    
-                    
-                    
-                    if (localSettings.promptFiles.size()){
-                        ImGui::SameLine();
-                        
-                        if (ImGui::Button("Choose an instruct file...")) {
-                             ImGui::OpenPopup("Prompts");
-                        }
-                        
-                        
-                        if (ImGui::BeginPopup("Prompts"))
-                        {
-                            ImVec2 work_size = viewport->WorkSize;
-                            ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.3, work_size.y * 0.5));
-                            for ( auto promptFile : localSettings.promptFiles){
-                                //ImGui::TextWrapped(promptFile.filename().c_str());
-                                if (ImGui::Selectable( promptFile.filename().string().c_str() )){
-                                    //localSettings.inputInstructFile = promptFile.string();
-                                    localSettings.readInstructFile(promptFile.string(), inputPrompt, inputAntiprompt);
-                                    //localSettings.syncInputs();
-                                }
-                            }
-                            ImGui::EndChild();
-                            ImGui::EndPopup();
-                            
-                        }
-                    }
-                    
-                    ImGui::SameLine();
-                    
-                    if (ImGui::Button("Save current instruct...")) {
-                        //ImGui::OpenPopup("Save instruct");
-                        auto savedInstruct = tinyfd_saveFileDialog( inputAntiprompt.c_str() , localSettings.promptFilesFolder.c_str() , 1 , instructFilterPatterns, NULL);
-                        
-                        if (savedInstruct){
-                            std::string fileContents = inputPrompt;
-                            
-                            int antiPos = fileContents.rfind('\n');
-                            if (antiPos == fileContents.npos && inputPrompt != inputAntiprompt) {
-                                fileContents += '\n' + inputAntiprompt;
-                            }
-                            
-                            //std::string filename = localSettings.promptFilesFolder + savedInstruct + ".txt";
-                            
-                            writeTextFileOver(savedInstruct, fileContents);
-                            localSettings.getFilesList();
-                        }
-                        
-                    }
-                    
-                    ImVec2 center = viewport->GetCenter();
-                    ImVec2 work_size = viewport->WorkSize;
-                    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-
-                    if (ImGui::BeginPopupModal("Save instruct"))
-                    {
-                        
-                        
-                        if (ImGui::BeginChild("File name", ImVec2( work_size.x * 0.5f, work_size.y * 0.5f)))
-                        {
-                            static std::string instructName = inputAntiprompt;
-                            struct TextFilters
-                            {
-                                static int FilterFileLetters(ImGuiInputTextCallbackData* data)
-                                {
-                                    if (data->EventChar < 256 && strchr(" /\\*:?\"|<> ", (char)data->EventChar))
-                                        return 1;
-                                    return 0;
-                                }
-                            };
-                            if (localSettings.promptFilesFolder.back() != '\\' && localSettings.promptFilesFolder.back() != '/') localSettings.promptFilesFolder += '/';
-                            std::string fileContents = inputPrompt;
-                            
-                            int antiPos = fileContents.rfind('\n');
-                            if (antiPos == fileContents.npos) {
-                                fileContents += inputAntiprompt;
-                            }
-                            
-                            ImGui::TextWrapped(( "Save to: " + localSettings.promptFilesFolder + instructName + ".txt").c_str());
-                            ImGui::Separator();
-                            ImGui::TextWrapped(( "Saving: " + fileContents).c_str());
-                            ImGui::Separator();
-                            
-                            ImGui::InputText("< File name", &instructName, ImGuiInputTextFlags_CallbackCharFilter, TextFilters::FilterFileLetters);
-                            
-                            if (instructName.size()){
-                                if (ImGui::Button("Save", ImVec2(work_size.x * 0.4f, 0))) {
-                                    
-                                    
-                                    writeTextFileOver(localSettings.promptFilesFolder + instructName + ".txt", fileContents);
-                                    localSettings.getFilesList();
-                                    
-                                    ImGui::CloseCurrentPopup();
-                                }
-                            }
-                            
-                            if (ImGui::Button("Cancel", ImVec2(work_size.x * 0.4f, 0))) { ImGui::CloseCurrentPopup(); }
-                        }
-                        
-                        ImGui::EndChild();
-                        
-                        
-                        
-                        
-                        
-                        ImGui::EndPopup();
-                    }
-                    
-                    
-                    
-                    if (localSettings.instructFileFromJson != "NULL"){
-                        ImGui::SameLine();
-                        if (ImGui::Button("Clear instruct file from config")) {
-                                //localSettings.inputInstructFile = "NULL";
-                                localSettings.clearFile();
-                                //localSettings.updateSettings();
-                                //localSettings.hasInstructFile = false;
-                        }
-                    }
-                } else {
-                    ImGui::TextWrapped( ("Selected file: " + localSettings.inputInstructFile).c_str() );
-                    if (ImGui::Button("Clear instruct file")) {
-                            localSettings.inputInstructFile = "NULL";
-                            localSettings.syncInputs();
-                    }
-                }
-                
-                //ImGui::EndChild();
-                
-                ImGui::InputText("Antiprompt", &inputAntiprompt); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
-                if (ImGui::Button("Apply antiprompt")) {
-                            localSettings.inputAntiprompt = inputAntiprompt;
-                        } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
-                            localSettings.inputAntiprompt = "NULL";
-                        }
-                ImGui::InputText("Grammar", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
-                if (ImGui::Button("Choose grammar")) {
-                        inputGrammar = openGrammar();
-                    }
-                ImGui::InputText("Prefix", &localSettings.params.input_prefix); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
-                        
-                ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
-                        
-                ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." ); 
-                if (ImGui::Button("Apply CFG antiprompt")) {
-                            localSettings.inputAntiCFG = inputAntiCFG;
-                        } ImGui::SameLine(); if (ImGui::Button("Clear CFG antiprompt")) {
-                            localSettings.inputAntiCFG = "NULL";
-                        }
-                ImGui::SliderFloat("cfg_scale", &localSettings.params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
-                //ImGui::SliderInt("n_ctx", &localSettings.n_ctx, 2048, 16384, "%2048"); ImGui::SameLine(); HelpMarker("The size of context, must be 1024x");
-                
-                ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
-                
-                
-                //#ifdef GGML_EXPERIMENTAL1
-                ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
-                //#endif
-                if (clblast == 1) { 
-                    ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
-                }
-                
-                //paramsPanel(localSettings, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.70f, ImGui::GetContentRegionAvail().y));
-                
-                
-                if (ImGui::Combo("n_ctx", &n_ctx_idx, " 2048\0 4096\0 8192\0 16384\0 32768\0"))
-                {
-                    switch (n_ctx_idx)
-                    {
-                        case 0: localSettings.params.n_ctx = 2048; break; // 1
-                        case 1: localSettings.params.n_ctx = 4096; break; // 2
-                        case 2: localSettings.params.n_ctx = 8192; break; // 4
-                        case 3: localSettings.params.n_ctx = 16384; break; // 8
-                        case 4: localSettings.params.n_ctx = 32768; break; // 16
-                    }
-                } ImGui::SameLine(); HelpMarker("The size of context, must be 2048x. WARNING! Check if your model supports context size greater than 2048! You may also want to adjust rope-scaling for n_ctx greater than 4k.");
-                
-                
-                
-                
-              ImGui::EndChild();
+                firstSettings(viewport);
               
             } else {
 // Information while  LOADING////////////////////////////////////////////////////////////////////
                 loadingIndication();
             }
         }
+    }
+    
+    void firstSettings(const ImGuiViewport* viewport){
+        ImGui::BeginChild("InitSettings");
+              
+        if(modelsFolderName != "NULL") {
+            ImGui::TextWrapped(( "Models folder: " + modelsFolderName).c_str());
+            ImGui::Separator();
+        }
+        
+        //if (!localSettings.params.input_prefix.empty()) ImGui::TextWrapped(( "Prefix: " + localSettings.params.input_prefix).c_str());
+        //if (!localSettings.params.input_suffix.empty()) ImGui::TextWrapped(( "input_suffix: " + localSettings.params.input_suffix).c_str());
+        
+        if(localSettings.modelName != "NULL") 
+            ImGui::TextWrapped(( "Selected model: " + localSettings.modelName).c_str());
+        else
+            ImGui::TextWrapped(( "Default model: " + localSettings.modelFromJson).c_str());
+        ImGui::Separator();
+        
+        if (localSettings.instructFileFromJson != "NULL") {
+            ImGui::TextWrapped( ("Default instruct file: " + localSettings.instructFileFromJson).c_str() );
+            ImGui::Separator();
+        }
+        //ImGui::TextWrapped( ("Font file: " + fontFile).c_str() );
+        ImGui::Spacing();
+        
+        ImGui::Indent();
+
+        
+        if (!localSettings.checkInputPrompt()) ImGui::TextWrapped( ("Set prompt to " + localSettings.inputPrompt).c_str() );
+        
+        if (!localSettings.checkInputAntiprompt()) ImGui::TextWrapped( ("Set antiprompt to " + localSettings.inputAntiprompt).c_str() );
+        
+        if (!localSettings.checkInputAntiCFG()) ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
+        
+        if (localSettings.params.cfg_scale > 1.0) {
+            ImGui::TextWrapped( ("Set CFG cfg_scale to " + std::to_string(localSettings.params.cfg_scale)).c_str() );
+            ImGui::Separator();
+        }
+        ImGui::Unindent();
+        
+        
+        ImGui::Spacing();
+        
+        if (ImGui::Button("Apply to config")) {
+            //localSettings.getFromJson("config.json");
+            localSettings.grammarFile = inputGrammar; 
+            localSettings.updateInput();
+            localSettings.fillLocalJson();
+            localSettings.syncInputs();
+            //localJsonDump = localSettings.modelConfig.dump(3);
+            localSettings.updateDump();
+        }
+        
+        ImGui::SameLine();
+        
+        if (!localSettings.noConfig){
+            if (!hasModel) {
+                if (ImGui::Button("Load and init model")) {
+
+                    newChat.jsonConfig = localSettings.modelConfig;
+                    newChat.load();
+                    
+                    hasModel = true;
+                    copiedDialog = false;
+                    copiedSettings = false;
+                    newChat.isContinue = 'l';
+                }
+            } else {
+                if (ImGui::Button("Init model")) {
+
+                    copiedDialog = false;
+                    copiedSettings = false;
+                    copiedTimings = false;
+                    //load(newChat, localSettings.localConfig, hasModel);
+                    newChat.load(localSettings.modelConfig, hasModel);
+                    //load_task(newChat, localSettings, hasModel);
+                    newChat.isContinue = 'l';
+                }
+            }
+        } else {
+            if(localSettings.modelName == "NULL") ImGui::TextWrapped( "Choose a model first!" );
+            if(localSettings.inputPrompt == "NULL") ImGui::TextWrapped( "Add prompt first! Also, add antiprompt if you don't want endless NN conversation." );
+            
+        }
+        
+        
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+      //ImGui::BeginChild("InitSettings");
+        ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );                        
+        if (localSettings.inputInstructFile == "NULL"){
+            
+            if (localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
+            
+            ImGui::InputTextMultiline("Prompt", &inputPrompt); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
+            if (ImGui::Button("Apply prompt")) {
+                    localSettings.inputPrompt = inputPrompt;
+                } ImGui::SameLine(); if (ImGui::Button("Clear prompt")) {
+                    localSettings.inputPrompt = "NULL";
+            }
+            ImGui::SameLine();
+            //ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y*0.2f), false);
+            if (ImGui::Button("Open an instruct file...")) {
+                
+                auto inputInstructFile = tinyfd_openFileDialog("Select an instruct file...", currPath.c_str(),1, instructFilterPatterns, NULL,0);
+                if (inputInstructFile) {
+                    //localSettings.inputInstructFile = inputInstructFile;
+                    
+                    localSettings.readInstructFile(inputInstructFile, inputPrompt, inputAntiprompt);
+                    //localSettings.syncInputs();
+                }
+            }
+            
+            
+            
+            if (localSettings.promptFiles.size()){
+                ImGui::SameLine();
+                
+                if (ImGui::Button("Choose an instruct file...")) {
+                     ImGui::OpenPopup("Prompts");
+                }
+                
+                
+                if (ImGui::BeginPopup("Prompts"))
+                {
+                    ImVec2 work_size = viewport->WorkSize;
+                    ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.3, work_size.y * 0.5));
+                    for ( auto promptFile : localSettings.promptFiles){
+                        //ImGui::TextWrapped(promptFile.filename().c_str());
+                        if (ImGui::Selectable( promptFile.filename().string().c_str() )){
+                            //localSettings.inputInstructFile = promptFile.string();
+                            localSettings.readInstructFile(promptFile.string(), inputPrompt, inputAntiprompt);
+                            //localSettings.syncInputs();
+                        }
+                    }
+                    ImGui::EndChild();
+                    ImGui::EndPopup();
+                    
+                }
+            }
+            
+            ImGui::SameLine();
+            
+            if (ImGui::Button("Save current instruct...")) {
+                //ImGui::OpenPopup("Save instruct");
+                auto savedInstruct = tinyfd_saveFileDialog( inputAntiprompt.c_str() , localSettings.promptFilesFolder.c_str() , 1 , instructFilterPatterns, NULL);
+                
+                if (savedInstruct){
+                    std::string fileContents = inputPrompt;
+                    
+                    int antiPos = fileContents.rfind('\n');
+                    if (antiPos == fileContents.npos && inputPrompt != inputAntiprompt) {
+                        fileContents += '\n' + inputAntiprompt;
+                    }
+                    
+                    //std::string filename = localSettings.promptFilesFolder + savedInstruct + ".txt";
+                    
+                    writeTextFileOver(savedInstruct, fileContents);
+                    localSettings.getFilesList();
+                }
+                
+            }
+            
+            ImVec2 center = viewport->GetCenter();
+            ImVec2 work_size = viewport->WorkSize;
+            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+            if (ImGui::BeginPopupModal("Save instruct"))
+            {
+                
+                
+                if (ImGui::BeginChild("File name", ImVec2( work_size.x * 0.5f, work_size.y * 0.5f)))
+                {
+                    static std::string instructName = inputAntiprompt;
+                    struct TextFilters
+                    {
+                        static int FilterFileLetters(ImGuiInputTextCallbackData* data)
+                        {
+                            if (data->EventChar < 256 && strchr(" /\\*:?\"|<> ", (char)data->EventChar))
+                                return 1;
+                            return 0;
+                        }
+                    };
+                    if (localSettings.promptFilesFolder.back() != '\\' && localSettings.promptFilesFolder.back() != '/') localSettings.promptFilesFolder += '/';
+                    std::string fileContents = inputPrompt;
+                    
+                    int antiPos = fileContents.rfind('\n');
+                    if (antiPos == fileContents.npos) {
+                        fileContents += inputAntiprompt;
+                    }
+                    
+                    ImGui::TextWrapped(( "Save to: " + localSettings.promptFilesFolder + instructName + ".txt").c_str());
+                    ImGui::Separator();
+                    ImGui::TextWrapped(( "Saving: " + fileContents).c_str());
+                    ImGui::Separator();
+                    
+                    ImGui::InputText("< File name", &instructName, ImGuiInputTextFlags_CallbackCharFilter, TextFilters::FilterFileLetters);
+                    
+                    if (instructName.size()){
+                        if (ImGui::Button("Save", ImVec2(work_size.x * 0.4f, 0))) {
+                            
+                            
+                            writeTextFileOver(localSettings.promptFilesFolder + instructName + ".txt", fileContents);
+                            localSettings.getFilesList();
+                            
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                    
+                    if (ImGui::Button("Cancel", ImVec2(work_size.x * 0.4f, 0))) { ImGui::CloseCurrentPopup(); }
+                }
+                
+                ImGui::EndChild();
+                
+                
+                
+                
+                
+                ImGui::EndPopup();
+            }
+            
+            
+            
+            if (localSettings.instructFileFromJson != "NULL"){
+                ImGui::SameLine();
+                if (ImGui::Button("Clear instruct file from config")) {
+                        //localSettings.inputInstructFile = "NULL";
+                        localSettings.clearFile();
+                        //localSettings.updateSettings();
+                        //localSettings.hasInstructFile = false;
+                }
+            }
+        } else {
+            ImGui::TextWrapped( ("Selected file: " + localSettings.inputInstructFile).c_str() );
+            if (ImGui::Button("Clear instruct file")) {
+                    localSettings.inputInstructFile = "NULL";
+                    localSettings.syncInputs();
+            }
+        }
+        
+        //ImGui::EndChild();
+        
+        ImGui::InputText("Antiprompt", &inputAntiprompt); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
+        if (ImGui::Button("Apply antiprompt")) {
+                    localSettings.inputAntiprompt = inputAntiprompt;
+                } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
+                    localSettings.inputAntiprompt = "NULL";
+                }
+        ImGui::InputText("Grammar", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
+        if (ImGui::Button("Choose grammar")) {
+                inputGrammar = openGrammar();
+            }
+        ImGui::InputText("Prefix", &localSettings.params.input_prefix); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
+                
+        ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
+                
+        ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." ); 
+        if (ImGui::Button("Apply CFG antiprompt")) {
+                    localSettings.inputAntiCFG = inputAntiCFG;
+                } ImGui::SameLine(); if (ImGui::Button("Clear CFG antiprompt")) {
+                    localSettings.inputAntiCFG = "NULL";
+                }
+        ImGui::SliderFloat("cfg_scale", &localSettings.params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
+        //ImGui::SliderInt("n_ctx", &localSettings.n_ctx, 2048, 16384, "%2048"); ImGui::SameLine(); HelpMarker("The size of context, must be 1024x");
+        
+        ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+        
+        
+        //#ifdef GGML_EXPERIMENTAL1
+        ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+        //#endif
+        if (clblast == 1) { 
+            ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
+        }
+        
+        //paramsPanel(localSettings, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.70f, ImGui::GetContentRegionAvail().y));
+        
+        
+        if (ImGui::Combo("n_ctx", &n_ctx_idx, " 2048\0 4096\0 8192\0 16384\0 32768\0"))
+        {
+            switch (n_ctx_idx)
+            {
+                case 0: localSettings.params.n_ctx = 2048; break; // 1
+                case 1: localSettings.params.n_ctx = 4096; break; // 2
+                case 2: localSettings.params.n_ctx = 8192; break; // 4
+                case 3: localSettings.params.n_ctx = 16384; break; // 8
+                case 4: localSettings.params.n_ctx = 32768; break; // 16
+            }
+        } ImGui::SameLine(); HelpMarker("The size of context, must be 2048x. WARNING! Check if your model supports context size greater than 2048! You may also want to adjust rope-scaling for n_ctx greater than 4k.");
+        
+        
+        
+        
+      ImGui::EndChild();
     }
     
     void loadingIndication(){
