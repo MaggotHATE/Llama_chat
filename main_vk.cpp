@@ -1060,7 +1060,7 @@ struct chatUI{
     
     // separating this into more functions breaks "realtime" speed display
     void dialogTab(const ImGuiViewport* viewport){
-        
+        ImGui::BeginChild("Dialog tab");
         messageWidth = ImGui::GetWindowWidth();
 // staring main loop once loaded the model//////////////////////////////////////////////////////////
         if (localSettings.noConfig){
@@ -1308,16 +1308,16 @@ struct chatUI{
             
             //static char inputChars[24 * 16];
             //ImGui::InputTextMultiline(helpLabel.c_str(), inputChars, IM_ARRAYSIZE(inputChars));
-            
+            auto inputWidth = ImGui::GetContentRegionAvail().x * 0.75f;
             // still need to make input field wrapping
             //ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x * 0.65f);
-            ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );  
+            ImGui::InputTextMultiline("Suffix", &localSettings.params.input_suffix, ImVec2(inputWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );  
             if (newChat.isNewSuffix(localSettings.params.input_suffix)){ 
                 ImGui::SameLine();
                 if (ImGui::Button("Apply")) { newChat.applySuffix(localSettings.params.input_suffix); } 
             }
             
-            ImGui::InputTextMultiline(helpLabel.c_str(), &inputStr);
+            ImGui::InputTextMultiline(helpLabel.c_str(), &inputStr, ImVec2(inputWidth, ImGui::GetTextLineHeight() * 7));
             //ImGui::PopTextWrapPos();
             
             ImGui::SameLine();
@@ -1427,6 +1427,7 @@ struct chatUI{
                 loadingIndication();
             }
         }
+        ImGui::EndChild();
     }
     
     void firstSettings(const ImGuiViewport* viewport){
@@ -1519,11 +1520,13 @@ struct chatUI{
         
       //ImGui::BeginChild("InitSettings");
         ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );                        
+        float initWidth = viewport->WorkSize.x * 0.65f;
         if (localSettings.inputInstructFile == "NULL"){
+            
             
             if (localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
             
-            ImGui::InputTextMultiline("Prompt", &inputPrompt); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
+            ImGui::InputTextMultiline("Prompt", &inputPrompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 6)); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
             if (ImGui::Button("Apply prompt")) {
                     localSettings.inputPrompt = inputPrompt;
                 } ImGui::SameLine(); if (ImGui::Button("Clear prompt")) {
@@ -1671,21 +1674,21 @@ struct chatUI{
         
         //ImGui::EndChild();
         
-        ImGui::InputText("Antiprompt", &inputAntiprompt); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
+        ImGui::InputTextMultiline("Antiprompt", &inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 2)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
         if (ImGui::Button("Apply antiprompt")) {
                     localSettings.inputAntiprompt = inputAntiprompt;
                 } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
                     localSettings.inputAntiprompt = "NULL";
                 }
-        ImGui::InputText("Grammar", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
+        ImGui::InputText("Grammar file", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
         if (ImGui::Button("Choose grammar")) {
                 inputGrammar = openGrammar();
             }
         ImGui::InputText("Prefix", &localSettings.params.input_prefix); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
                 
-        ImGui::InputText("Suffix", &localSettings.params.input_suffix); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
+        ImGui::InputTextMultiline("Suffix", &localSettings.params.input_suffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
                 
-        ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." ); 
+        ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG, ImVec2(initWidth, ImGui::GetTextLineHeight() * 5)); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." ); 
         if (ImGui::Button("Apply CFG antiprompt")) {
                     localSettings.inputAntiCFG = inputAntiCFG;
                 } ImGui::SameLine(); if (ImGui::Button("Clear CFG antiprompt")) {
@@ -2205,6 +2208,7 @@ int main(int, char**)
     //ImFont* font = io.Fonts->AddFontFromFileTTF(fontFile.c_str(), fontSize);
     static ImWchar ranges[] = { 0x1, 0x1FFFF, 0 };
     ImFont* font = io.Fonts->AddFontFromFileTTF(UI.fontFile.c_str(), UI.fontSize, nullptr, ranges);
+    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", UI.fontSize, nullptr, ranges);
     
     ImFontConfig cfg;
     cfg.MergeMode = true;

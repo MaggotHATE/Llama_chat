@@ -12,6 +12,7 @@ This project started from the main example of llama.cpp - the idea was to read p
 * Assignable folders for models and prompt files
 * Quick select of prompt files before loading a model
 * Quick model select according to config.json
+* Prompts history within one session
 
 ## Building
 
