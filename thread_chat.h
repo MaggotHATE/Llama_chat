@@ -247,6 +247,15 @@ struct modelThread{
         isLoading = '_';
     }
     
+    void reset(){
+        newChat.resetCTX();
+        newChat.clearLastEmbd();
+        resultsStringPairs.clear();
+        isContinue = '_';
+        isPregen = '_';
+        isLoading = '_';
+    }
+    
     void getTimigs(){
         lastTimings = newChat.get_timings();
     }
@@ -542,6 +551,29 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
         });
     }
     
+    void microload() {
+    
+        loaded = 10;
+        totalResult = std::async(std::launch::async, [this] mutable { 
+
+            newChat.generate();
+
+            appendFirstPrompt();
+            //getTimigsSimple();
+            getTimigsBoth();
+            //remain_tokens = newChat.getRemainTokens();
+            consumed_tokens = newChat.getConsumedTokens();
+            past_tokens = newChat.getPastTokens();
+
+            std::cout << "Reset complete!" << std::endl;
+            getShortName();
+            isContinue = 'i';
+            
+            loaded = 9;
+            return loaded;
+        });
+    }
+    
     
 };
 
@@ -710,14 +742,14 @@ struct configurableChat{
     void syncInputs(){
         inputPrompt = params.prompt;
         if(params.antiprompt.size()) inputAntiprompt = params.antiprompt[0];
-        if(params.cfg_negative_prompt.size()) inputAntiCFG = params.cfg_negative_prompt;
+        if(params.sampling_params.cfg_negative_prompt.size()) inputAntiCFG = params.sampling_params.cfg_negative_prompt;
     }
     
     int checkChangedInputs(){
         int result = 0;
         if (inputPrompt != "NULL" && inputPrompt != params.prompt) result += 1;
         if (inputAntiprompt != "NULL" && params.antiprompt.size() && inputAntiprompt != params.antiprompt[0]) result += 2;
-        if (inputAntiCFG != "NULL" && inputAntiCFG != params.cfg_negative_prompt) result += 4;
+        if (inputAntiCFG != "NULL" && inputAntiCFG != params.sampling_params.cfg_negative_prompt) result += 4;
         
         return result;
     }
@@ -742,19 +774,19 @@ struct configurableChat{
     
     void pushSettings(chat& aChat){
         //aChat.params.n_threads = n_threads;
-        aChat.params.temp = params.temp;
+        aChat.params.sampling_params.temp = params.sampling_params.temp;
         //aChat.params.n_keep = params.n_keep;
-        aChat.params.top_k = params.top_k;
-        aChat.params.top_p = params.top_p;
-        aChat.params.tfs_z = params.tfs_z;
-        aChat.params.typical_p = params.typical_p;
-        aChat.params.repeat_penalty = params.repeat_penalty;
-        aChat.params.frequency_penalty = params.frequency_penalty;
-        aChat.params.presence_penalty = params.presence_penalty;
-        aChat.params.mirostat = params.mirostat;
-        aChat.params.mirostat_tau = params.mirostat_tau;
-        aChat.params.mirostat_eta = params.mirostat_eta;
-        aChat.params.cfg_scale = params.cfg_scale;
+        aChat.params.sampling_params.top_k = params.sampling_params.top_k;
+        aChat.params.sampling_params.top_p = params.sampling_params.top_p;
+        aChat.params.sampling_params.tfs_z = params.sampling_params.tfs_z;
+        aChat.params.sampling_params.typical_p = params.sampling_params.typical_p;
+        aChat.params.sampling_params.repeat_penalty = params.sampling_params.repeat_penalty;
+        aChat.params.sampling_params.frequency_penalty = params.sampling_params.frequency_penalty;
+        aChat.params.sampling_params.presence_penalty = params.sampling_params.presence_penalty;
+        aChat.params.sampling_params.mirostat = params.sampling_params.mirostat;
+        aChat.params.sampling_params.mirostat_tau = params.sampling_params.mirostat_tau;
+        aChat.params.sampling_params.mirostat_eta = params.sampling_params.mirostat_eta;
+        aChat.params.sampling_params.cfg_scale = params.sampling_params.cfg_scale;
         //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
     }
     
@@ -840,21 +872,21 @@ struct configurableChat{
         if (!params.input_prefix.empty()) modelConfig[model]["input_prefix"] = params.input_prefix;
         if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[model]["input_prefix_bos"] = params.input_prefix_bos;
         
-        if (params.penalize_nl != paramsDefault.penalize_nl) modelConfig[model]["penalize_nl"] = params.penalize_nl;
+        if (params.sampling_params.penalize_nl != paramsDefault.sampling_params.penalize_nl) modelConfig[model]["penalize_nl"] = params.sampling_params.penalize_nl;
         
         
-        if (params.temp != paramsDefault.temp) modelConfig[model]["temp"] = params.temp;
-        if (params.top_k != paramsDefault.top_k) modelConfig[model]["top_k"] = params.top_k;
-        if (params.top_p != paramsDefault.top_p) modelConfig[model]["top_p"] = params.top_p;
-        if (params.tfs_z != paramsDefault.tfs_z) modelConfig[model]["tfs_z"] = params.tfs_z;
-        if (params.typical_p != paramsDefault.typical_p) modelConfig[model]["typical_p"] = params.typical_p;
-        if (params.repeat_penalty != paramsDefault.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.repeat_penalty;
-        if (params.frequency_penalty != paramsDefault.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.frequency_penalty;
-        if (params.presence_penalty != paramsDefault.presence_penalty) modelConfig[model]["presence_penalty"] = params.presence_penalty;
-        if (params.mirostat != paramsDefault.mirostat) modelConfig[model]["mirostat"] = params.mirostat;
-        if (params.mirostat_tau != paramsDefault.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.mirostat_tau;
-        if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
-        if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
+        if (params.sampling_params.temp != paramsDefault.sampling_params.temp) modelConfig[model]["temp"] = params.sampling_params.temp;
+        if (params.sampling_params.top_k != paramsDefault.sampling_params.top_k) modelConfig[model]["top_k"] = params.sampling_params.top_k;
+        if (params.sampling_params.top_p != paramsDefault.sampling_params.top_p) modelConfig[model]["top_p"] = params.sampling_params.top_p;
+        if (params.sampling_params.tfs_z != paramsDefault.sampling_params.tfs_z) modelConfig[model]["tfs_z"] = params.sampling_params.tfs_z;
+        if (params.sampling_params.typical_p != paramsDefault.sampling_params.typical_p) modelConfig[model]["typical_p"] = params.sampling_params.typical_p;
+        if (params.sampling_params.repeat_penalty != paramsDefault.sampling_params.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.sampling_params.repeat_penalty;
+        if (params.sampling_params.frequency_penalty != paramsDefault.sampling_params.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.sampling_params.frequency_penalty;
+        if (params.sampling_params.presence_penalty != paramsDefault.sampling_params.presence_penalty) modelConfig[model]["presence_penalty"] = params.sampling_params.presence_penalty;
+        if (params.sampling_params.mirostat != paramsDefault.sampling_params.mirostat) modelConfig[model]["mirostat"] = params.sampling_params.mirostat;
+        if (params.sampling_params.mirostat_tau != paramsDefault.sampling_params.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.sampling_params.mirostat_tau;
+        if (params.sampling_params.mirostat_eta != paramsDefault.sampling_params.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sampling_params.mirostat_eta;
+        if (params.sampling_params.cfg_scale != paramsDefault.sampling_params.cfg_scale) modelConfig[model]["cfg-scale"] = params.sampling_params.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
@@ -874,7 +906,7 @@ struct configurableChat{
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
         if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
         
-        modelConfig[model]["cfg-negative-prompt"] = params.cfg_negative_prompt;
+        modelConfig[model]["cfg-negative-prompt"] = params.sampling_params.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;
         else {
             modelConfig[model]["prompt"] = "### Instruction:";
@@ -909,7 +941,7 @@ struct configurableChat{
             else
                 params.antiprompt[0] = inputAntiprompt;
         }
-        if (inputAntiCFG != "NULL") params.cfg_negative_prompt = inputAntiCFG;
+        if (inputAntiCFG != "NULL") params.sampling_params.cfg_negative_prompt = inputAntiCFG;
     }
     
     void pushToMainConfig(){

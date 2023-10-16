@@ -102,7 +102,7 @@ endif
 OBJS += o/tinyfiledialogs.o
 
 FILE_D = -Itinyfiledialogs
-I_GGUF = -Ibase -Iinclude
+I_GGUF = -I. -Ibase -Iinclude
 I_GGML = -Iggml -Iinclude
 
 #OBJS_OB = $(subst main.o,main_ob.o,$(OBJS))
@@ -335,13 +335,16 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
   
 #VULKAN
 
-LDFLAGS_VK = -lvulkan -lopenblas -lglslang -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lshaderc_combined
+LDFLAGS_VK = -lvulkan -lopenblas
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_llama.o o/vk_common.o o/vk_k_quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
+OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_k_quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
 
 o/vk_ggml-vulkan.o: VULKAN/ggml-vulkan.cpp VULKAN/ggml-vulkan.h
 	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+    
+o/vk_ggml-backend.o: VULKAN/ggml-backend.c VULKAN/ggml.h VULKAN/ggml-backend.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
 
 o/vk_ggml.o: VULKAN/ggml.c GGML/ggml.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
@@ -349,10 +352,13 @@ o/vk_ggml.o: VULKAN/ggml.c GGML/ggml.h
 o/vk_ggml-alloc.o: VULKAN/ggml-alloc.c VULKAN/ggml.h VULKAN/ggml-alloc.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
 
-o/vk_llama.o: VULKAN/llama.cpp VULKAN/ggml.h VULKAN/ggml-alloc.h VULKAN/llama.h  VULKAN/llama-util.h
+o/vk_llama.o: VULKAN/llama.cpp VULKAN/ggml.h VULKAN/ggml-alloc.h VULKAN/ggml-backend.h VULKAN/llama.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+    
+o/vk_sampling.o: VULKAN/sampling.cpp VULKAN/sampling.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-o/vk_common.o: VULKAN/common.cpp VULKAN/common.h
+o/vk_common.o: VULKAN/common.cpp VULKAN/common.h o/vk_sampling.o
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
 o/vk_k_quants.o: VULKAN/k_quants.c VULKAN/k_quants.h
@@ -361,10 +367,10 @@ o/vk_k_quants.o: VULKAN/k_quants.c VULKAN/k_quants.h
 o/vk_grammar-parser.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
   
-  
-# GGUF
+#####################################
+################################ GGUF
 
-OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/ggml-backend.o o/llama.o o/common.o o/k_quants.o o/grammar-parser.o
+OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/ggml-backend.o o/llama.o o/sampling.o o/common.o o/k_quants.o o/grammar-parser.o
   
 o/ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
@@ -383,7 +389,10 @@ o/ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
 o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-o/common.o: base/common.cpp base/common.h
+o/sampling.o: base/sampling.cpp base/sampling.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+o/common.o: base/common.cpp base/common.h o/sampling.o
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/libllama$(DSO_EXT): $(OBJS_GGUF)
@@ -414,7 +423,7 @@ CXXFLAGS_CL += -lclblast -lOpenCL
 CXXFLAGS_UI_CL += -lclblast -lOpenCL
 
 
-OBJS_GGUF_CL    = o/cl_k_quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml.o o/cl_ggml-alloc.o o/cl_ggml-backend.o o/cl_llama.o o/cl_common.o o/cl_grammar-parser.o
+OBJS_GGUF_CL    = o/cl_k_quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml.o o/cl_ggml-alloc.o o/cl_ggml-backend.o o/cl_llama.o o/cl_sampling.o o/cl_common.o o/cl_grammar-parser.o
 
 o/cl_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
@@ -431,8 +440,11 @@ o/cl_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
 #base/threadpool.h
 o/cl_llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+o/cl_sampling.o: base/sampling.cpp base/sampling.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-o/cl_common.o: base/common.cpp base/common.h
+o/cl_common.o: base/common.cpp base/common.h o/cl_sampling.o
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
 o/cl_libllama$(DSO_EXT): $(OBJS_GGUF_CL)
@@ -689,7 +701,7 @@ chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_
 $(EXE_GGML):$(OBJS) $(OBJS_GGML1) chat_plain.h thread_chat.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
     
-chatTest_ggml:class_chat.cpp $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h 
+chatTest_ggml:class_chat.cpp $(OBJS_GGML1) chat_plain.h thread_chat.h 
 	$(CXX) $(I_GGML) $(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
     
 #GGML format w CLBLAST
@@ -697,7 +709,7 @@ chatTest_ggml:class_chat.cpp $(OBJS_GGML1) GGML/chat_plain.h thread_chat.h
 $(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) chat_plain.h thread_chat.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
     
-chatTest_ggml_cl:class_chat.cpp include/json.hpp GGML/chat_plain.h thread_chat.h  $(OBJS_CL_GGML1)
+chatTest_ggml_cl:class_chat.cpp chat_plain.h thread_chat.h   $(OBJS_CL_GGML1)
 	$(CXX) $(I_GGML) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL_GGML)
     
 # experimental
@@ -730,8 +742,8 @@ chatTest_e1_cl:class_chat.cpp                                  include/json.hpp 
     
 # VULKAN
 
-chatTest_vk:VULKAN/class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h 
-	$(CXX) -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) -o $@ $(LDFLAGS_VK)
+chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h 
+	$(CXX) -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) -o $@ $(LDFLAGS_VK)
     
     
 # additional

@@ -179,6 +179,8 @@ private:
     grammar_parser::parse_state parsed_grammar;
     struct llama_grammar * grammar = NULL;
     std::vector<llama_token_data> candidates;
+    llama_sampling_context ctx_sampling;
+    //llama_sampling_params & sparams;
     int n_vocab;
     bool cleared = true;
         
@@ -261,6 +263,8 @@ public:
         inp_pfx.clear();
         inp_sfx.clear();
         llama_token_newline.clear();
+        candidates.clear();
+        resetCTX();
         
         n_past                = 0;
         n_remain              = 0;
@@ -451,7 +455,9 @@ public:
     }
     
     int checkPreLoad(){
-
+    
+        
+    
         if (params.embedding) {
             printf("\n************\n");
             printf("%s: please use the 'embedding' tool for embedding calculations\n", __func__);
@@ -510,10 +516,7 @@ public:
         //ctx = llama_init_from_gpt_params(params);
         std::tie(model, ctx) = llama_init_from_gpt_params(params);
         
-        if (params.cfg_scale > 1.f) {
-            struct llama_context_params lparams = llama_context_params_from_gpt_params(params);
-            ctx_guidance = llama_new_context_with_model(model, lparams);
-        }
+        
         
         if (model == NULL) {
             fprintf(stderr, "%s: error: unable to load model\n", __func__);
@@ -542,6 +545,13 @@ public:
     }
     
     int load(bool soft = false){
+        
+        llama_sampling_params & sparams = params.sampling_params;
+        
+        if (sparams.cfg_scale > 1.f) {
+            struct llama_context_params lparams = llama_context_params_from_gpt_params(params);
+            ctx_guidance = llama_new_context_with_model(model, lparams);
+        }
         
         if (!soft){
             int status = 0;
@@ -667,7 +677,7 @@ public:
 
         if (ctx_guidance) {
             //params.cfg_negative_prompt.insert(0, 1, ' ');
-            guidance_inp = ::llama_tokenize(ctx_guidance, params.cfg_negative_prompt, add_bos);
+            guidance_inp = ::llama_tokenize(ctx_guidance, sparams.cfg_negative_prompt, add_bos);
 
             std::vector<llama_token> original_inp = ::llama_tokenize(ctx, params.prompt, add_bos);
             original_prompt_len = original_inp.size();
@@ -701,6 +711,9 @@ public:
                 fprintf(stderr, "%s: session file matches %zu / %zu tokens of prompt\n",
                     __func__, n_matching_session_tokens, embd_inp.size());
             }
+            
+            // remove any "future" tokens that we might have inherited from the previous session
+            llama_kv_cache_tokens_rm(ctx, n_matching_session_tokens, -1);
         }
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
@@ -744,7 +757,7 @@ public:
         // }
         //char* paramsPrint = new char[200];
         fprintf(stderr, "\nsampling: repeat_last_n = %d, repeat_penalty = %f, presence_penalty = %f, frequency_penalty = %f, top_k = %d, tfs_z = %f, top_p = %f, typical_p = %f, temp = %f, mirostat = %d, mirostat_lr = %f, mirostat_ent = %f\n",
-                params.repeat_last_n, params.repeat_penalty, params.presence_penalty, params.frequency_penalty, params.top_k, params.tfs_z, params.top_p, params.typical_p, params.temp, params.mirostat, params.mirostat_eta, params.mirostat_tau);
+                sparams.repeat_last_n, sparams.repeat_penalty, sparams.presence_penalty, sparams.frequency_penalty, sparams.top_k, sparams.tfs_z, sparams.top_p, sparams.typical_p, sparams.temp, sparams.mirostat, sparams.mirostat_eta, sparams.mirostat_tau);
         
         //stats["Params"] = paramsPrint;
         //fprintf(stderr, "generate: n_ctx = %d, n_batch = %d, n_predict = %d, n_keep = %d\n", n_ctx, params.n_batch, params.n_predict, params.n_keep);
@@ -762,8 +775,8 @@ public:
             fprintf(stderr, "\n");
 
             {
-                auto it = params.logit_bias.find(llama_token_eos(ctx));
-                if (it != params.logit_bias.end() && it->second == -INFINITY) {
+                auto it = sparams.logit_bias.find(llama_token_eos(ctx));
+                if (it != sparams.logit_bias.end() && it->second == -INFINITY) {
                     fprintf(stderr, "%s: warning: EOS token is disabled, which will cause most grammars to fail\n", __func__);
                 }
             }
@@ -885,7 +898,7 @@ public:
             }
             
             // remove any "future" tokens that we might have inherited from the session from the KV cache
-            llama_kv_cache_tokens_rm(ctx, n_past, -1);
+            //llama_kv_cache_tokens_rm(ctx, n_past, -1);
         }
         
         return 1;
@@ -992,8 +1005,10 @@ public:
             llama_save_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
         }
         
+        
+        
         // new generation function, moved to common 
-        const llama_token id = llama_sample_token(ctx, ctx_guidance, grammar, params, last_tokens, candidates);
+        const llama_token id = llama_sampling_sample(ctx, ctx_guidance, ctx_sampling, last_tokens, candidates);
         
         last_tokens.erase(last_tokens.begin());
         last_tokens.push_back(id);
@@ -1329,6 +1344,11 @@ public:
     }
     
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
+    
+    void resetCTX(){
+        llama_sampling_context_reset(ctx_sampling);
+    }
+
 
     int applyEmbNew(bool fastStop = false){
         if (debug) fprintf(stderr, "2");
@@ -1339,8 +1359,10 @@ public:
             llama_save_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
         }
         
+        //llama_sampling_context ctx_sampling = llama_sampling_context_init(params, grammar);
+        
         // new generation function, moved to common 
-        const llama_token id = llama_sample_token(ctx, ctx_guidance, grammar, params, last_tokens, candidates);
+        const llama_token id = llama_sampling_sample(ctx, ctx_guidance, ctx_sampling, last_tokens, candidates);
         
         last_tokens.erase(last_tokens.begin());
         last_tokens.push_back(id);
@@ -1382,7 +1404,7 @@ public:
             }
             
             // remove any "future" tokens that we might have inherited from the session from the KV cache
-            llama_kv_cache_tokens_rm(ctx, n_past, -1);
+            //llama_kv_cache_tokens_rm(ctx, n_past, -1);
         }
         
         return 1;
@@ -1567,6 +1589,8 @@ public:
         //appendPrefixBos();
         
         if (hasAntiprompt(params.prompt) == -1 && params.input_prefix.empty())  params.prompt += DELIMINER + params.antiprompt[0];
+        
+        ctx_sampling = llama_sampling_context_init(params, grammar);
         
         n_vocab = llama_n_vocab(model);
         
