@@ -21,6 +21,7 @@ Tested on Windows only for now. AVX releases only due to old CPU, please compile
 ### Requirements
 
 * tinyfiledialogs https://sourceforge.net/projects/tinyfiledialogs/
+* Vulkan SDK (only "include" folder) https://vulkan.lunarg.com/#new_tab
 * imgui https://github.com/ocornut/imgui
 * OpenCL and CLBLAST if needed (see https://github.com/ggerganov/llama.cpp#clblast for installation guide)
 

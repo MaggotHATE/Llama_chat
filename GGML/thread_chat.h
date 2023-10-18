@@ -1,11 +1,26 @@
+#pragma once
+
 #include <future>
 #include <chrono>
 #include <thread>
 #include <locale>
 #include <codecvt>
+#include <format>
 
 
-#include "chat_plain.h"
+// #ifdef GGML_OLD_FORMAT
+// #   include "GGML/chat_plain.h"
+// #elif defined(GGML_OLD_FORMAT)
+// #   include "GGML/chat_plain.h"
+// #elif defined(GGML_EXPERIMENTAL1)
+// #   include "experimental1/chat_plain.h"
+// #elif defined(GGML_EXPERIMENTAL)
+// #   include "experimental/chat_plain.h"
+// #else
+// #   include "chat_plain.h"  
+// #endif
+
+#include <chat_plain.h>
 
 using namespace std;
 
@@ -43,7 +58,6 @@ void Clear()
 struct modelThread{
     //model class
     chat newChat;
-    const chat defaultChat;
     //vector for storing results
     std::vector<char*> results;
     std::vector<std::string> resultsString;
@@ -67,12 +81,26 @@ struct modelThread{
     int consumed_tokens = 0;
     int past_tokens = 0;
     
-    std::string lastTimings = "";
+    std::string lastTimings = "Not yet calculated...";
+    float lastSpeed = 0.0f;
+    float lastSpeedPrompt = 0.0f;
     std::string lastResult = "";
+    std::string shortModelName = "";
 
     // ~modelThread(){
         // ~newChat;
     // }
+    
+    void getShortName(){
+        shortModelName = newChat.params.model;
+        int slash = shortModelName.rfind('/');
+        if (slash == shortModelName.npos) slash = 0;
+        int rslash = shortModelName.rfind('\\');
+        if (rslash == shortModelName.npos) rslash = 0;
+        
+        if (slash > rslash) shortModelName = shortModelName.substr(slash+1);
+        else shortModelName = shortModelName.substr(rslash+1);
+    }
     
     void appendFirstPrompt(){
         std::string context = newChat.params.prompt;
@@ -103,9 +131,23 @@ struct modelThread{
         resultsStringPairs.push_back(std::pair("AI",input));
     }
     
+    void applySuffix(std::string& suffix){
+        newChat.params.input_suffix = suffix;
+    }
+    
+    bool isNewSuffix(std::string& suffix){
+        return newChat.params.input_suffix != suffix;
+    }
+    
     void appendQuestion(std::string input){
         //resultsString.push_back(input);
-        resultsStringPairs.push_back(std::pair(newChat.params.antiprompt[0],input));
+        //if(newChat.params.input_prefix.empty()) 
+            resultsStringPairs.push_back(std::pair(newChat.params.antiprompt[0],input));
+        //else resultsStringPairs.push_back(std::pair(newChat.params.input_prefix,input));
+    }
+    
+    void removeLastAnswer(){
+        resultsStringPairs.pop_back();
     }
     
     void displayResults(){
@@ -116,6 +158,7 @@ struct modelThread{
         }
         
         std::cout << "Generated: " << last_tokens << std::endl;
+        std::cout << lastTimings << std::endl;
         
         std::cout<< DELIMINER;
     }
@@ -123,7 +166,16 @@ struct modelThread{
     void display(){
         Clear();
         
+        std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
+        std::cout << "input_prefix: " << newChat.params.input_prefix << '\n' << std::endl;
+        std::cout << "input_suffix: " << newChat.params.input_suffix << '\n' << std::endl;
+        
+        //#ifdef GGML_EXPERIMENTAL1
+        std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
+        //#endif
+        //std::cout << lastTimings << std::endl;
+        std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
         
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
@@ -132,7 +184,8 @@ struct modelThread{
                 //fromUTF8(r.second, converted);
                 //std::wcout << converted;
             } else {
-                std::cout << r.first << r.second;
+                if (newChat.params.input_prefix.empty()) std::cout << r.first << r.second;
+                else std::cout << newChat.params.input_prefix << r.second;
             }
             
             if (r.second.back() != '\n') std::cout<< DELIMINER;
@@ -183,7 +236,6 @@ struct modelThread{
     void unload(){
         newChat.clear();
         resultsStringPairs.clear();
-        newChat = defaultChat;
         isContinue = '_';
         isPregen = '_';
         isLoading = '_';
@@ -202,55 +254,90 @@ struct modelThread{
     }
     
     void getTimigsSimple(){
-        lastTimings = newChat.get_timings_simple();
+        //lastTimings = newChat.get_timings_simple();
+        lastTimings = newChat.get_ts();
+    }
+    
+    
+    
+    void getTimigsPre(){
+        //lastTimings = newChat.get_timings_simple();
+        float tmp = newChat.get_speed_p();
+        if (tmp != 0) lastSpeedPrompt = tmp;
+    }
+    
+    void getTimigsGen(){
+        //lastTimings = newChat.get_timings_simple();
+        float tmp = newChat.get_speed();
+        if (tmp != 0) lastSpeed = tmp;
+    } 
+
+    void getTimigsBoth(){
+        getTimigsPre();
+        getTimigsGen();
+        
+        lastTimings = "Eval speed: " + std::to_string(lastSpeedPrompt) + "\n Gen speed: " + std::to_string(lastSpeed) + '\n';
     }
     
     void startGen(){
         newChat.finished = false;
         isContinue = 'w';
-        lastResult = "";
+        isPregen = 'w';
+        lastResult = newChat.params.input_suffix;
     }
     
     void stop(){
         //newChat.finished = true;
         isContinue = 'i';
-        getTimigsSimple();
+        resultsStringPairs.push_back(std::pair("AI",lastResult));
+        //getTimigsSimple();
+        getTimigsBoth();
     }
     
     // loading, preloading and generating threads  
-    void getResultAsyncStringFull(bool streaming = false) {
+    void getResultAsyncStringFull(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
         newChat.clearLastTokens();
         
-        futureTextString = std::async(std::launch::async, [this, &streaming] mutable {
+        
+        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
             
             std::string input = resultsStringPairs.back().second;
                 
             newChat.inputOnly(input);
+            isPregen = 'i';
             
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
             
             while (isContinue != 'i'){
         
-                futureTextSubString = std::async(std::launch::async, [this, &streaming] mutable {
+                futureTextSubString = std::async(std::launch::async, [this, &streaming, &full] mutable {
                     //char* result = newChat.cycleInputSingleOutputString(input); 
                     
                     //std::string result = newChat.cycleStringsOnly(resultsString.back()); 
                     //resultsString.push_back(result);
                     //std::string input = resultsStringPairs.back().second;
                     std::string output = newChat.cycleStringsOnly(false);
-                    if (streaming) std::cout << output;
                     lastResult += output;
                     
+                    if (streaming) {
+                        if (full) {
+                            getTimigsBoth();
+                            display();
+                            std::cout << lastResult;
+                        } else std::cout << output;
+                    } else {
+                        if (full) getTimigsGen();
+                    }
+                    //getTimigsSimple();
                     
                     if (newChat.finished){
                         newChat.eraseAntiprompt(lastResult);
                         resultsStringPairs.push_back(std::pair("AI",lastResult));
                         isContinue = 'i';
-                        isPregen = 'i';
-                        getTimigsSimple();
+                        getTimigsBoth();
                     }
                     
                     return lastResult;
@@ -272,41 +359,136 @@ struct modelThread{
         
     }
     
-    void getResultAsyncStringRepeat(bool streaming = false) {
+/// CURRENT
+void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
+        newChat.clearLastTokens();
         
         
-        newChat.clearLastEmbd();
-        
-        futureTextString = std::async(std::launch::async, [this, &streaming] mutable {
+        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
+            
+            std::string input = resultsStringPairs.back().second;
+                
+            getTimigsPre();
+            //newChat.inputOnly(input);
+            newChat.inputOnlyNew(input);
+            isPregen = 'i';
+            consumed_tokens = newChat.getConsumedTokens();
+            past_tokens = newChat.getPastTokens();
+            
+            getTimigsPre();
+            
             
             while (isContinue != 'i'){
         
-                futureTextSubString = std::async(std::launch::async, [this, &streaming] mutable {
-                    //char* result = newChat.cycleInputSingleOutputString(input); 
-                    
-                    //std::string result = newChat.cycleStringsOnly(resultsString.back()); 
-                    //resultsString.push_back(result);
-                    //std::string input = resultsStringPairs.back().second;
-                    std::string output = newChat.cycleStringsOnly(false);
-                    if (streaming) std::cout << output;
-                    lastResult += output;
-                    
-                    if (newChat.finished){
-                        newChat.eraseAntiprompt(lastResult);
-                        resultsStringPairs.push_back(std::pair("AI",lastResult));
-                        isContinue = 'i';
-                        isPregen = 'i';
-                        getTimigsSimple();
-                        //last_tokens = newChat.getLastTokens();
+
+                std::string output = newChat.cycleStringsOnly(false);
+                lastResult += output;
+                
+                if (streaming) {
+                    if (full) {
+                        //getTimigsBoth();
+                        //getTimigsPre();
+                        getTimigsGen();
+                        display();
+                        std::cout << lastResult;
+                    } else std::cout << output;
+                } else {
+                    if (full) {
+                        getTimigsGen();
+                        //getTimigsPre();
                     }
+                }
+                //getTimigsSimple();
+                
+                if (newChat.finished){
+                    //newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
                     
-                    return lastResult;
-                });
+                    resultsStringPairs.push_back(std::pair("AI",lastResult));
+                    isContinue = 'i';
+                    
+                    getTimigsBoth();
+                    newChat.clear_speed();
+                }
+                    
                 
                 //futureTextString.get();
-                futureTextSubString.wait();
+
+                last_tokens = newChat.getLastTokens();
+                //remain_tokens = newChat.getRemainTokens();
+                consumed_tokens = newChat.getConsumedTokens();
+                past_tokens = newChat.getPastTokens();
+            
+            }
+            
+            std::string result = "ready";
+                
+            return result;
+        });
+        
+    }
+    
+    void getResultAsyncStringRepeat(bool streaming = false, bool full = false) {
+        //isContinue = 'w';
+        //std::cout << " ** " << input << std::endl;
+        removeLastAnswer();
+        
+        newChat.clearLastEmbd();
+        
+        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
+            
+            //std::string input = resultsStringPairs.back().second;
+                
+            getTimigsPre();
+            //newChat.inputOnly(input);
+            //newChat.inputOnlyNew(input);
+            isPregen = 'i';
+            //consumed_tokens = newChat.getConsumedTokens();
+            //past_tokens = newChat.getPastTokens();
+            
+            //getTimigsPre();
+            
+            
+            while (isContinue != 'i'){
+        
+
+                std::string output = newChat.cycleStringsOnly(false);
+                lastResult += output;
+                
+                if (streaming) {
+                    if (full) {
+                        //getTimigsBoth();
+                        //getTimigsPre();
+                        getTimigsGen();
+                        display();
+                        std::cout << lastResult;
+                    } else std::cout << output;
+                } else {
+                    if (full) {
+                        getTimigsGen();
+                        //getTimigsPre();
+                    }
+                }
+                //getTimigsSimple();
+                
+                if (newChat.finished){
+                    //newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
+                    
+                    resultsStringPairs.push_back(std::pair("AI",lastResult));
+                    isContinue = 'i';
+                    
+                    getTimigsBoth();
+                    newChat.clear_speed();
+                }
+                    
+                
+                //futureTextString.get();
+
                 last_tokens = newChat.getLastTokens();
                 //remain_tokens = newChat.getRemainTokens();
                 consumed_tokens = newChat.getConsumedTokens();
@@ -328,12 +510,13 @@ struct modelThread{
             loaded = newChat.initGenerate(localConfig, false, soft);
 
             appendFirstPrompt();
-            getTimigsSimple();
+            getTimigsBoth();
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
 
             std::cout << "Loaded, you can type now! " << std::endl;
+            getShortName();
             isContinue = 'i';
             
             return loaded;
@@ -347,12 +530,14 @@ struct modelThread{
             loaded = newChat.initGenerate(jsonConfig, false);
 
             appendFirstPrompt();
-            getTimigsSimple();
+            //getTimigsSimple();
+            getTimigsBoth();
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
 
             std::cout << "Loaded, you can type now! " << std::endl;
+            getShortName();
             isContinue = 'i';
             
             return loaded;
@@ -364,7 +549,7 @@ struct modelThread{
 
 struct configurableChat{
     gpt_params params;
-    gpt_params defaultParams;
+    //gpt_params paramsDefault;
     
     nlohmann::json localConfig;
     nlohmann::json modelConfig;
@@ -386,6 +571,8 @@ struct configurableChat{
     std::string inputAntiCFG = "NULL";
     std::string inputInstructFile = "NULL";
     std::string modelName = "NULL";
+    std::string modelShortName = "NULL";
+    std::string grammarFile = "";
     std::string localJsonDump;
     
     void getModelsList(){
@@ -502,12 +689,21 @@ struct configurableChat{
     }
     
     void getSettings(chat& aChat){
-        params = defaultParams;
+        int n_keep = params.n_keep;
+        params = paramsDefault;
         params = aChat.params;
+        params.n_keep = n_keep;
     }
+    
+    // void getSettings(){
+        // params = paramsDefault;
+        // params = aChat.params;
+    // }
+    
+    
 
-    void getSettings(){
-        params = defaultParams;
+    void getSettingsFull(){
+        params = paramsDefault;
         readParamsFromJson(localConfig, params);
         modelName = params.model;
         syncInputs();
@@ -529,26 +725,27 @@ struct configurableChat{
     }
     
     void getSettingsFromModelConfig(){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(modelConfig, params);
         modelName = params.model;
     }
     
     void getSettings(std::string newModelName){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, newModelName, params);
         basePrompt = params.prompt;
         modelName = newModelName;
     }
     
     void updateSettings(){
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, modelName, params);
     }
     
     void pushSettings(chat& aChat){
         //aChat.params.n_threads = n_threads;
         aChat.params.temp = params.temp;
+        //aChat.params.n_keep = params.n_keep;
         aChat.params.top_k = params.top_k;
         aChat.params.top_p = params.top_p;
         aChat.params.tfs_z = params.tfs_z;
@@ -562,6 +759,23 @@ struct configurableChat{
         aChat.params.cfg_scale = params.cfg_scale;
         //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
     }
+    
+    // void pushSettings(){
+        // //aChat.params.n_threads = n_threads;
+        // aChat.params.temp = params.temp;
+        // aChat.params.top_k = params.top_k;
+        // aChat.params.top_p = params.top_p;
+        // aChat.params.tfs_z = params.tfs_z;
+        // aChat.params.typical_p = params.typical_p;
+        // aChat.params.repeat_penalty = params.repeat_penalty;
+        // aChat.params.frequency_penalty = params.frequency_penalty;
+        // aChat.params.presence_penalty = params.presence_penalty;
+        // aChat.params.mirostat = params.mirostat;
+        // aChat.params.mirostat_tau = params.mirostat_tau;
+        // aChat.params.mirostat_eta = params.mirostat_eta;
+        // aChat.params.cfg_scale = params.cfg_scale;
+        // //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
+    // }
     
     
     void hasFile(){
@@ -610,7 +824,7 @@ struct configurableChat{
         
         instructFileFromJson = "NULL";
         
-        params = defaultParams;
+        params = paramsDefault;
         readParamsFromJson(localConfig, modelName, params);
     }
     
@@ -624,25 +838,43 @@ struct configurableChat{
         else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
             processInstructFile(instructFileFromJson, params);
         
-        if (params.temp != defaultParams.temp) modelConfig[model]["temp"] = params.temp;
-        if (params.top_k != defaultParams.top_k) modelConfig[model]["top_k"] = params.top_k;
-        if (params.top_p != defaultParams.top_p) modelConfig[model]["top_p"] = params.top_p;
-        if (params.tfs_z != defaultParams.tfs_z) modelConfig[model]["tfs_z"] = params.tfs_z;
-        if (params.typical_p != defaultParams.typical_p) modelConfig[model]["typical_p"] = params.typical_p;
-        if (params.repeat_penalty != defaultParams.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.repeat_penalty;
-        if (params.frequency_penalty != defaultParams.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.frequency_penalty;
-        if (params.presence_penalty != defaultParams.presence_penalty) modelConfig[model]["presence_penalty"] = params.presence_penalty;
-        if (params.mirostat != defaultParams.mirostat) modelConfig[model]["mirostat"] = params.mirostat;
-        if (params.mirostat_tau != defaultParams.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.mirostat_tau;
-        if (params.mirostat_eta != defaultParams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
-        if (params.cfg_scale != defaultParams.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
-        if (params.n_ctx != defaultParams.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
-        if (params.n_threads != defaultParams.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
-        if (params.n_gpu_layers != defaultParams.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
-        if (params.rms_norm_eps != defaultParams.rms_norm_eps) modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
+        if (!params.input_suffix.empty()) modelConfig[model]["input_suffix"] = params.input_suffix;
+        if (!params.input_prefix.empty()) modelConfig[model]["input_prefix"] = params.input_prefix;
+        if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[model]["input_prefix_bos"] = params.input_prefix_bos;
         
-        if (params.rope_freq_base != defaultParams.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
-        if (params.rope_freq_scale != defaultParams.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
+        if (params.penalize_nl != paramsDefault.penalize_nl) modelConfig[model]["penalize_nl"] = params.penalize_nl;
+        
+        
+        if (params.temp != paramsDefault.temp) modelConfig[model]["temp"] = params.temp;
+        if (params.top_k != paramsDefault.top_k) modelConfig[model]["top_k"] = params.top_k;
+        if (params.top_p != paramsDefault.top_p) modelConfig[model]["top_p"] = params.top_p;
+        if (params.tfs_z != paramsDefault.tfs_z) modelConfig[model]["tfs_z"] = params.tfs_z;
+        if (params.typical_p != paramsDefault.typical_p) modelConfig[model]["typical_p"] = params.typical_p;
+        if (params.repeat_penalty != paramsDefault.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.repeat_penalty;
+        if (params.frequency_penalty != paramsDefault.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.frequency_penalty;
+        if (params.presence_penalty != paramsDefault.presence_penalty) modelConfig[model]["presence_penalty"] = params.presence_penalty;
+        if (params.mirostat != paramsDefault.mirostat) modelConfig[model]["mirostat"] = params.mirostat;
+        if (params.mirostat_tau != paramsDefault.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.mirostat_tau;
+        if (params.mirostat_eta != paramsDefault.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.mirostat_eta;
+        if (params.cfg_scale != paramsDefault.cfg_scale) modelConfig[model]["cfg-scale"] = params.cfg_scale;
+        if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
+        if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
+        if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
+        if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
+        
+        //#if GGML_EXPERIMENTAL1
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
+        //#endif
+        if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
+        
+        #if GGML_OLD_FORMAT
+        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
+        #else 
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
+        #endif
+        
+        if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
+        if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
         
         modelConfig[model]["cfg-negative-prompt"] = params.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;
@@ -655,49 +887,20 @@ struct configurableChat{
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
             params.antiprompt.push_back("### Instruction:");
         }
+        
+        if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
     }
     
     void fillLocalJson(){
-        modelConfig.clear();
-        
-        modelConfig["model"] = modelName;
-        
-        if (inputInstructFile != "NULL") //modelConfig[modelName]["file"] = inputInstructFile;
-            processInstructFile(inputInstructFile, params);
-        else if (instructFileFromJson != "NULL") //modelConfig[modelName]["file"] = instructFileFromJson;
-            processInstructFile(instructFileFromJson, params);
-        
-        if (params.temp != defaultParams.temp) modelConfig[modelName]["temp"] = params.temp;
-        if (params.top_k != defaultParams.top_k) modelConfig[modelName]["top_k"] = params.top_k;
-        if (params.top_p != defaultParams.top_p) modelConfig[modelName]["top_p"] = params.top_p;
-        if (params.tfs_z != defaultParams.tfs_z) modelConfig[modelName]["tfs_z"] = params.tfs_z;
-        if (params.typical_p != defaultParams.typical_p) modelConfig[modelName]["typical_p"] = params.typical_p;
-        if (params.repeat_penalty != defaultParams.repeat_penalty) modelConfig[modelName]["repeat_penalty"] = params.repeat_penalty;
-        if (params.frequency_penalty != defaultParams.frequency_penalty) modelConfig[modelName]["frequency_penalty"] = params.frequency_penalty;
-        if (params.presence_penalty != defaultParams.presence_penalty) modelConfig[modelName]["presence_penalty"] = params.presence_penalty;
-        if (params.mirostat != defaultParams.mirostat) modelConfig[modelName]["mirostat"] = params.mirostat;
-        if (params.mirostat_tau != defaultParams.mirostat_tau) modelConfig[modelName]["mirostat_tau"] = params.mirostat_tau;
-        if (params.mirostat_eta != defaultParams.mirostat_eta) modelConfig[modelName]["mirostat_eta"] = params.mirostat_eta;
-        if (params.cfg_scale != defaultParams.cfg_scale) modelConfig[modelName]["cfg-scale"] = params.cfg_scale;
-        if (params.n_ctx != defaultParams.n_ctx) modelConfig[modelName]["ctx-size"] = params.n_ctx;
-        if (params.n_threads != defaultParams.n_threads) modelConfig[modelName]["n_threads"] = params.n_threads;
-        if (params.n_gpu_layers != defaultParams.n_gpu_layers) modelConfig[modelName]["n_gpu_layers"] = params.n_gpu_layers;
-        if (params.rms_norm_eps != defaultParams.rms_norm_eps) modelConfig[modelName]["rms-norm-eps"] = params.rms_norm_eps;
-        
-        if (params.rope_freq_base != defaultParams.rope_freq_base) modelConfig[modelName]["rope_freq_base"] = params.rope_freq_base;
-        if (params.rope_freq_scale != defaultParams.rope_freq_scale) modelConfig[modelName]["rope_freq_scale"] = params.rope_freq_scale;
-
-        modelConfig[modelName]["cfg-negative-prompt"] = params.cfg_negative_prompt;
-        if (params.prompt.size()) modelConfig[modelName]["prompt"] = params.prompt;
-        else {
-            modelConfig[modelName]["prompt"] = "### Instruction:";
-            params.prompt = "### Instruction:";
-        }
-        if(params.antiprompt.size()) modelConfig[modelName]["reverse-prompt"] = params.antiprompt[0];
-        else {
-            modelConfig[modelName]["reverse-prompt"] = "### Instruction:";
-            params.antiprompt.push_back("### Instruction:");
-        }
+        fillLocalJson(modelName);
+    }
+    
+    void applySuffix(chat& aChat){
+        aChat.params.input_suffix = params.input_suffix;
+    }
+    
+    bool isNewSuffix(chat& aChat){
+        return aChat.params.input_suffix != params.input_suffix;
     }
     
     void updateInput(){

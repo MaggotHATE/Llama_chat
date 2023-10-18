@@ -1,0 +1,10 @@
+{
+    "font": "NotoSerifJP-Regular.otf",
+    "fontEmojis": "NotoEmoji-VariableFont_wght.ttf",
+    "fontSize": 21,
+    "latency": 10,
+    "height": 800,
+    "modelsFolder": "models/",
+    "promptsFolder": "prompts/",
+    "width": 600
+}
