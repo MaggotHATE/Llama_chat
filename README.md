@@ -6,12 +6,13 @@ This project started from the main example of llama.cpp - the idea was to read p
 ## Features
 
 * Two versions: gguf and ggmlv3
-* Settings managements through a config.json file
+* Model settings management through config.json file
+* UI settings management through chatConfig.json file
 * Global and per-model settings
+* Quick model select according to config.json
 * "Templates" (prompts) with a separate .json file to store, load and quickly use in chat ui.
 * Assignable folders for models and prompt files
 * Quick select of prompt files before loading a model
-* Quick model select according to config.json
 * Prompts history within one session
 
 ## Building
@@ -34,3 +35,12 @@ Tested on Windows only for now. AVX releases only due to old CPU, please compile
 * `make all` includes CLBLAST ( the only GPU option for now - regarding CUBLAS see https://github.com/ggerganov/llama.cpp/issues/1470 )
 * `make demos_gguf` for gguf only chats
 * `make gguf_cpu` for gguf and cpu only chat and test
+
+### Credits
+
+* (llama.cpp)[https://github.com/ggerganov/llama.cpp]
+* (imgui)[https://github.com/ocornut/imgui]
+* Retro theme based on https://github.com/ocornut/imgui/issues/707#issuecomment-254610737
+* Vulkan experimental build uses (this PR)[https://github.com/ggerganov/llama.cpp/pull/2059]
+* (redmond-puffin-13b)[https://huggingface.co/TheBloke/Redmond-Puffin-13B-GGUF] from config.json (q4_K_S version works faster)
+* (mistral-7b-instruct)[https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF] from config.json (q4_K_S version works faster)
