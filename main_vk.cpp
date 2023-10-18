@@ -1736,14 +1736,18 @@ struct chatUI{
         if (!localSettings.noConfig){
             if (!hasModel) {
                 if (ImGui::Button("Load and init model")) {
-
-                    newChat.jsonConfig = localSettings.modelConfig;
-                    newChat.load();
-                    
-                    hasModel = true;
-                    copiedDialog = false;
-                    copiedSettings = false;
-                    newChat.isContinue = 'l';
+                    if (std::filesystem::exists(localSettings.modelConfig["model"])){
+                        newChat.jsonConfig = localSettings.modelConfig;
+                        
+                        newChat.load();
+                        
+                        hasModel = true;
+                        copiedDialog = false;
+                        copiedSettings = false;
+                        newChat.isContinue = 'l';
+                    } else {
+                        ImGui::OpenPopup("No Model");
+                    }
                 }
             } else {
                 if (ImGui::Button("Init model")) {
@@ -1756,6 +1760,16 @@ struct chatUI{
                     //load_task(newChat, localSettings, hasModel);
                     newChat.isContinue = 'l';
                 }
+            }
+            
+            if (ImGui::BeginPopup("No Model")) {
+                ImVec2 work_size = viewport->WorkSize;
+                ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.5, work_size.y * 0.1));
+                std::string noModelMsg = localSettings.modelConfig["model"].get<std::string>() + " doesn't exist!";
+                ImGui::TextWrapped( noModelMsg.c_str() );
+                ImGui::EndChild();
+                ImGui::EndPopup();
+                
             }
         } else {
             if(localSettings.modelName == "NULL") ImGui::TextWrapped( "Choose a model first!" );
