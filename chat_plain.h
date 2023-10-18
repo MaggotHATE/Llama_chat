@@ -660,7 +660,7 @@ public:
         
         
         if (params.interactive_first || params.instruct || !params.prompt.empty() || session_tokens.empty()) {
-            embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos);
+            embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos, true);
         } else {
             embd_inp = session_tokens;
         }
@@ -677,9 +677,9 @@ public:
 
         if (ctx_guidance) {
             //params.cfg_negative_prompt.insert(0, 1, ' ');
-            guidance_inp = ::llama_tokenize(ctx_guidance, sparams.cfg_negative_prompt, add_bos);
+            guidance_inp = ::llama_tokenize(ctx_guidance, sparams.cfg_negative_prompt, add_bos, true);
 
-            std::vector<llama_token> original_inp = ::llama_tokenize(ctx, params.prompt, add_bos);
+            std::vector<llama_token> original_inp = ::llama_tokenize(ctx, params.prompt, add_bos, true);
             original_prompt_len = original_inp.size();
             guidance_offset = (int)guidance_inp.size() - original_prompt_len;
         }
@@ -729,8 +729,8 @@ public:
         }
 
         // prefix & suffix for instruct mode
-        inp_pfx = ::llama_tokenize(ctx, "\n\n### Instruction:\n\n", add_bos);
-        inp_sfx = ::llama_tokenize(ctx, "\n\n### Response:\n\n", false);
+        inp_pfx = ::llama_tokenize(ctx, "\n\n### Instruction:\n\n", add_bos, true);
+        inp_sfx = ::llama_tokenize(ctx, "\n\n### Response:\n\n", false, true);
 
         // determine newline token
         //llama_token_newline = ::llama_tokenize(ctx, "\n", false);
@@ -1233,7 +1233,7 @@ public:
             if (params.interactive) {
                 if (params.antiprompt.size() != 0) {
                     // tokenize and inject first reverse prompt
-                    const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false);
+                    const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false, true);
                     embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
                     is_antiprompt = true;
                 }
@@ -1292,8 +1292,14 @@ public:
             }
 
             //auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            const auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+            const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+            const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+            //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+            embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
             embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+            embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
             
             for (size_t i = original_size; i < embd_inp.size(); ++i) {
                 const llama_token token = embd_inp[i];
@@ -1530,8 +1536,14 @@ public:
             }
 
             //auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            const auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
+            const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+            const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+            const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+            //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+            embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
             embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+            embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
             
             
             

@@ -85,8 +85,8 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     }
     
     if (checkJString(config, "model")) params.model = config["model"];
-    if (checkJString(config, "cfg-negative-prompt")) params.cfg_negative_prompt = loadNpring(config,"cfg-negative-prompt", true);
-    if (checkJNum(config, "cfg-scale")) params.cfg_scale = loadNpring(config,"cfg-scale", true);
+    if (checkJString(config, "cfg-negative-prompt")) params.sampling_params.cfg_negative_prompt = loadNpring(config,"cfg-negative-prompt", true);
+    if (checkJNum(config, "cfg-scale")) params.sampling_params.cfg_scale = loadNpring(config,"cfg-scale", true);
     //if (config["cfg-smooth-factor"].is_number()) params.cfg_smooth_factor = loadNpring(config,"cfg-smooth-factor", false);
     if (checkJString(config, "lora")) {
         params.lora_adapter = config["lora"];
@@ -100,19 +100,19 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
     if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
     if (checkJNum(config, "n_batch")) params.n_batch = loadNpring(config,"n_batch", true);
-    if (checkJNum(config, "temp")) params.temp = loadNpring(config,"temp", true);
-    if (checkJNum(config, "top_k")) params.top_k = loadNpring(config,"top_k", true);
-    if (checkJNum(config, "top_p")) params.top_p = loadNpring(config,"top_p", true);
-    if (checkJNum(config, "typical_p")) params.typical_p = loadNpring(config,"typical_p", true);
-    if (checkJNum(config, "tfs_z")) params.tfs_z = loadNpring(config,"tfs_z", true);
-    if (checkJNum(config, "repeat_penalty")) params.repeat_penalty = loadNpring(config,"repeat_penalty", true);
-    if (checkJNum(config, "frequency_penalty")) params.frequency_penalty = loadNpring(config,"frequency_penalty", true);
-    if (checkJNum(config, "presence_penalty")) params.presence_penalty = loadNpring(config,"presence_penalty", true);
-    if (checkJNum(config, "mirostat")) params.mirostat = loadNpring(config,"mirostat", true);
-    if (checkJNum(config, "mirostat_tau")) params.mirostat_tau = loadNpring(config,"mirostat_tau", true);
-    if (checkJNum(config, "mirostat_eta")) params.mirostat_eta = loadNpring(config,"mirostat_eta", true);
+    if (checkJNum(config, "temp")) params.sampling_params.temp = loadNpring(config,"temp", true);
+    if (checkJNum(config, "top_k")) params.sampling_params.top_k = loadNpring(config,"top_k", true);
+    if (checkJNum(config, "top_p")) params.sampling_params.top_p = loadNpring(config,"top_p", true);
+    if (checkJNum(config, "typical_p")) params.sampling_params.typical_p = loadNpring(config,"typical_p", true);
+    if (checkJNum(config, "tfs_z")) params.sampling_params.tfs_z = loadNpring(config,"tfs_z", true);
+    if (checkJNum(config, "repeat_penalty")) params.sampling_params.repeat_penalty = loadNpring(config,"repeat_penalty", true);
+    if (checkJNum(config, "frequency_penalty")) params.sampling_params.frequency_penalty = loadNpring(config,"frequency_penalty", true);
+    if (checkJNum(config, "presence_penalty")) params.sampling_params.presence_penalty = loadNpring(config,"presence_penalty", true);
+    if (checkJNum(config, "mirostat")) params.sampling_params.mirostat = loadNpring(config,"mirostat", true);
+    if (checkJNum(config, "mirostat_tau")) params.sampling_params.mirostat_tau = loadNpring(config,"mirostat_tau", true);
+    if (checkJNum(config, "mirostat_eta")) params.sampling_params.mirostat_eta = loadNpring(config,"mirostat_eta", true);
     //if (config["color"].is_boolean()) params.use_color = loadNpring(config,"color", false);
-    if (config["penalize_nl"].is_boolean()) params.penalize_nl = loadNpring(config,"penalize_nl", false);
+    if (config["penalize_nl"].is_boolean()) params.sampling_params.penalize_nl = loadNpring(config,"penalize_nl", false);
     if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = loadNpring(config,"input_prefix_bos", false);
     
     if (checkJString(config, "grammar")) params.grammar = config["grammar"];
