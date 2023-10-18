@@ -392,7 +392,7 @@ o/ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
 o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-o/sampling.o: base/sampling.cpp base/sampling.h
+o/sampling.o: base/sampling.cpp base/sampling.h o/grammar-parser.o
 	$(CXX) $(CXXFLAGS) -c $< -o $@
     
 o/common.o: base/common.cpp base/common.h o/sampling.o

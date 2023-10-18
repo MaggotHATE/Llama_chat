@@ -19,7 +19,6 @@
 
 #include "common.h"
 #include "llama.h"
-#include "grammar-parser.h"
 
 #include "jsonParams.h"
 
@@ -176,10 +175,11 @@ private:
     std::vector<llama_token> last_tokens;
     std::vector<llama_token> guidance_inp;
     std::vector<llama_token> embd_guidance;
-    grammar_parser::parse_state parsed_grammar;
-    struct llama_grammar * grammar = NULL;
+    //grammar_parser::parse_state parsed_grammar;
+    //struct llama_grammar * grammar = NULL;
+    struct llama_sampling_context * ctx_sampling;
     std::vector<llama_token_data> candidates;
-    llama_sampling_context ctx_sampling;
+    //llama_sampling_context ctx_sampling;
     //llama_sampling_params & sparams;
     int n_vocab;
     bool cleared = true;
@@ -264,7 +264,7 @@ public:
         inp_sfx.clear();
         llama_token_newline.clear();
         candidates.clear();
-        resetCTX();
+        //resetCTX();
         
         n_past                = 0;
         n_remain              = 0;
@@ -293,9 +293,10 @@ public:
             llama_free(ctx);
             if (ctx_guidance) { llama_free(ctx_guidance); }
             llama_free_model(model);
-            if (grammar != NULL) {
-                llama_grammar_free(grammar);
-            }
+            //if (grammar != NULL) {
+            //    llama_grammar_free(grammar);
+            //}
+            llama_sampling_free(ctx_sampling);
             llama_backend_free();
             
             clearSoft();
@@ -764,7 +765,7 @@ public:
         //fprintf(stderr, "\n");
 
 
-        if (!params.grammar.empty()) {
+        /* if (!params.grammar.empty()) {
             parsed_grammar = grammar_parser::parse(params.grammar.c_str());
             // will be empty (default) if there are parse errors
             if (parsed_grammar.rules.empty()) {
@@ -784,14 +785,14 @@ public:
             std::vector<const llama_grammar_element *> grammar_rules(parsed_grammar.c_rules());
             grammar = llama_grammar_init(
                 grammar_rules.data(), grammar_rules.size(), parsed_grammar.symbol_ids.at("root"));
-        }
+        } */
         
         // TODO: replace with ring-buffer
         //last_n_tokens = std::vector<llama_token>(n_ctx);
         //std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
         //std::vector<llama_token> last_tokens(n_ctx);
-        last_tokens = std::vector<llama_token>(n_ctx);
-        std::fill(last_tokens.begin(), last_tokens.end(), 0);
+        //last_tokens = std::vector<llama_token>(n_ctx);
+        //std::fill(last_tokens.begin(), last_tokens.end(), 0);
 
         if (params.interactive) {
             const char *control_message;
@@ -808,6 +809,8 @@ public:
         */
             is_interacting = params.interactive_first;
         }
+        
+        //ctx_sampling = llama_sampling_init(params);
 
         bool need_to_save_session = !path_session.empty() && n_matching_session_tokens < embd_inp.size();
 
@@ -1008,10 +1011,11 @@ public:
         
         
         // new generation function, moved to common 
-        const llama_token id = llama_sampling_sample(ctx, ctx_guidance, ctx_sampling, last_tokens, candidates);
+        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
         
-        last_tokens.erase(last_tokens.begin());
-        last_tokens.push_back(id);
+        //last_tokens.erase(last_tokens.begin());
+        //last_tokens.push_back(id);
+        llama_sampling_accept(ctx_sampling, ctx, id);
 
         // add it to the context
         //embd.push_back(id);
@@ -1042,15 +1046,16 @@ public:
     int resetGrammar(){
         if (is_interacting) {
             // reset grammar state if we're restarting generation
-            if (grammar != NULL) {
-                llama_grammar_free(grammar);
+            // if (grammar != NULL) {
+                // llama_grammar_free(grammar);
 
-                std::vector<const llama_grammar_element *> grammar_rules(
-                    parsed_grammar.c_rules());
-                grammar = llama_grammar_init(
-                    grammar_rules.data(), grammar_rules.size(),
-                    parsed_grammar.symbol_ids.at("root"));
-            }
+                // std::vector<const llama_grammar_element *> grammar_rules(
+                    // parsed_grammar.c_rules());
+                // grammar = llama_grammar_init(
+                    // grammar_rules.data(), grammar_rules.size(),
+                    // parsed_grammar.symbol_ids.at("root"));
+            // }
+            llama_sampling_reset(ctx_sampling);
         }
         
         //is_interacting = false;
@@ -1088,8 +1093,15 @@ public:
                 embd.push_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
                 //last_n_tokens.push_back(embd_inp[n_consumed]);
-                last_tokens.erase(last_tokens.begin());
-                last_tokens.push_back(embd_inp[n_consumed]);
+                //last_tokens.erase(last_tokens.begin());
+                //last_tokens.push_back(embd_inp[n_consumed]);
+                
+                // GG: I'm not sure it's a good idea to push the prompt tokens into the sampling context
+                //     Most likely will remove this in the future to avoid exposing "prev"
+                //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
+                //     penalty will be applied only based on the tokens generated by the model.
+                ctx_sampling->prev.erase(ctx_sampling->prev.begin());
+                ctx_sampling->prev.push_back(embd_inp[n_consumed]);
                 
                 ++n_consumed;
                 if ((int) embd.size() >= params.n_batch) {
@@ -1157,8 +1169,15 @@ public:
                 embd.push_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
                 //last_n_tokens.push_back(embd_inp[n_consumed]);
-                last_tokens.erase(last_tokens.begin());
-                last_tokens.push_back(embd_inp[n_consumed]);
+                //last_tokens.erase(last_tokens.begin());
+                //last_tokens.push_back(embd_inp[n_consumed]);
+                
+                // GG: I'm not sure it's a good idea to push the prompt tokens into the sampling context
+                //     Most likely will remove this in the future to avoid exposing "prev"
+                //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
+                //     penalty will be applied only based on the tokens generated by the model.
+                ctx_sampling->prev.erase(ctx_sampling->prev.begin());
+                ctx_sampling->prev.push_back(embd_inp[n_consumed]);
                 
                 
                 ++n_consumed;
@@ -1197,7 +1216,8 @@ public:
         if (params.antiprompt.size()) {
             std::string last_output;
             //for (auto id : last_n_tokens) {
-            for (auto id : last_tokens) {
+            //for (auto id : last_tokens) {
+            for (auto id : ctx_sampling->prev) {
                 last_output += llama_token_to_piece(ctx, id);
             }
 
@@ -1229,7 +1249,8 @@ public:
     int setEOS(){
         // deal with end of text token in interactive mode
         //if (last_n_tokens.back() == llama_token_eos(ctx)) {
-        if (last_tokens.back() == llama_token_eos(ctx)) {
+        //if (last_tokens.back() == llama_token_eos(ctx)) {
+        if (ctx_sampling->prev.back() == llama_token_eos(ctx)) {
             if (params.interactive) {
                 if (params.antiprompt.size() != 0) {
                     // tokenize and inject first reverse prompt
@@ -1352,7 +1373,7 @@ public:
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
     
     void resetCTX(){
-        llama_sampling_context_reset(ctx_sampling);
+        llama_sampling_reset(ctx_sampling);
     }
 
 
@@ -1368,10 +1389,12 @@ public:
         //llama_sampling_context ctx_sampling = llama_sampling_context_init(params, grammar);
         
         // new generation function, moved to common 
-        const llama_token id = llama_sampling_sample(ctx, ctx_guidance, ctx_sampling, last_tokens, candidates);
+        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
         
-        last_tokens.erase(last_tokens.begin());
-        last_tokens.push_back(id);
+        //last_tokens.erase(last_tokens.begin());
+        //last_tokens.push_back(id);
+        
+        llama_sampling_accept(ctx_sampling, ctx, id);
 
         // add it to the context
         //embd.push_back(id);
@@ -1602,11 +1625,13 @@ public:
         
         if (hasAntiprompt(params.prompt) == -1 && params.input_prefix.empty())  params.prompt += DELIMINER + params.antiprompt[0];
         
-        ctx_sampling = llama_sampling_context_init(params, grammar);
+        //ctx_sampling = llama_sampling_context_init(params, grammar);
         
-        n_vocab = llama_n_vocab(model);
+        //n_vocab = llama_n_vocab(model);
         
-        candidates.reserve(n_vocab);
+        //candidates.reserve(n_vocab);
+        
+        ctx_sampling = llama_sampling_init(params);
         
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
             
@@ -1707,8 +1732,15 @@ public:
                 embd.push_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
                 //last_n_tokens.push_back(embd_inp[n_consumed]);
-                last_tokens.erase(last_tokens.begin());
-                last_tokens.push_back(embd_inp[n_consumed]);
+                //last_tokens.erase(last_tokens.begin());
+                //last_tokens.push_back(embd_inp[n_consumed]);
+                
+                // GG: I'm not sure it's a good idea to push the prompt tokens into the sampling context
+                //     Most likely will remove this in the future to avoid exposing "prev"
+                //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
+                //     penalty will be applied only based on the tokens generated by the model.
+                ctx_sampling->prev.erase(ctx_sampling->prev.begin());
+                ctx_sampling->prev.push_back(embd_inp[n_consumed]);
                 
                 
                 ++n_consumed;
