@@ -301,70 +301,7 @@ struct modelThread{
         getTimigsBoth();
     }
     
-    // loading, preloading and generating threads  
-    void getResultAsyncStringFull(bool streaming = false, bool full = false) {
-        //isContinue = 'w';
-        //std::cout << " ** " << input << std::endl;
-        newChat.clearLastTokens();
-        
-        
-        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
-            
-            std::string input = resultsStringPairs.back().second;
-                
-            newChat.inputOnly(input);
-            isPregen = 'i';
-            
-            consumed_tokens = newChat.getConsumedTokens();
-            past_tokens = newChat.getPastTokens();
-            
-            while (isContinue != 'i'){
-        
-                futureTextSubString = std::async(std::launch::async, [this, &streaming, &full] mutable {
-                    //char* result = newChat.cycleInputSingleOutputString(input); 
-                    
-                    //std::string result = newChat.cycleStringsOnly(resultsString.back()); 
-                    //resultsString.push_back(result);
-                    //std::string input = resultsStringPairs.back().second;
-                    std::string output = newChat.cycleStringsOnly(false);
-                    lastResult += output;
-                    
-                    if (streaming) {
-                        if (full) {
-                            getTimigsBoth();
-                            display();
-                            std::cout << lastResult;
-                        } else std::cout << output;
-                    } else {
-                        if (full) getTimigsGen();
-                    }
-                    //getTimigsSimple();
-                    
-                    if (newChat.finished){
-                        newChat.eraseAntiprompt(lastResult);
-                        resultsStringPairs.push_back(std::pair("AI",lastResult));
-                        isContinue = 'i';
-                        getTimigsBoth();
-                    }
-                    
-                    return lastResult;
-                });
-                
-                //futureTextString.get();
-                futureTextSubString.wait();
-                last_tokens = newChat.getLastTokens();
-                //remain_tokens = newChat.getRemainTokens();
-                consumed_tokens = newChat.getConsumedTokens();
-                past_tokens = newChat.getPastTokens();
-            
-            }
-            
-            std::string result = "ready";
-                
-            return result;
-        });
-        
-    }
+    // loading, preloading and generating threads
     
 /// CURRENT
 void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
