@@ -11,6 +11,9 @@
 #   pacman -S mingw-w64-i686-SDL2
 #
 
+# Define the default target now so that it is always the first target
+BUILD_TARGETS = demo demo_cl demo_ggml demo_ggml_cl
+
 #CXX = g++
 #CXX = clang++
 
