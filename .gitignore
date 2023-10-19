@@ -1,4 +1,4 @@
-# Prerequisites
+﻿# Prerequisites
 *.d
 
 # Compiled Object files
@@ -32,3 +32,8 @@
 *.app
 /base/common — копия.cpp
 /base/ggml-opencl-bu.cpp
+
+# Misc
+*.otf
+*.ttf
+*.ini
