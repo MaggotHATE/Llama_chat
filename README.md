@@ -1,5 +1,7 @@
 # Llama_chat
-A chat UI for Llama.cpp. Uses ImgUI, tinyfiledialogs and json.hpp.
+**A chat UI for Llama.cpp. Uses ImgUI, tinyfiledialogs and json.hpp.**
+
+![image](https://github.com/MaggotHATE/Llama_chat/blob/main/pics/Llama_chat.PNG)
 
 This project started from the main example of llama.cpp - the idea was to read parameters from .json files, and it stays the same here, only with a class, separate threads for running llama.cpp, structs for managing and settings - and only then wrapped into UI. A chatTest console app is also added as an additional example for testing purposes, since certain information (like memory used by the model) is printed outside of the original example (in llama.cpp, common.cpp, etc.).
 
