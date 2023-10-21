@@ -80,6 +80,7 @@ endif
 
 EXE = Llama_Chat_gguf
 EXE_OB = Llama_Chat_gguf_openblas
+EXE_VK = Llama_Chat_gguf_vulkan
 EXE_CL = Llama_Chat_gguf_clblast
 EXE_GGML = Llama_Chat_ggml
 EXE_CL_GGML = Llama_Chat_ggml_clblast
@@ -103,6 +104,8 @@ else
 OBJS = $(subst o/imgui/main.o,main.cpp,$(OBJS0))
 endif
 OBJS += o/tinyfiledialogs.o
+
+OBJS_UI_VK = $(subst main_vk.cpp,VULKAN/main_vk.cpp,$(OBJS))
 
 FILE_D = -Itinyfiledialogs
 I_GGUF = -I. -Ibase -Iinclude
@@ -238,10 +241,14 @@ ifeq ($(OS), Windows_NT)
     #CFLAGS_CL = $(CXXFLAGS_UI_CL)
 endif
 
+#LIBS_VK = $(LIBS) -lclblast
+
 ifndef SDL2
-LIBS +=  -lshell32 -lvulkan-1
+#LIBS +=  -lshell32 -lvulkan-1 -lclblast
 CXXFLAGS_UI += -I$(VULKAN_DIR)/include
 endif
+
+
 
 # For emojis
 
@@ -250,6 +257,7 @@ CXXFLAGS_UI += -DIMGUI_USE_WCHAR32
 CXXFLAGS_UI_CL = $(CXXFLAGS_UI) -DGGML_USE_CLBLAST
 CXXFLAGS_UI_GGML = $(CXXFLAGS_UI) -DGGML_OLD_FORMAT
 CXXFLAGS_UI_CL_GGML = $(CXXFLAGS_UI) -DGGML_OLD_FORMAT -DGGML_USE_CLBLAST
+CXXFLAGS_UI_VK = $(CXXFLAGS_UI) -DGGML_USE_VULKAN
 
 CFLAGS_CL = $(CFLAGS) -DGGML_USE_CLBLAST
 CFLAGS_GGML = $(CFLAGS) -DGGML_OLD_FORMAT
@@ -338,7 +346,8 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
   
 #VULKAN
 
-LDFLAGS_VK = -lvulkan -lopenblas
+LDFLAGS_VK = -lvulkan-1 -lclblast
+LDFLAGS_VK1 = -lshell32 -lvulkan-1 -lclblast
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
 OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_k_quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
@@ -639,6 +648,9 @@ demo_e1_cl: $(EXE)_e1_cl
 demo_cl: $(EXE_CL)
 	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
     
+demo_vk: $(EXE_VK)
+	@echo Build $(EXE_VK) complete for $(ECHO_MESSAGE)
+    
 demo_ob: $(EXE_OB)
 	@echo Build $(EXE_OB) complete for $(ECHO_MESSAGE) 
     
@@ -745,8 +757,11 @@ chatTest_e1_cl:class_chat.cpp                                  include/json.hpp 
     
 # VULKAN
 
-chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h 
-	$(CXX) -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) -o $@ $(LDFLAGS_VK)
+$(EXE_VK): $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h llama_chat1.res
+	 $(CXX) -I. -Iinclude -IVULKAN $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(LDFLAGS_VK1) $(CONFLAG) $(LIBS)
+     
+chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
+	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) -o $@
     
     
 # additional

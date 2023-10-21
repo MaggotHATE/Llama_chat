@@ -1,4 +1,4 @@
-#include "thread_chat.h"
+#include <thread_chat.h>
 
 #define SESSIONS_FOLDER "sessions/"
 
@@ -14,30 +14,13 @@ std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
 
-void append_utf8(char32_t ch, std::string & out) {
-    if (ch <= 0x7F) {
-        out.push_back(static_cast<unsigned char>(ch));
-    } else if (ch <= 0x7FF) {
-        out.push_back(static_cast<unsigned char>(0xC0 | ((ch >> 6) & 0x1F)));
-        out.push_back(static_cast<unsigned char>(0x80 | (ch & 0x3F)));
-    } else if (ch <= 0xFFFF) {
-        out.push_back(static_cast<unsigned char>(0xE0 | ((ch >> 12) & 0x0F)));
-        out.push_back(static_cast<unsigned char>(0x80 | ((ch >> 6) & 0x3F)));
-        out.push_back(static_cast<unsigned char>(0x80 | (ch & 0x3F)));
-    } else if (ch <= 0x10FFFF) {
-        out.push_back(static_cast<unsigned char>(0xF0 | ((ch >> 18) & 0x07)));
-        out.push_back(static_cast<unsigned char>(0x80 | ((ch >> 12) & 0x3F)));
-        out.push_back(static_cast<unsigned char>(0x80 | ((ch >> 6) & 0x3F)));
-        out.push_back(static_cast<unsigned char>(0x80 | (ch & 0x3F)));
-    } else {
-        // Invalid Unicode code point
-    }
-}
-
 int main(int argc, char ** argv) {
-    SetConsoleOutputCP(CP_UTF8);
     
-    //std::setlocale(LC_ALL, "en_US.utf8");
+    //std::setlocale(LC_CTYPE, ".UTF8");
+    
+    
+    std::setlocale(LC_ALL, "en_US.utf8");
+    SetConsoleOutputCP(CP_UTF8);
     //chat newChat;
     //std::vector<std::string> results;
     //task_lambda();
@@ -59,7 +42,10 @@ int main(int argc, char ** argv) {
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
     
+    int cycles = 10;
     int latency = 30;
+    std::string input1;
+    bool cycling = 0;
     if (settings.localConfig.contains("latency")) latency = settings.localConfig["latency"];
     //task_lambda(threadedChat);
     
@@ -83,34 +69,75 @@ int main(int argc, char ** argv) {
             //std::cout << threadedChat.newChat.params.input_prefix << ">";
             
             std::string input;
-            std::getline(std::cin, input);
-            if (input == "timings"){
-                threadedChat.newChat.print_timings();
-                std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+            
+            if (cycles <= 0) running = false;
+            
+            if (input1.empty()){
+                std::getline(std::cin, input);
                 
-                
-            } else if (input == "restart"){
-                threadedChat.unload();
-                threadedChat.load(settings.modelConfig, false);
-            } else if (input == "write"){
-                threadedChat.writeTextFile();
-            }else {
-                threadedChat.appendQuestion(input);
-                threadedChat.display();
-                //threadedChat.isContinue = 'w';
-                //threadedChat.lastResult = "";
-                //threadedChat.getResultAsyncString(true);
-                threadedChat.startGen();
-                threadedChat.getResultAsyncStringFull2(true, true);
-                
-                 // char input[2048];
-                // fflush(stdout);
-                // fgets(input, 2048, stdin);
+                if (input == "timings"){
+                    threadedChat.newChat.print_timings();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+                    
+                    
+                } else if (input == "restart"){
+                    threadedChat.unload();
+                    threadedChat.load(settings.modelConfig, false);
+                } else if (input == "write"){
+                    threadedChat.writeTextFile();
+                } else if (input == "cycle"){
+                     std::getline(std::cin, input1);
+                     threadedChat.appendQuestion(input1);
+                     threadedChat.display();
+                     threadedChat.startGen();
+                     threadedChat.getResultAsyncStringFull2(true, true);
+                     cycling = 1;
+                     --cycles;
+                }else {
+                    threadedChat.appendQuestion(input);
+                    threadedChat.display();
+                    //threadedChat.isContinue = 'w';
+                    //threadedChat.lastResult = "";
+                    //threadedChat.getResultAsyncString(true);
+                    threadedChat.startGen();
+                    threadedChat.getResultAsyncStringFull2(true, true);
+                    
+                     // char input[2048];
+                    // fflush(stdout);
+                    // fgets(input, 2048, stdin);
 
+                    
+                    // threadedChat.getResultAsyncCombined(input); 
+                    
+                    
+                }
+            } else {
                 
-                // threadedChat.getResultAsyncCombined(input); 
+                if (cycles > 0) {
+                    
+                    if(cycling == 1){
+                        threadedChat.writeTextFile("R");
+                        if (cycles <= 0) running = false;
+                        else {
+                            threadedChat.unload();
+                            threadedChat.load(settings.modelConfig, false);
+                            cycling = 0;
+                        }
+                    }
+                    
+                    if (threadedChat.isContinue == 'i'){
+                        if (cycles <= 0) running = false;
+                        --cycles;
+                        threadedChat.appendQuestion(input1);
+                        threadedChat.display();
+                        threadedChat.startGen();
+                        threadedChat.getResultAsyncStringFull2(true, true);
+                        cycling = 1;
+                    }
                 
+                }
                 
+                if (cycles <= 0) running = false;
             }
         }
         

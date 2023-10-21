@@ -194,7 +194,8 @@ struct modelThread{
     }
     
     bool writeTextFile(std::string path){
-        std::ofstream file(path, std::ios::app);
+        std::string path1 = path + '/' + std::to_string(newChat.params.seed) + ".txt";
+        std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             
             for (auto r : resultsStringPairs){
@@ -218,6 +219,7 @@ struct modelThread{
             for (auto r : resultsStringPairs){
                 file << r.first;
                 file << r.second;
+                file << DELIMINER;
             }
             
             file.close();
@@ -679,14 +681,14 @@ struct configurableChat{
     void syncInputs(){
         inputPrompt = params.prompt;
         if(params.antiprompt.size()) inputAntiprompt = params.antiprompt[0];
-        if(params.sampling_params.cfg_negative_prompt.size()) inputAntiCFG = params.sampling_params.cfg_negative_prompt;
+        if(params.sparams.cfg_negative_prompt.size()) inputAntiCFG = params.sparams.cfg_negative_prompt;
     }
     
     int checkChangedInputs(){
         int result = 0;
         if (inputPrompt != "NULL" && inputPrompt != params.prompt) result += 1;
         if (inputAntiprompt != "NULL" && params.antiprompt.size() && inputAntiprompt != params.antiprompt[0]) result += 2;
-        if (inputAntiCFG != "NULL" && inputAntiCFG != params.sampling_params.cfg_negative_prompt) result += 4;
+        if (inputAntiCFG != "NULL" && inputAntiCFG != params.sparams.cfg_negative_prompt) result += 4;
         
         return result;
     }
@@ -711,19 +713,19 @@ struct configurableChat{
     
     void pushSettings(chat& aChat){
         //aChat.params.n_threads = n_threads;
-        aChat.params.sampling_params.temp = params.sampling_params.temp;
+        aChat.params.sparams.temp = params.sparams.temp;
         //aChat.params.n_keep = params.n_keep;
-        aChat.params.sampling_params.top_k = params.sampling_params.top_k;
-        aChat.params.sampling_params.top_p = params.sampling_params.top_p;
-        aChat.params.sampling_params.tfs_z = params.sampling_params.tfs_z;
-        aChat.params.sampling_params.typical_p = params.sampling_params.typical_p;
-        aChat.params.sampling_params.repeat_penalty = params.sampling_params.repeat_penalty;
-        aChat.params.sampling_params.frequency_penalty = params.sampling_params.frequency_penalty;
-        aChat.params.sampling_params.presence_penalty = params.sampling_params.presence_penalty;
-        aChat.params.sampling_params.mirostat = params.sampling_params.mirostat;
-        aChat.params.sampling_params.mirostat_tau = params.sampling_params.mirostat_tau;
-        aChat.params.sampling_params.mirostat_eta = params.sampling_params.mirostat_eta;
-        aChat.params.sampling_params.cfg_scale = params.sampling_params.cfg_scale;
+        aChat.params.sparams.top_k = params.sparams.top_k;
+        aChat.params.sparams.top_p = params.sparams.top_p;
+        aChat.params.sparams.tfs_z = params.sparams.tfs_z;
+        aChat.params.sparams.typical_p = params.sparams.typical_p;
+        aChat.params.sparams.penalty_repeat = params.sparams.penalty_repeat;
+        aChat.params.sparams.penalty_freq = params.sparams.penalty_freq;
+        aChat.params.sparams.penalty_present = params.sparams.penalty_present;
+        aChat.params.sparams.mirostat = params.sparams.mirostat;
+        aChat.params.sparams.mirostat_tau = params.sparams.mirostat_tau;
+        aChat.params.sparams.mirostat_eta = params.sparams.mirostat_eta;
+        aChat.params.sparams.cfg_scale = params.sparams.cfg_scale;
         //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
     }
     
@@ -734,9 +736,9 @@ struct configurableChat{
         // aChat.params.top_p = params.top_p;
         // aChat.params.tfs_z = params.tfs_z;
         // aChat.params.typical_p = params.typical_p;
-        // aChat.params.repeat_penalty = params.repeat_penalty;
-        // aChat.params.frequency_penalty = params.frequency_penalty;
-        // aChat.params.presence_penalty = params.presence_penalty;
+        // aChat.params.penalty_repeat = params.penalty_repeat;
+        // aChat.params.penalty_freq = params.penalty_freq;
+        // aChat.params.penalty_present = params.penalty_present;
         // aChat.params.mirostat = params.mirostat;
         // aChat.params.mirostat_tau = params.mirostat_tau;
         // aChat.params.mirostat_eta = params.mirostat_eta;
@@ -809,21 +811,21 @@ struct configurableChat{
         if (!params.input_prefix.empty()) modelConfig[model]["input_prefix"] = params.input_prefix;
         if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[model]["input_prefix_bos"] = params.input_prefix_bos;
         
-        if (params.sampling_params.penalize_nl != paramsDefault.sampling_params.penalize_nl) modelConfig[model]["penalize_nl"] = params.sampling_params.penalize_nl;
+        if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) modelConfig[model]["penalize_nl"] = params.sparams.penalize_nl;
         
         
-        if (params.sampling_params.temp != paramsDefault.sampling_params.temp) modelConfig[model]["temp"] = params.sampling_params.temp;
-        if (params.sampling_params.top_k != paramsDefault.sampling_params.top_k) modelConfig[model]["top_k"] = params.sampling_params.top_k;
-        if (params.sampling_params.top_p != paramsDefault.sampling_params.top_p) modelConfig[model]["top_p"] = params.sampling_params.top_p;
-        if (params.sampling_params.tfs_z != paramsDefault.sampling_params.tfs_z) modelConfig[model]["tfs_z"] = params.sampling_params.tfs_z;
-        if (params.sampling_params.typical_p != paramsDefault.sampling_params.typical_p) modelConfig[model]["typical_p"] = params.sampling_params.typical_p;
-        if (params.sampling_params.repeat_penalty != paramsDefault.sampling_params.repeat_penalty) modelConfig[model]["repeat_penalty"] = params.sampling_params.repeat_penalty;
-        if (params.sampling_params.frequency_penalty != paramsDefault.sampling_params.frequency_penalty) modelConfig[model]["frequency_penalty"] = params.sampling_params.frequency_penalty;
-        if (params.sampling_params.presence_penalty != paramsDefault.sampling_params.presence_penalty) modelConfig[model]["presence_penalty"] = params.sampling_params.presence_penalty;
-        if (params.sampling_params.mirostat != paramsDefault.sampling_params.mirostat) modelConfig[model]["mirostat"] = params.sampling_params.mirostat;
-        if (params.sampling_params.mirostat_tau != paramsDefault.sampling_params.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.sampling_params.mirostat_tau;
-        if (params.sampling_params.mirostat_eta != paramsDefault.sampling_params.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sampling_params.mirostat_eta;
-        if (params.sampling_params.cfg_scale != paramsDefault.sampling_params.cfg_scale) modelConfig[model]["cfg-scale"] = params.sampling_params.cfg_scale;
+        if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
+        if (params.sparams.top_k != paramsDefault.sparams.top_k) modelConfig[model]["top_k"] = params.sparams.top_k;
+        if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
+        if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
+        if (params.sparams.typical_p != paramsDefault.sparams.typical_p) modelConfig[model]["typical_p"] = params.sparams.typical_p;
+        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["penalty_repeat"] = params.sparams.penalty_repeat;
+        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["penalty_freq"] = params.sparams.penalty_freq;
+        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) modelConfig[model]["penalty_present"] = params.sparams.penalty_present;
+        if (params.sparams.mirostat != paramsDefault.sparams.mirostat) modelConfig[model]["mirostat"] = params.sparams.mirostat;
+        if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.sparams.mirostat_tau;
+        if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sparams.mirostat_eta;
+        if (params.sparams.cfg_scale != paramsDefault.sparams.cfg_scale) modelConfig[model]["cfg-scale"] = params.sparams.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
@@ -843,7 +845,7 @@ struct configurableChat{
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
         if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
         
-        modelConfig[model]["cfg-negative-prompt"] = params.sampling_params.cfg_negative_prompt;
+        modelConfig[model]["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;
         else {
             modelConfig[model]["prompt"] = "### Instruction:";
@@ -878,7 +880,7 @@ struct configurableChat{
             else
                 params.antiprompt[0] = inputAntiprompt;
         }
-        if (inputAntiCFG != "NULL") params.sampling_params.cfg_negative_prompt = inputAntiCFG;
+        if (inputAntiCFG != "NULL") params.sparams.cfg_negative_prompt = inputAntiCFG;
     }
     
     void pushToMainConfig(){
