@@ -1612,9 +1612,9 @@ struct chatUI{
         //#ifdef GGML_EXPERIMENTAL1
         ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
         //#endif
-        if (clblast == 1) { 
+#if GGML_USE_CLBLAST || GGML_USE_VULKAN
             ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
-        }
+#endif
         
         //paramsPanel(localSettings, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.70f, ImGui::GetContentRegionAvail().y));
         

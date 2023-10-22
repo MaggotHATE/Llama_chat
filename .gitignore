@@ -30,10 +30,12 @@
 *.exe
 *.out
 *.app
-/base/common — копия.cpp
-/base/ggml-opencl-bu.cpp
 
 # Misc
 *.otf
 *.ttf
 *.ini
+*.7z
+*.zip
+/base/common — копия.cpp
+/base/ggml-opencl-bu.cpp

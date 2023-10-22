@@ -199,9 +199,8 @@ struct modelThread{
         if (file.is_open()) {
             
             for (auto r : resultsStringPairs){
-                file << r.first;
-                file << r.second;
-                file << DELIMINER;
+                file << r.first << DELIMINER;
+                file << ' ' << r.second << DELIMINER;
             }
             
             file.close();
@@ -217,9 +216,8 @@ struct modelThread{
         if (file.is_open()) {
             
             for (auto r : resultsStringPairs){
-                file << r.first;
-                file << r.second;
-                file << DELIMINER;
+                file << r.first << DELIMINER;
+                file << ' ' << r.second << DELIMINER;
             }
             
             file.close();
@@ -819,9 +817,9 @@ struct configurableChat{
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) modelConfig[model]["typical_p"] = params.sparams.typical_p;
-        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["penalty_repeat"] = params.sparams.penalty_repeat;
-        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["penalty_freq"] = params.sparams.penalty_freq;
-        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) modelConfig[model]["penalty_present"] = params.sparams.penalty_present;
+        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;
+        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["frequency_penalty"] = params.sparams.penalty_freq;
+        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) modelConfig[model]["present_penalty"] = params.sparams.penalty_present;
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) modelConfig[model]["mirostat"] = params.sparams.mirostat;
         if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.sparams.mirostat_tau;
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sparams.mirostat_eta;

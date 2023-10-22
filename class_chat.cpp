@@ -56,23 +56,24 @@ int main(int argc, char ** argv) {
         if (threadedChat.isContinue != 'i') {
             //if (threadedChat.isContinue == 'w') threadedChat.getResultAsyncString(true);
             //else 
+                
             std::this_thread::sleep_for(std::chrono::milliseconds(latency));
         } else {
             
-            threadedChat.display();
-            //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
-            if (threadedChat.newChat.params.antiprompt.size() && 
-                threadedChat.newChat.params.antiprompt[0] != threadedChat.newChat.params.input_prefix) 
-                 std::cout << threadedChat.newChat.params.antiprompt[0] << threadedChat.newChat.params.input_prefix;
-            else std::cout << threadedChat.newChat.params.input_prefix;
             
-            //std::cout << threadedChat.newChat.params.input_prefix << ">";
-            
-            std::string input;
-            
-            if (cycles <= 0) running = false;
             
             if (input1.empty()){
+                threadedChat.display();
+                //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
+                if (threadedChat.newChat.params.antiprompt.size() && 
+                    threadedChat.newChat.params.antiprompt[0] != threadedChat.newChat.params.input_prefix) 
+                     std::cout << threadedChat.newChat.params.antiprompt[0] << threadedChat.newChat.params.input_prefix;
+                else std::cout << threadedChat.newChat.params.input_prefix;
+                
+                //std::cout << threadedChat.newChat.params.input_prefix << ">";
+                
+                std::string input;
+                
                 std::getline(std::cin, input);
                 
                 if (input == "timings"){
@@ -84,6 +85,8 @@ int main(int argc, char ** argv) {
                     threadedChat.unload();
                     threadedChat.load(settings.modelConfig, false);
                 } else if (input == "write"){
+                    threadedChat.writeTextFile();
+                } else if (input == "save"){
                     threadedChat.writeTextFile();
                 } else if (input == "cycle"){
                      std::getline(std::cin, input1);
@@ -111,33 +114,25 @@ int main(int argc, char ** argv) {
                     
                     
                 }
-            } else {
-                
-                if (cycles > 0) {
+            } else if (cycles >= 0) {
                     
-                    if(cycling == 1){
-                        threadedChat.writeTextFile("R");
-                        if (cycles <= 0) running = false;
-                        else {
-                            threadedChat.unload();
-                            threadedChat.load(settings.modelConfig, false);
-                            cycling = 0;
-                        }
-                    }
-                    
-                    if (threadedChat.isContinue == 'i'){
-                        if (cycles <= 0) running = false;
-                        --cycles;
-                        threadedChat.appendQuestion(input1);
-                        threadedChat.display();
-                        threadedChat.startGen();
-                        threadedChat.getResultAsyncStringFull2(true, true);
-                        cycling = 1;
-                    }
-                
+                if(cycling == 1){
+                    threadedChat.writeTextFile("R");
+                    //if (cycles <= 0) running = false;
+                    //else {
+                        threadedChat.unload();
+                        threadedChat.load(settings.modelConfig, false);
+                        cycling = 0;
+                    //}
+                } else if (threadedChat.isContinue == 'i'){
+                    //if (cycles <= 0) running = false;
+                    --cycles;
+                    threadedChat.appendQuestion(input1);
+                    threadedChat.display();
+                    threadedChat.startGen();
+                    threadedChat.getResultAsyncStringFull2(true, true);
+                    cycling = 1;
                 }
-                
-                if (cycles <= 0) running = false;
             }
         }
         
