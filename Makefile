@@ -244,9 +244,15 @@ endif
 #LIBS_VK = $(LIBS) -lclblast
 
 ifndef SDL2
-#LIBS +=  -lshell32 -lvulkan-1 -lclblast
-CXXFLAGS_UI += -I$(VULKAN_DIR)/include
+LIBS += -lshell32 -lvulkan-1
+LDFLAGS_VK = -lvulkan-1
+LDFLAGS_VK+ = -lclblast
+else
+#LDFLAGS_VK = 
+LDFLAGS_VK+ = -lvulkan-1 -lclblast
+#CXXFLAGS_UI += -I$(VULKAN_DIR)/include
 endif
+
 
 
 
@@ -346,8 +352,8 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
   
 #VULKAN
 
-LDFLAGS_VK = -lvulkan-1 -lclblast
-LDFLAGS_VK1 = -lshell32 -lvulkan-1 -lclblast
+
+
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
 OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_k_quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
@@ -689,7 +695,7 @@ all_ggml: $(EXE_GGML) chatTest_ggml
 
 # MAIN EXE's    
     
-$(EXE): $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h llama_chat1.res
+$(EXE): $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
     
 chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
@@ -697,7 +703,7 @@ chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
     
 #CLBLAST
     
-$(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) chat_plain.h thread_chat.h llama_chat1.res
+$(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
         
 chatTest_cl:class_chat.cpp                                  chat_plain.h thread_chat.h $(OBJS_GGUF_CL)
@@ -713,7 +719,7 @@ chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_
     
 #GGML format
 
-$(EXE_GGML):$(OBJS) $(OBJS_GGML1) chat_plain.h thread_chat.h llama_chat1.res
+$(EXE_GGML):$(OBJS) $(OBJS_GGML1) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
     
 chatTest_ggml:class_chat.cpp $(OBJS_GGML1) chat_plain.h thread_chat.h 
@@ -721,7 +727,7 @@ chatTest_ggml:class_chat.cpp $(OBJS_GGML1) chat_plain.h thread_chat.h
     
 #GGML format w CLBLAST
 
-$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) chat_plain.h thread_chat.h llama_chat1.res
+$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
     
 chatTest_ggml_cl:class_chat.cpp chat_plain.h thread_chat.h   $(OBJS_CL_GGML1)
@@ -757,11 +763,11 @@ chatTest_e1_cl:class_chat.cpp                                  include/json.hpp 
     
 # VULKAN
 
-$(EXE_VK): $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h llama_chat1.res
-	 $(CXX) -I. -Iinclude -IVULKAN $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(LDFLAGS_VK1) $(CONFLAG) $(LIBS)
+$(EXE_VK): $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI.h llama_chat1.res
+	 $(CXX) -I. -Iinclude -IVULKAN $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
 chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
-	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) -o $@
+	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
     
     
 # additional
