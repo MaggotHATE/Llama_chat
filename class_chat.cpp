@@ -117,7 +117,7 @@ int main(int argc, char ** argv) {
             } else if (cycles >= 0) {
                     
                 if(cycling == 1){
-                    threadedChat.writeTextFile("R");
+                    threadedChat.writeTextFile("R/" + std::to_string(cycles) + "-");
                     //if (cycles <= 0) running = false;
                     //else {
                         threadedChat.unload();

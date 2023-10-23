@@ -194,7 +194,7 @@ struct modelThread{
     }
     
     bool writeTextFile(std::string path){
-        std::string path1 = path + '/' + std::to_string(newChat.params.seed) + ".txt";
+        std::string path1 = path + std::to_string(newChat.params.seed) + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             

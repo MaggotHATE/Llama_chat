@@ -1244,6 +1244,10 @@ public:
                 if (debug) printf("|");
                 embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
             }
+            
+            if (params.escape) {
+                process_escapes(buffer);
+            }
 
             //auto line_inp = ::llama_tokenize(ctx, buffer, false);
             //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
@@ -1489,6 +1493,10 @@ public:
                 n_consumed = embd_inp.size();
                 if (debug) printf("|");
                 embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
+            }
+            
+            if (params.escape) {
+                process_escapes(buffer);
             }
 
             //auto line_inp = ::llama_tokenize(ctx, buffer, false);
