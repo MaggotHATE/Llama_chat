@@ -494,10 +494,12 @@ public:
     int setRandom(){
         if (params.seed == LLAMA_DEFAULT_SEED) {
             //params.seed = time(NULL);
-            std::srand(std::time(nullptr));
-            if (std::rand() > std::rand()){
-                params.seed = std::rand()*std::rand();
-            } else params.seed = std::rand();
+            // std::srand(std::time(nullptr));
+            // if (std::rand() > std::rand()){
+                // params.seed = std::rand()*std::rand();
+            // } else params.seed = std::rand();
+            
+            params.seed = getRand();
         }
 
         //fprintf(stderr, "%s: seed  = %d\n", __func__, params.seed);
@@ -671,7 +673,7 @@ public:
         }
         
         if (embd_inp.empty()) {
-            embd_inp.push_back(llama_token_bos(ctx));
+            embd_inp.push_back(llama_token_bos(model));
         }
         
         //if (embd_inp.empty()) {
@@ -1120,7 +1122,7 @@ public:
         //if (last_n_tokens.back() == llama_token_eos(ctx)) {
         //if (last_tokens.back() == llama_token_eos(ctx)) {
         //if (ctx_sampling->prev.back() == llama_token_eos(ctx)) {
-        if (llama_sampling_last(ctx_sampling) == llama_token_eos(ctx)) {
+        if (llama_sampling_last(ctx_sampling) == llama_token_eos(model)) {
             if (params.interactive) {
                 if (params.antiprompt.size() != 0) {
                     // tokenize and inject first reverse prompt
@@ -1223,7 +1225,7 @@ public:
         // Add tokens to embd only if the input buffer is non-empty
         // Entering a empty line lets the user pass control back
         if (params.input_prefix_bos) {
-            embd_inp.push_back(llama_token_bos(ctx));
+            embd_inp.push_back(llama_token_bos(model));
         }
         
         
@@ -1469,7 +1471,7 @@ public:
 
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
-            embd_inp.push_back(llama_token_bos(ctx));
+            embd_inp.push_back(llama_token_bos(model));
         }
     }
     

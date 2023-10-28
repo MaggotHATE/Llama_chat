@@ -81,6 +81,7 @@ endif
 EXE = Llama_Chat_gguf
 EXE_OB = Llama_Chat_gguf_openblas
 EXE_VK = Llama_Chat_gguf_vulkan
+EXE_VK2 = Llama_Chat_gguf_vulkan_pre
 EXE_CL = Llama_Chat_gguf_clblast
 EXE_GGML = Llama_Chat_ggml
 EXE_CL_GGML = Llama_Chat_ggml_clblast
@@ -384,6 +385,37 @@ o/vk_k_quants.o: VULKAN/k_quants.c VULKAN/k_quants.h
     
 o/vk_grammar-parser.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+    
+#VULKAN2
+
+OBJS_VK2 = o/vk2_ggml.o o/vk2_ggml-alloc.o o/vk2_ggml-backend.o o/vk2_llama.o o/vk2_sampling.o o/vk2_common.o o/vk2_k_quants.o o/vk2_grammar-parser.o o/vk2_ggml-vulkan.o
+
+o/vk2_ggml-vulkan.o: VULKAN2/ggml-vulkan.cpp VULKAN2/ggml-vulkan.h
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+    
+o/vk2_ggml-backend.o: VULKAN2/ggml-backend.c VULKAN2/ggml.h VULKAN2/ggml-backend.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+
+o/vk2_ggml.o: VULKAN2/ggml.c GGML/ggml.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+    
+o/vk2_ggml-alloc.o: VULKAN2/ggml-alloc.c VULKAN2/ggml.h VULKAN2/ggml-alloc.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+
+o/vk2_llama.o: VULKAN2/llama.cpp VULKAN2/ggml.h VULKAN2/ggml-alloc.h VULKAN2/ggml-backend.h VULKAN2/llama.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+    
+o/vk2_sampling.o: VULKAN2/sampling.cpp VULKAN2/sampling.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+
+o/vk2_common.o: VULKAN2/common.cpp VULKAN2/common.h o/vk2_sampling.o
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+    
+o/vk2_k_quants.o: VULKAN2/k_quants.c VULKAN2/k_quants.h
+	$(CC) $(CFLAGS_VK) -c $< -o $@
+    
+o/vk2_grammar-parser.o: VULKAN2/grammar-parser.cpp VULKAN2/grammar-parser.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
   
 #####################################
 ################################ GGUF
@@ -657,6 +689,9 @@ demo_cl: $(EXE_CL)
 demo_vk: $(EXE_VK)
 	@echo Build $(EXE_VK) complete for $(ECHO_MESSAGE)
     
+demo_vk2: $(EXE_VK2)
+	@echo Build $(EXE_VK2) complete for $(ECHO_MESSAGE)
+    
 demo_ob: $(EXE_OB)
 	@echo Build $(EXE_OB) complete for $(ECHO_MESSAGE) 
     
@@ -769,6 +804,11 @@ $(EXE_VK): $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI.h llama_chat1.res
 chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
 	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
     
+$(EXE_VK2): $(OBJS) $(OBJS_VK2) VULKAN2/chat_plain.h VULKAN2/thread_chat.h UI.h llama_chat1.res
+	 $(CXX) -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -DGGML_USE_VULKAN2 -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
+    
+chatTest_vk2:class_chat.cpp $(OBJS_VK2) VULKAN2/chat_plain.h VULKAN2/thread_chat.h
+	$(CXX) -IVULKAN2 $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
     
 # additional
 

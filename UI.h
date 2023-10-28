@@ -238,6 +238,115 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
             }
             ImGui::EndPopup();
         } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(paramsDefault.cfg_scale)).c_str());
+#elif GGML_USE_VULKAN2
+        //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
+        ImGui::SliderFloat("temp", &params.sampling_params.temp, 0.0f, 2.0f);
+        if (ImGui::BeginPopupContextItem("temp"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.temp = paramsDefault.sampling_params.temp;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker( ("Adjust the randomness of the generated text. Lower means more robotic. Default: " + std::to_string(paramsDefault.sampling_params.temp)).c_str());
+        
+        ImGui::SliderInt("top_k", &params.sampling_params.top_k, 0, 100);
+        if (ImGui::BeginPopupContextItem("top_k"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.top_k = paramsDefault.sampling_params.top_k;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Top-k sampling. Selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output. Default: " + std::to_string(paramsDefault.sampling_params.top_k)).c_str());
+        
+        ImGui::SliderFloat("top_p", &params.sampling_params.top_p, 0.5f, 1.0f);
+        if (ImGui::BeginPopupContextItem("top_p"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.top_p = paramsDefault.sampling_params.top_p;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Top-p (Nucleus) sampling. Selects the next token from a subset of tokens that together have a cumulative probability of at least p. Higher values will lead to more diverse text, lower values will generate more focused and conservative text. Default: " + std::to_string(paramsDefault.sampling_params.top_p)).c_str());
+        
+        ImGui::SliderFloat("repeat_penalty", &params.sampling_params.repeat_penalty, 0.0f, 2.0f);
+        if (ImGui::BeginPopupContextItem("repeat_penalty"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.repeat_penalty = paramsDefault.sampling_params.repeat_penalty;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Controls the repetition of token sequences in the generated text. Default: " + std::to_string(paramsDefault.sampling_params.repeat_penalty)).c_str());
+        
+        ImGui::SliderFloat("frequency_penalty", &params.sampling_params.frequency_penalty, 0.0f, 2.0f);
+        if (ImGui::BeginPopupContextItem("frequency_penalty"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.frequency_penalty = paramsDefault.sampling_params.frequency_penalty;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Descreases the chance of repeating the same lines in the output. Affects the immediate result. Default: " + std::to_string(paramsDefault.sampling_params.frequency_penalty)).c_str());
+        
+        ImGui::SliderFloat("presence_penalty", &params.sampling_params.presence_penalty, 0.0f, 2.0f);
+        if (ImGui::BeginPopupContextItem("presence_penalty"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.presence_penalty = paramsDefault.sampling_params.presence_penalty;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Descreases the chance of repeating the same lines in the output. Affects the entrire dialog. Default: " + std::to_string(paramsDefault.sampling_params.presence_penalty)).c_str());
+        
+        ImGui::SliderFloat("tfs_z", &params.sampling_params.tfs_z, 0.5f, 1.0f); ImGui::SameLine();
+        if (ImGui::BeginPopupContextItem("tfs_z"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.tfs_z = paramsDefault.sampling_params.tfs_z;
+            }
+            ImGui::EndPopup();
+        } HelpMarker(("Tail free sampling, parameter z. TFS filters out logits based on the second derivative of their probabilities. Adding tokens is stopped after the sum of the second derivatives reaches the parameter z. In short: TFS looks how quickly the probabilities of the tokens decrease and cuts off the tail of unlikely tokens using the parameter z. Default: " + std::to_string(paramsDefault.sampling_params.tfs_z)).c_str());
+        
+        ImGui::SliderFloat("typical_p", &params.sampling_params.typical_p, 0.5f, 1.0f);
+        if (ImGui::BeginPopupContextItem("typical_p"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.typical_p = paramsDefault.sampling_params.typical_p;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Locally typical sampling, parameter p. Promotes the generation of contextually coherent and diverse text by sampling tokens that are typical or expected based on the surrounding context. Default: " + std::to_string(paramsDefault.sampling_params.typical_p)).c_str());
+        
+        ImGui::SliderInt("mirostat", &params.sampling_params.mirostat, 0, 2); ImGui::SameLine();
+        if (ImGui::BeginPopupContextItem("mirostat"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.mirostat = paramsDefault.sampling_params.mirostat;
+            }
+            ImGui::EndPopup();
+        } HelpMarker(("Uses Mirostat sampling. Top K, Nucleus, Tail Free and Locally Typical samplers are ignored with this. Default: " + std::to_string(paramsDefault.sampling_params.mirostat)).c_str());
+        
+         ImGui::SliderFloat("mirostat_tau", &params.sampling_params.mirostat_tau, 0.0f, 10.0f);
+        if (ImGui::BeginPopupContextItem("mirostat_tau"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.mirostat_tau = paramsDefault.sampling_params.mirostat_tau;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Mirostat learning rate. Default: " + std::to_string(paramsDefault.sampling_params.mirostat_tau)).c_str());
+        
+        ImGui::SliderFloat("mirostat_eta", &params.sampling_params.mirostat_eta, 0.00f, 0.50f);
+        if (ImGui::BeginPopupContextItem("mirostat_eta"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.mirostat_eta = paramsDefault.sampling_params.mirostat_eta;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("Mirostat target entropy. Default: " + std::to_string(paramsDefault.sampling_params.mirostat_eta)).c_str());
+        
+        ImGui::SliderFloat("cfg_scale", &params.sampling_params.cfg_scale, 1.0f, 4.0f);
+        if (ImGui::BeginPopupContextItem("cfg_scale"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sampling_params.cfg_scale = paramsDefault.sampling_params.cfg_scale;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(paramsDefault.sampling_params.cfg_scale)).c_str());
 #else
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
         ImGui::SliderFloat("temp", &params.sparams.temp, 0.0f, 2.0f);
@@ -501,6 +610,7 @@ struct chatUI{
 
     char const *instructFilterPatterns[1]={"*.txt"};
     char const *fontFilterPatterns[1]={"*.ttf"};
+    char const *jsonFilterPatterns[1]={"*.json"};
     std::string currPath = filesystem::current_path().string() + '/';
     
     modelThread newChat;
@@ -586,6 +696,8 @@ struct chatUI{
                 ImGui::Separator();
 #if GGML_OLD_FORMAT
                 ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.cfg_negative_prompt).c_str() ); 
+#elif GGML_USE_VULKAN2
+                ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sampling_params.cfg_negative_prompt).c_str() ); 
 #else
                 ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sparams.cfg_negative_prompt).c_str() ); 
 #endif
@@ -926,6 +1038,15 @@ struct chatUI{
                                             ImGui::LogText(r.second.c_str());
                                             ImGui::LogFinish();
                                         }
+                                        
+                                        if (ImGui::Selectable("Save on disk")){
+                                            auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+                    
+                                            if (saveAnswer){
+                                                writeTextFileOver(saveAnswer, r.second);
+                                            }
+                                        }
+                                    
                                         ImGui::EndPopup();
                                     }
                                 }
@@ -937,6 +1058,14 @@ struct chatUI{
                                         ImGui::LogToClipboard();
                                         ImGui::LogText(r.second.c_str());
                                         ImGui::LogFinish();
+                                    }
+                                    
+                                    if (ImGui::Selectable("Save on disk")){
+                                        auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+                
+                                        if (saveAnswer){
+                                            writeTextFileOver(saveAnswer, r.second);
+                                        }
                                     }
                                     ImGui::EndPopup();
                                 }
@@ -1161,6 +1290,15 @@ struct chatUI{
                     
                 }
                 
+                if (ImGui::Button("Choose a wildcards file")) {
+                    auto wildcardsFile = tinyfd_openFileDialog("Select a wildcards file...", currPath.c_str(),1, jsonFilterPatterns, NULL,0);
+                        if (wildcardsFile) {
+                            nlohmann::json wildcardsDB = getJson(wildcardsFile);
+                            
+                            inputStr = processByWildcards(wildcardsDB, inputStr);
+                        }
+                }
+                
                 
                     
                 if(cancelled){
@@ -1239,6 +1377,11 @@ struct chatUI{
 #if GGML_OLD_FORMAT
         if (localSettings.params.cfg_scale > 1.0) {
             ImGui::TextWrapped( ("Set CFG cfg_scale to " + std::to_string(localSettings.params.cfg_scale)).c_str() );
+            ImGui::Separator();
+        }
+#elif GGML_USE_VULKAN2
+        if (localSettings.params.sampling_params.cfg_scale > 1.0) {
+            ImGui::TextWrapped( ("Set CFG cfg_scale to " + std::to_string(localSettings.params.sampling_params.cfg_scale)).c_str() );
             ImGui::Separator();
         }
 #else
@@ -1490,7 +1633,8 @@ struct chatUI{
                 }
 #if GGML_OLD_FORMAT
         ImGui::SliderFloat("cfg_scale", &localSettings.params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
-
+#elif GGML_USE_VULKAN2
+        ImGui::SliderFloat("cfg_scale", &localSettings.params.sampling_params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
 #else 
         ImGui::SliderFloat("cfg_scale", &localSettings.params.sparams.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
 #endif
@@ -1921,6 +2065,8 @@ struct chatUI{
         if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
 #if GGML_OLD_FORMAT
         inputAntiCFG = localSettings.params.cfg_negative_prompt;
+#elif GGML_USE_VULKAN2
+        inputAntiCFG = localSettings.params.sampling_params.cfg_negative_prompt;
 #else
         inputAntiCFG = localSettings.params.sparams.cfg_negative_prompt;
 #endif

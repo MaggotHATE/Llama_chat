@@ -147,7 +147,7 @@ llama_token llama_sampling_sample(
 
     // apply penalties
     if (!prev.empty()) {
-        const float nl_logit = logits[llama_token_nl(ctx_main)];
+        const float nl_logit = logits[llama_token_nl(llama_get_model(ctx_main))];
 
         llama_sample_repetition_penalties(ctx_main, &cur_p,
                 prev.data() + prev.size() - penalty_last_n,
@@ -155,7 +155,7 @@ llama_token llama_sampling_sample(
 
         if (!penalize_nl) {
             for (size_t idx = 0; idx < cur_p.size; idx++) {
-                if (cur_p.data[idx].id == llama_token_nl(ctx_main)) {
+                if (cur_p.data[idx].id == llama_token_nl(llama_get_model(ctx_main))) {
                     cur_p.data[idx].logit = nl_logit;
                     break;
                 }
@@ -167,8 +167,12 @@ llama_token llama_sampling_sample(
         llama_sample_grammar(ctx_main, &cur_p, ctx_sampling->grammar);
     }
 
-    if (temp <= 0) {
-        // greedy sampling
+    if (temp < 0.0) {
+        // greedy sampling, with probs
+        llama_sample_softmax(ctx_main, &cur_p);
+        id = cur_p.data[0].id;
+    } else if (temp == 0.0) {
+        // greedy sampling, no probs
         id = llama_sample_token_greedy(ctx_main, &cur_p);
     } else {
         if (mirostat == 1) {

@@ -14,12 +14,83 @@ std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
 
+struct wildcard{
+    nlohmann::json wildcardsDB;
+    std::string subname;
+    std::string saveFolder = "R";
+    int cycles = 10;
+    std::vector<std::string> promptsDB;
+    std::string prompt0;
+    std::string prompt;
+    
+    void init(std::string filename){
+        if (filename.empty()) wildcardsDB = getJson("wildcards.json");
+        else {
+            if (filename.find(".json") == filename.npos) filename += ".json";
+            wildcardsDB = getJson(filename);
+        }
+        
+        if (wildcardsDB.contains("cycles")) cycles = wildcardsDB["cycles"];
+                    
+        if (wildcardsDB.contains("folder")) saveFolder = wildcardsDB["folder"];
+        
+        
+        
+        promptsDB = wildcardsDB["prompts"];
+        
+    }
+    
+    void getPrompt(){
+        unsigned int x = getRand() % promptsDB.size();
+        prompt0 = promptsDB[x];
+        
+        prompt = findWildcard(prompt0);
+    }
+    
+    std::string findWildcard(std::string inputString){
+    
+        size_t last = inputString.rfind("__");
+        if (last != inputString.npos){
+            
+            std::string subInputString = inputString.substr(0,last);
+            std::cout << " subInputString: " << subInputString << std::endl;
+            size_t first = subInputString.rfind("__");
+            if (first != subInputString.npos){
+                std::string wildcard = subInputString.substr(first + 2);
+                
+                
+                if(wildcardsDB.contains(wildcard)) {
+                    
+                    std::vector<std::string> wildcardsArr = wildcardsDB[wildcard];
+                    unsigned int i = getRand() % wildcardsArr.size();
+                    std::string choice = wildcardsArr[i];
+                    inputString.replace(first,last - first + 2,choice);
+                    std::cout << "Replaced: " << inputString << std::endl;
+                    
+                    if (wildcardsDB.contains("subname")){
+                        if (wildcard == wildcardsDB["subname"].get<std::string>()){
+                            subname = choice;
+                        }
+                    }
+                    
+                    return findWildcard(inputString);
+                    
+                } else std::cout << " no wildcard: " << wildcard << std::endl;
+            } else std::cout << " no first __" << std::endl;
+        } else std::cout << " no last __" << std::endl;
+            
+        return inputString;
+    }
+};
+
+
+
 int main(int argc, char ** argv) {
     
-    //std::setlocale(LC_CTYPE, ".UTF8");
+    std::setlocale(LC_CTYPE, ".UTF8");
     
     
-    std::setlocale(LC_ALL, "en_US.utf8");
+    //std::setlocale(LC_ALL, "en_US.utf8");
     SetConsoleOutputCP(CP_UTF8);
     //chat newChat;
     //std::vector<std::string> results;
@@ -42,11 +113,23 @@ int main(int argc, char ** argv) {
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
     
-    int cycles = 10;
+    
     int latency = 30;
+    if (settings.localConfig.contains("latency")) latency = settings.localConfig["latency"];
+    
+    // cycle for automated generation with wildcards
     std::string input1;
     bool cycling = 0;
-    if (settings.localConfig.contains("latency")) latency = settings.localConfig["latency"];
+    
+    int cycles = 10;
+    //nlohmann::json wildcardsDB;
+    //std::string saveFolder = "R";
+    
+    wildcard Card;
+    
+    //std::srand(std::time(nullptr));
+    //unsigned int cycleIDX = std::rand() * std::rand() / std::rand();
+    
     //task_lambda(threadedChat);
     
     
@@ -62,7 +145,7 @@ int main(int argc, char ** argv) {
             
             
             
-            if (input1.empty()){
+            if (Card.prompt.empty()){
                 threadedChat.display();
                 //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
                 if (threadedChat.newChat.params.antiprompt.size() && 
@@ -89,13 +172,20 @@ int main(int argc, char ** argv) {
                 } else if (input == "save"){
                     threadedChat.writeTextFile();
                 } else if (input == "cycle"){
-                     std::getline(std::cin, input1);
-                     threadedChat.appendQuestion(input1);
-                     threadedChat.display();
-                     threadedChat.startGen();
-                     threadedChat.getResultAsyncStringFull2(true, true);
-                     cycling = 1;
-                     --cycles;
+                     
+                     std::string input2;
+                     std::getline(std::cin, input2);
+                    
+                     Card.init(input2);
+                     Card.getPrompt();
+                     //if (input2 == "y"){
+                         threadedChat.appendQuestion(Card.prompt);
+                         threadedChat.display();
+                         threadedChat.startGen();
+                         threadedChat.getResultAsyncStringFull2(true, true);
+                         cycling = 1;
+                         --Card.cycles;
+                     //}
                 }else {
                     threadedChat.appendQuestion(input);
                     threadedChat.display();
@@ -114,20 +204,24 @@ int main(int argc, char ** argv) {
                     
                     
                 }
-            } else if (cycles >= 0) {
+            } else if (Card.cycles >= 0) {
                     
                 if(cycling == 1){
-                    threadedChat.writeTextFile("R/" + std::to_string(cycles) + "-");
-                    //if (cycles <= 0) running = false;
-                    //else {
+                    threadedChat.writeTextFile(Card.saveFolder + '/' + std::to_string(Card.cycles) + "-" + Card.subname + "-");
+                    if (Card.cycles == 0) {
+                        return 0;
+                    } else {
                         threadedChat.unload();
                         threadedChat.load(settings.modelConfig, false);
                         cycling = 0;
-                    //}
+                    }
                 } else if (threadedChat.isContinue == 'i'){
                     //if (cycles <= 0) running = false;
-                    --cycles;
-                    threadedChat.appendQuestion(input1);
+                    --Card.cycles;
+                    //auto result = findWildcard(wildcardsDB, input1);
+                    Card.getPrompt();
+                    
+                    threadedChat.appendQuestion(Card.prompt);
                     threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(true, true);

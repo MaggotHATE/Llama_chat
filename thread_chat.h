@@ -16,6 +16,8 @@
 #   include "experimental1/chat_plain.h"
 #elif defined(GGML_EXPERIMENTAL)
 #   include "experimental/chat_plain.h"
+//#elif defined(GGML_USE_VULKAN)
+//#   include "VULKAN/chat_plain.h"
 #else
 #   include "chat_plain.h"  
 #endif
@@ -197,7 +199,7 @@ struct modelThread{
         std::string path1 = path + std::to_string(newChat.params.seed) + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
-            
+            file << shortModelName << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
                 file << ' ' << r.second << DELIMINER;
@@ -214,7 +216,7 @@ struct modelThread{
         std::string path = std::to_string(newChat.params.seed) + ".txt";
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
-            
+            file << shortModelName << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
                 file << ' ' << r.second << DELIMINER;
@@ -810,6 +812,7 @@ struct configurableChat{
         if (params.input_prefix_bos != paramsDefault.input_prefix_bos) modelConfig[model]["input_prefix_bos"] = params.input_prefix_bos;
         
         if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) modelConfig[model]["penalize_nl"] = params.sparams.penalize_nl;
+        if (params.use_mmap != paramsDefault.use_mmap) modelConfig[model]["use_mmap"] = params.use_mmap;
         
         
         if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
