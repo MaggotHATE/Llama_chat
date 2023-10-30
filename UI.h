@@ -267,6 +267,7 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
             ImGui::EndPopup();
         } ImGui::SameLine(); HelpMarker(("Top-p (Nucleus) sampling. Selects the next token from a subset of tokens that together have a cumulative probability of at least p. Higher values will lead to more diverse text, lower values will generate more focused and conservative text. Default: " + std::to_string(paramsDefault.sampling_params.top_p)).c_str());
         
+
         ImGui::SliderFloat("repeat_penalty", &params.sampling_params.repeat_penalty, 0.0f, 2.0f);
         if (ImGui::BeginPopupContextItem("repeat_penalty"))
         {
@@ -375,6 +376,15 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
             }
             ImGui::EndPopup();
         } ImGui::SameLine(); HelpMarker(("Top-p (Nucleus) sampling. Selects the next token from a subset of tokens that together have a cumulative probability of at least p. Higher values will lead to more diverse text, lower values will generate more focused and conservative text. Default: " + std::to_string(paramsDefault.sparams.top_p)).c_str());
+        
+        ImGui::SliderFloat("min_p", &params.sparams.min_p, 0.00f, 0.99f);
+        if (ImGui::BeginPopupContextItem("min_p"))
+        {
+            if (ImGui::Selectable("Reset to default")){
+                params.sparams.min_p = paramsDefault.sparams.min_p;
+            }
+            ImGui::EndPopup();
+        } ImGui::SameLine(); HelpMarker(("New proposed sampling method. Every possible token has a probability percentage attached to it that we will be measuring for consideration. The base min p value represents the starting required percentage. This gets scaled by the top token in the entire list's probability. For example, 0.05 = only include tokens that are at least 5% probable. Default: " + std::to_string(paramsDefault.sparams.min_p)).c_str());
         
         ImGui::SliderFloat("penalty_repeat", &params.sparams.penalty_repeat, 0.0f, 2.0f);
         if (ImGui::BeginPopupContextItem("penalty_repeat"))
@@ -1101,32 +1111,107 @@ struct chatUI{
                             if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
                             else ImGui::SeparatorText("prompt");
                             
-                            ImGui::TextWrapped((r.first + r.second).c_str());
-                            if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
-                            {
-                                if (ImGui::Selectable("Copy")){
-                                    ImGui::LogToClipboard();
-                                    ImGui::LogText((r.second.substr(0,r.second.size())).c_str());
-                                    ImGui::LogFinish();
-                                }
-                                
-                                if(templatesJson.contains("error")){
-                                    if (ImGui::Selectable("Store as saved")){
-                                        templatesJson["saved"].push_back(r.second);
-                                        templatesJson.erase("error");
+                            //ImGui::BeginChild(std::to_string(messageNum).c_str());
+                            //ImGui::TextWrapped((r.first + r.second).c_str());
+                            
+                            if ((r.first + r.second).size() < maxString){
+                                ImGui::TextWrapped((r.first + r.second).c_str());
+                                if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                {
+                                    if (ImGui::Selectable("Copy")){
+                                        ImGui::LogToClipboard();
+                                        ImGui::LogText((r.second.substr(0,r.second.size())).c_str());
+                                        ImGui::LogFinish();
                                     }
-                                } else {
-                                    for (auto& [key, value] : templatesJson.items() ){
-                                        if (value.is_array()) {
-                                            if (ImGui::Selectable(("Store as " + key).c_str())){
-                                                templatesJson[key].push_back(r.second);
+                                    
+                                    if(templatesJson.contains("error")){
+                                        if (ImGui::Selectable("Store as saved")){
+                                            templatesJson["saved"].push_back(r.second);
+                                            templatesJson.erase("error");
+                                        }
+                                    } else {
+                                        for (auto& [key, value] : templatesJson.items() ){
+                                            if (value.is_array()) {
+                                                if (ImGui::Selectable(("Store as " + key).c_str())){
+                                                    templatesJson[key].push_back(r.second);
+                                                }
                                             }
                                         }
                                     }
+                                    
+                                    ImGui::EndPopup();
+                                }
+                            } else {
+                                std::string msg = r.first + r.second;
+                                while (msg.size() > maxString){
+                                    std::string subMsg = msg.substr(0,maxString);
+                                    int posDelim = subMsg.rfind('\n');
+                                    if (posDelim == subMsg.npos){
+                                        int posSpace = subMsg.rfind(". ");
+                                        subMsg = msg.substr(0,posSpace);
+                                        msg = msg.substr(posSpace);
+                                    } else {
+                                        subMsg = msg.substr(0,posDelim);
+                                        msg = msg.substr(posDelim);
+                                    }
+                                    
+                                    ImGui::TextWrapped((subMsg.c_str()));
+                                    if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                    {
+                                        if (ImGui::Selectable("Copy")){
+                                            ImGui::LogToClipboard();
+                                            ImGui::LogText((r.second.substr(0,r.second.size())).c_str());
+                                            ImGui::LogFinish();
+                                        }
+                                        
+                                        if(templatesJson.contains("error")){
+                                            if (ImGui::Selectable("Store as saved")){
+                                                templatesJson["saved"].push_back(r.second);
+                                                templatesJson.erase("error");
+                                            }
+                                        } else {
+                                            for (auto& [key, value] : templatesJson.items() ){
+                                                if (value.is_array()) {
+                                                    if (ImGui::Selectable(("Store as " + key).c_str())){
+                                                        templatesJson[key].push_back(r.second);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        ImGui::EndPopup();
+                                    }
+                                    if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
                                 }
                                 
-                                ImGui::EndPopup();
+                                ImGui::TextWrapped((msg.c_str()));
+                                if (ImGui::BeginPopupContextItem(std::to_string(messageNum).c_str()))
+                                {
+                                    if (ImGui::Selectable("Copy")){
+                                        ImGui::LogToClipboard();
+                                        ImGui::LogText((r.second.substr(0,r.second.size())).c_str());
+                                        ImGui::LogFinish();
+                                    }
+                                    
+                                    if(templatesJson.contains("error")){
+                                        if (ImGui::Selectable("Store as saved")){
+                                            templatesJson["saved"].push_back(r.second);
+                                            templatesJson.erase("error");
+                                        }
+                                    } else {
+                                        for (auto& [key, value] : templatesJson.items() ){
+                                            if (value.is_array()) {
+                                                if (ImGui::Selectable(("Store as " + key).c_str())){
+                                                    templatesJson[key].push_back(r.second);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    ImGui::EndPopup();
+                                }
                             }
+                            //ImGui::EndChild();
                         //ImGui::Separator();
                         //ImGui::Text((r.first + r.second).c_str(), wrap_width);
                         //ImGui::PopTextWrapPos();

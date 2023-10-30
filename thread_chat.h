@@ -200,6 +200,7 @@ struct modelThread{
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
+            file << lastTimings << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
                 file << ' ' << r.second << DELIMINER;
@@ -217,6 +218,7 @@ struct modelThread{
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
+            file << lastTimings << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
                 file << ' ' << r.second << DELIMINER;
@@ -717,6 +719,7 @@ struct configurableChat{
         //aChat.params.n_keep = params.n_keep;
         aChat.params.sparams.top_k = params.sparams.top_k;
         aChat.params.sparams.top_p = params.sparams.top_p;
+        aChat.params.sparams.min_p = params.sparams.min_p;
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
         aChat.params.sparams.penalty_repeat = params.sparams.penalty_repeat;
@@ -818,6 +821,7 @@ struct configurableChat{
         if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) modelConfig[model]["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
+        if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) modelConfig[model]["typical_p"] = params.sparams.typical_p;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;

@@ -26,7 +26,6 @@ struct wildcard{
     void init(std::string filename){
         if (filename.empty()) wildcardsDB = getJson("wildcards.json");
         else {
-            if (filename.find(".json") == filename.npos) filename += ".json";
             wildcardsDB = getJson(filename);
         }
         
@@ -36,7 +35,14 @@ struct wildcard{
         
         
         
-        promptsDB = wildcardsDB["prompts"];
+        if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
+        else {
+            promptsDB.push_back(filename); // assuming that we passed the prompt itself instead of filename;
+            std::string cNum;
+            std::cout << " Enter the number of cycles: " << std::endl;
+            std::getline(std::cin, cNum);
+            cycles = std::stoi(cNum);
+        }
         
     }
     
@@ -172,7 +178,7 @@ int main(int argc, char ** argv) {
                 } else if (input == "save"){
                     threadedChat.writeTextFile();
                 } else if (input == "cycle"){
-                     
+                     std::cout << "Write a filename for .json or a prompt: " << std::endl; 
                      std::string input2;
                      std::getline(std::cin, input2);
                     
@@ -186,7 +192,7 @@ int main(int argc, char ** argv) {
                          cycling = 1;
                          --Card.cycles;
                      //}
-                }else {
+                } else {
                     threadedChat.appendQuestion(input);
                     threadedChat.display();
                     //threadedChat.isContinue = 'w';
