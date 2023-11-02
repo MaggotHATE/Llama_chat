@@ -39,6 +39,7 @@ void llama_sampling_free(struct llama_sampling_context * ctx) {
 void llama_sampling_reset(llama_sampling_context * ctx) {
     if (ctx->grammar != NULL) {
         llama_grammar_free(ctx->grammar);
+        ctx->grammar = NULL;
     }
 
     if (!ctx->parsed_grammar.rules.empty()) {
@@ -187,12 +188,12 @@ llama_token llama_sampling_sample(
             // temperature sampling
             size_t min_keep = std::max(1, params.n_probs);
 
+            llama_sample_temp     (ctx_main, &cur_p, temp);
             llama_sample_top_k    (ctx_main, &cur_p, top_k,     min_keep);
             llama_sample_tail_free(ctx_main, &cur_p, tfs_z,     min_keep);
             llama_sample_typical  (ctx_main, &cur_p, typical_p, min_keep);
             llama_sample_top_p    (ctx_main, &cur_p, top_p,     min_keep);
             llama_sample_min_p    (ctx_main, &cur_p, min_p,     min_keep);
-            llama_sample_temp     (ctx_main, &cur_p, temp);
 
             id = llama_sample_token(ctx_main, &cur_p);
 

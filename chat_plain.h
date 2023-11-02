@@ -516,13 +516,14 @@ public:
 
         //llama_init_backend(params.numa);
         llama_backend_init(params.numa);
+        printf("..............Backend initialized................\n");
 
         g_ctx = &ctx;
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
         std::tie(model, ctx) = llama_init_from_gpt_params(params);
-        
+        printf("..............Model initialized................\n");
         
         
         if (model == NULL) {
@@ -539,19 +540,24 @@ public:
         
         //checking values 
         status += checkPreLoad(); // 1
+        printf("checkPreLoad = %d\n", status);
         if (status == 0) return 0;
         
         //loading the model itself; uses llama_backend, g_ctx, ctx, ctx_guidance
         status += loadModel(); // 3
+        printf("loadModel = %d\n", status);
         if (status < 3) return 0;
 
         // setting seed
         status += setRandom(); // 6
+        printf("setRandom = %d\n", status);
         
         return status;
     }
     
     int load(bool soft = false){
+        
+        printf("Load start \n");
         
         llama_sampling_params & sparams = params.sparams;
         
@@ -560,9 +566,11 @@ public:
             ctx_guidance = llama_new_context_with_model(model, lparams);
         }
         
+        
         if (!soft){
             int status = 0;
             
+            printf("strictLoad \n");
             status = strictLoad();
             if (status == 0) return 0;
         }
@@ -603,6 +611,8 @@ public:
 
             return 0;
         } */
+        printf("llama_n_ctx \n");
+        
         n_ctx = llama_n_ctx(ctx);
         
 
@@ -720,7 +730,8 @@ public:
             }
             
             // remove any "future" tokens that we might have inherited from the previous session
-            llama_kv_cache_tokens_rm(ctx, n_matching_session_tokens, -1);
+            //llama_kv_cache_tokens_rm(ctx, n_matching_session_tokens, -1);
+            llama_kv_cache_seq_rm(ctx, -1, n_matching_session_tokens, -1);
         }
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
@@ -807,12 +818,6 @@ public:
                               " - To return control without starting a new line, end your input with '/'.\n"
                               " - If you want to submit another line, end your input with '\\'.\n";
 
-            /*fprintf(stderr, "== Running in interactive mode. ==\n"
-    #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__)) || defined (_WIN32)
-                   " - Press Ctrl+C to interject at any time.\n"
-    #endif
-                   "%s\n", control_message);
-        */
             is_interacting = params.interactive_first;
         }
         
@@ -832,6 +837,12 @@ public:
             // llama_eval(ctx, tmp.data(), tmp.size(), 0, params.n_threads);
             // llama_reset_timings(ctx);
         // }
+        
+        printf("ctx_sampling init\n");
+        
+        ctx_sampling = llama_sampling_init(params.sparams);
+        
+        printf("Load finished\n");
         
         return 9;
     }      
@@ -1558,6 +1569,9 @@ public:
 
 // initial (instruct) processing
     std::string generate(bool consoleOutput = true){
+        
+        printf("Starting initial prompt processing...\n");
+        
         std::string result;
         //std::cout << " * " << std::endl;
         //char* result = new char[2048];
@@ -1573,7 +1587,7 @@ public:
         
         //candidates.reserve(n_vocab);
         
-        ctx_sampling = llama_sampling_init(params.sparams);
+        //ctx_sampling = llama_sampling_init(params.sparams);
         
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
             
@@ -1588,6 +1602,8 @@ public:
                 if (n_past > 0 && is_interacting) {
                     if (!streaming) 
                         std::cout << result << " ";
+                    
+                    printf("Return generate: prompt processed\n");
                     
                     return result;
                 }

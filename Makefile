@@ -57,10 +57,10 @@ endif
 # -Ofast tends to produce faster code, but may not be available for some compilers.
 ifdef LLAMA_FAST
 OPT += -Ofast
-OPTC += -Ofast -flto=auto
+OPTC += -Ofast
 else
 OPT += -O3
-OPTC += -O3 -flto=auto
+OPTC += -O3
 endif
 
 
@@ -359,7 +359,7 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
 
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_k_quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
+OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_ggml-quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o
 
 o/vk_ggml-vulkan.o: VULKAN/ggml-vulkan.cpp VULKAN/ggml-vulkan.h
 	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
@@ -382,8 +382,8 @@ o/vk_sampling.o: VULKAN/sampling.cpp VULKAN/sampling.h
 o/vk_common.o: VULKAN/common.cpp VULKAN/common.h o/vk_sampling.o
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-o/vk_k_quants.o: VULKAN/k_quants.c VULKAN/k_quants.h
-	$(CC) $(CFLAGS_VK) -c $< -o $@
+o/vk_ggml-quants.o: VULKAN/ggml-quants.c VULKAN/ggml.h VULKAN/ggml-quants.h
+	$(CC) $(CFLAGS)    -c $< -o $@
     
 o/vk_grammar-parser.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
