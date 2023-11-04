@@ -249,10 +249,11 @@ endif
 ifndef SDL2
 LIBS += -lshell32 -lvulkan-1
 LDFLAGS_VK = -lvulkan-1
-LDFLAGS_VK+ = -lclblast
+#LDFLAGS_VK+ = -lclblast
 else
 #LDFLAGS_VK = 
-LDFLAGS_VK+ = -lvulkan-1 -lclblast
+#LDFLAGS_VK+ = -lvulkan-1 -lclblast
+LDFLAGS_VK+ = -lvulkan-1
 #CXXFLAGS_UI += -I$(VULKAN_DIR)/include
 endif
 

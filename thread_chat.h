@@ -849,6 +849,15 @@ struct configurableChat{
         
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
         if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
+        if (params.yarn_beta_slow != paramsDefault.yarn_beta_slow) modelConfig[model]["yarn_beta_slow"] = params.yarn_beta_slow;
+        if (params.yarn_orig_ctx != paramsDefault.yarn_orig_ctx) modelConfig[model]["yarn_orig_ctx"] = params.yarn_orig_ctx;
+        if (params.yarn_attn_factor != paramsDefault.yarn_attn_factor) modelConfig[model]["yarn_attn_factor"] = params.yarn_attn_factor;
+        
+        if (params.rope_scaling_type != paramsDefault.rope_scaling_type) {
+            if (params.rope_scaling_type == LLAMA_ROPE_SCALING_NONE) modelConfig[model]["rope_scaling_type"] = "none";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_LINEAR) modelConfig[model]["rope_scaling_type"] = "linear";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_YARN) modelConfig[model]["rope_scaling_type"] = "yarn";
+        }
         
         modelConfig[model]["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;

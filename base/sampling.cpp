@@ -194,6 +194,7 @@ llama_token llama_sampling_sample(
             llama_sample_typical  (ctx_main, &cur_p, typical_p, min_keep);
             llama_sample_top_p    (ctx_main, &cur_p, top_p,     min_keep);
             llama_sample_min_p    (ctx_main, &cur_p, min_p,     min_keep);
+            
 
             id = llama_sample_token(ctx_main, &cur_p);
 

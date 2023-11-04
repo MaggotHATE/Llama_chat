@@ -1711,7 +1711,7 @@ struct llama_model_loader {
                     type_max   = meta->type;
                 }
 
-                LLAMA_LOG_INFO("%s: - tensor %4d: %32s %-8s [ %s ]\n", __func__, i, name, ggml_type_name(meta->type), llama_format_tensor_shape(meta).c_str());
+                //LLAMA_LOG_INFO("%s: - tensor %4d: %32s %-8s [ %s ]\n", __func__, i, name, ggml_type_name(meta->type), llama_format_tensor_shape(meta).c_str());
             }
 
             switch (type_max) {
@@ -1748,7 +1748,7 @@ struct llama_model_loader {
                 const char * name         = gguf_get_key(ctx_gguf, i);
                 const enum gguf_type type = gguf_get_kv_type(ctx_gguf, i);
 
-                LLAMA_LOG_INFO("%s: - kv %3d: %42s %-8s\n", __func__, i, name, gguf_type_name(type));
+                //LLAMA_LOG_INFO("%s: - kv %3d: %42s %-8s\n", __func__, i, name, gguf_type_name(type));
             }
 
             // print type counts
@@ -7982,7 +7982,7 @@ struct llama_context_params llama_context_default_params() {
         /*.rope_scaling_type           =*/ LLAMA_ROPE_SCALING_UNSPECIFIED,
         /*.rope_freq_base              =*/ 0.0f,
         /*.rope_freq_scale             =*/ 0.0f,
-        /*.yarn_ext_factor             =*/ NAN,
+        /*.yarn_ext_factor             =*/ -1.0f,
         /*.yarn_attn_factor            =*/ 1.0f,
         /*.yarn_beta_fast              =*/ 32.0f,
         /*.yarn_beta_slow              =*/ 1.0f,
@@ -8125,7 +8125,7 @@ struct llama_context * llama_new_context_with_model(
         cparams.rope_freq_scale = 1.0f; // never scale if scaling type is none
     }
 
-    if (std::isnan(cparams.yarn_ext_factor)) { // NaN indicates 'not set'
+    if (cparams.yarn_ext_factor < 0.0f) { // negative indicates 'not set'
         cparams.yarn_ext_factor = rope_scaling_type == LLAMA_ROPE_SCALING_YARN ? 1.0f : 0.0f;
     }
 
