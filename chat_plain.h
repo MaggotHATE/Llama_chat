@@ -43,8 +43,6 @@
 
 #define SESSIONS_FOLDER "sessions/"
 
-static llama_context ** g_ctx;
-
 static gpt_params paramsDefault;
 
 static bool is_interacting = false;
@@ -491,7 +489,7 @@ public:
         return 1;
     }
     
-    int setRandom(){
+    int setRandomSeed(){
         if (params.seed == LLAMA_DEFAULT_SEED) {
             //params.seed = time(NULL);
             // std::srand(std::time(nullptr));
@@ -518,8 +516,6 @@ public:
         llama_backend_init(params.numa);
         printf("..............Backend initialized................\n");
 
-        g_ctx = &ctx;
-
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
         std::tie(model, ctx) = llama_init_from_gpt_params(params);
@@ -543,14 +539,33 @@ public:
         printf("checkPreLoad = %d\n", status);
         if (status == 0) return 0;
         
-        //loading the model itself; uses llama_backend, g_ctx, ctx, ctx_guidance
-        status += loadModel(); // 3
+        //loading the model itself; uses llama_backend, ctx, ctx_guidance
+        //status += loadModel(); // +3
+        // LET'S TRY THIS
+        //llama_init_backend(params.numa);
+        llama_backend_init(params.numa);
+        printf("..............Backend initialized................\n");
+
+        // load the model and apply lora adapter, if any
+        //ctx = llama_init_from_gpt_params(params);
+        std::tie(model, ctx) = llama_init_from_gpt_params(params);
+        printf("..............Model initialized................\n");
+        
+        
+        if (model == NULL) {
+            fprintf(stderr, "%s: error: unable to load model\n", __func__);
+            return 0;
+        }
+        
+        status += 3; // +3
+        
+        
         printf("loadModel = %d\n", status);
         if (status < 3) return 0;
 
         // setting seed
-        status += setRandom(); // 6
-        printf("setRandom = %d\n", status);
+        status += setRandomSeed(); // 6
+        printf("setRandomSeed = %d\n", status);
         
         return status;
     }
@@ -567,11 +582,46 @@ public:
         }
         
         
+        // if (!soft){
+            // int status = 0;
+            
+            // printf("strictLoad \n");
+            // status = strictLoad();
+            // if (status == 0) return 0;
+        // }
+        
         if (!soft){
             int status = 0;
             
-            printf("strictLoad \n");
-            status = strictLoad();
+            status += checkPreLoad(); // 1
+            printf("checkPreLoad = %d\n", status);
+            if (status == 0) return 0;
+            
+            //loading the model itself; uses llama_backend, ctx, ctx_guidance
+            // LET'S TRY THIS
+            //llama_init_backend(params.numa);
+            llama_backend_init(params.numa);
+            printf("..............Backend initialized................\n");
+
+            // load the model and apply lora adapter, if any
+            std::tie(model, ctx) = llama_init_from_gpt_params(params);
+            printf("..............Model initialized................\n");
+            
+            
+            if (model == NULL) {
+                fprintf(stderr, "%s: error: unable to load model\n", __func__);
+                return 0;
+            }
+            
+            status += 3; // +3
+            
+            
+            printf("loadModel = %d\n", status);
+            if (status < 3) return 0;
+
+            // setting seed
+            status += setRandomSeed();
+            
             if (status == 0) return 0;
         }
         
@@ -663,7 +713,8 @@ public:
         //const bool is_spm = llama_vocab_type(ctx) == LLAMA_VOCAB_TYPE_SPM;
         // Add BOS if SPM tokenizer
         const bool add_bos = llama_vocab_type(model) == LLAMA_VOCAB_TYPE_SPM;
-
+        printf("add_bos: %d\n", add_bos);
+        
         /* // tokenize the prompt
         if (llama_vocab_type(ctx) == LLAMA_VOCAB_TYPE_SPM) {
             // Add a space in front of the first character to match OG llama tokenizer behavior
@@ -750,30 +801,7 @@ public:
         inp_pfx = ::llama_tokenize(ctx, "\n\n### Instruction:\n\n", add_bos, true);
         inp_sfx = ::llama_tokenize(ctx, "\n\n### Response:\n\n", false, true);
 
-        // determine newline token
-        //llama_token_newline = ::llama_tokenize(ctx, "\n", false);
-
-        // if (params.interactive) {
-
-
-            // //fprintf(stderr, "%s: interactive mode on.\n", __func__);
-
-            // if (params.antiprompt.size()) {
-                // for (auto antiprompt : params.antiprompt) {
-                    // //fprintf(stderr, "Reverse prompt: '%s'\n", antiprompt.c_str());
-                    // fprintf(stderr, "Starting input from: '%s'\n", antiprompt.c_str());
-                // }
-            // }
-
-            // if (!params.input_prefix.empty()) {
-                // fprintf(stderr, "Input prefix: '%s'\n", params.input_prefix.c_str());
-            // }
-
-            // if (!params.input_suffix.empty()) {
-                // fprintf(stderr, "Input suffix: '%s'\n", params.input_suffix.c_str());
-            // }
-        // }
-        //char* paramsPrint = new char[200];
+        
         fprintf(stderr, "\nsampling: repeat_last_n = %d, penalty_repeat = %f, penalty_present = %f, penalty_freq = %f, top_k = %d, tfs_z = %f, top_p = %f, typical_p = %f, temp = %f, mirostat = %d, mirostat_lr = %f, mirostat_ent = %f\n",
                 sparams.penalty_last_n, sparams.penalty_repeat, sparams.penalty_present, sparams.penalty_freq, sparams.top_k, sparams.tfs_z, sparams.top_p, sparams.typical_p, sparams.temp, sparams.mirostat, sparams.mirostat_eta, sparams.mirostat_tau);
         

@@ -229,6 +229,24 @@ struct modelThread{
         }
     }
     
+    bool writeTextFile(std::string path, std::string name){
+        std::string path1 = path + name + std::to_string(newChat.params.seed) + ".txt";
+        std::ofstream file(path1, std::ios::app);
+        if (file.is_open()) {
+            file << shortModelName << DELIMINER;
+            file << lastTimings << DELIMINER;
+            for (auto r : resultsStringPairs){
+                file << r.first << DELIMINER;
+                file << ' ' << r.second << DELIMINER;
+            }
+            
+            file.close();
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
     // void clearModel(){
         // ~newChat;
     // }

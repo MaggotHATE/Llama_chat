@@ -1,6 +1,5 @@
 #include "common.h"
 #include "llama.h"
-#include "build-info.h"
 #include "grammar-parser.h"
 #include "json.hpp"
 

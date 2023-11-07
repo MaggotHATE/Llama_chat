@@ -19,11 +19,14 @@ struct wildcard{
     std::string subname;
     std::string saveFolder = "R";
     int cycles = 10;
+    unsigned int seed = 0;
     std::vector<std::string> promptsDB;
     std::string prompt0;
     std::string prompt;
     
     void init(std::string filename){
+        seed = getRand();
+        
         if (filename.empty()) wildcardsDB = getJson("wildcards.json");
         else {
             wildcardsDB = getJson(filename);
@@ -213,7 +216,7 @@ int main(int argc, char ** argv) {
             } else if (Card.cycles >= 0) {
                     
                 if(cycling == 1){
-                    threadedChat.writeTextFile(Card.saveFolder + '/' + std::to_string(Card.cycles) + "-" + Card.subname + "-");
+                    threadedChat.writeTextFile(Card.saveFolder + '/', std::to_string(Card.seed) + "-" + std::to_string(Card.cycles) + "-" + Card.subname);
                     if (Card.cycles == 0) {
                         return 0;
                     } else {

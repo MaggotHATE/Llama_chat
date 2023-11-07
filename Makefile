@@ -63,6 +63,8 @@ OPT += -O3
 OPTC += -O3
 endif
 
+OPT_UI = -O3
+
 
 CONFLAG =
 
@@ -173,7 +175,7 @@ ifeq ($(UNAME_S),OpenBSD)
 endif
 
 #for main ui
-CXXFLAGS_UI += -O3 -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
+CXXFLAGS_UI += $(OPT_UI) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI += -g -Wall -Wformat -pipe
 
@@ -247,13 +249,13 @@ endif
 #LIBS_VK = $(LIBS) -lclblast
 
 ifndef SDL2
-LIBS += -lshell32 -lvulkan-1
-LDFLAGS_VK = -lvulkan-1
+LIBS += -lshell32 -lvulkan
+LDFLAGS_VK = -lvulkan
 #LDFLAGS_VK+ = -lclblast
 else
 #LDFLAGS_VK = 
 #LDFLAGS_VK+ = -lvulkan-1 -lclblast
-LDFLAGS_VK+ = -lvulkan-1
+LDFLAGS_VK+ = -lvulkan
 #CXXFLAGS_UI += -I$(VULKAN_DIR)/include
 endif
 

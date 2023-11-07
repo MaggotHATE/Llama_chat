@@ -1,6 +1,5 @@
 #include "common.h"
 #include "llama.h"
-#include "build-info.h"
 #include "grammar-parser.h"
 #include "json.hpp"
 
@@ -274,4 +273,39 @@ nlohmann::json getJson(std::string fimeName){
     }
     
     return config;
+}
+
+unsigned int getRand(){
+    std::srand(std::time(nullptr));
+    if (std::rand() > std::rand()){
+        return std::rand()*std::rand();
+    } else return std::rand();
+}
+
+std::string processByWildcards(nlohmann::json& config, std::string inputString){
+    
+    size_t last = inputString.rfind("__");
+    if (last != inputString.npos){
+        
+        std::string subInputString = inputString.substr(0,last);
+        std::cout << " subInputString: " << subInputString << std::endl;
+        size_t first = subInputString.rfind("__");
+        if (first != subInputString.npos){
+            std::string wildcard = subInputString.substr(first + 2);
+            
+            if(config.contains(wildcard)) {
+                
+                std::vector<std::string> wildcardsArr = config[wildcard];
+                unsigned int i = getRand() % wildcardsArr.size();
+                std::string choice = wildcardsArr[i];
+                inputString.replace(first,last - first + 2,choice);
+                std::cout << "Replaced: " << inputString << std::endl;
+                
+                return processByWildcards(config, inputString);
+                
+            } else std::cout << " no wildcard: " << wildcard << std::endl;
+        } else std::cout << " no first __" << std::endl;
+    } else std::cout << " no last __" << std::endl;
+        
+    return inputString;
 }
