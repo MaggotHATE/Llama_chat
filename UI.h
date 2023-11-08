@@ -413,6 +413,8 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
         
         sliderTopP(params.top_p, paramsDefault.top_p);
         
+        sliderMinP(params.min_p, paramsDefault.min_p);
+        
         sliderRepeatPen(params.repeat_penalty, paramsDefault.repeat_penalty);
         
         sliderFrequencyPen(params.frequency_penalty, paramsDefault.frequency_penalty);

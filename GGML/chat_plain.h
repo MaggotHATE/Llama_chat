@@ -868,6 +868,7 @@ public:
         const float   temp            = params.temp;
         const int32_t top_k           = params.top_k <= 0 ? llama_n_vocab(ctx) : params.top_k;
         const float   top_p           = params.top_p;
+        const float   min_p           = params.min_p;
         const float   tfs_z           = params.tfs_z;
         const float   typical_p       = params.typical_p;
         const int32_t repeat_last_n   = params.repeat_last_n < 0 ? n_ctx : params.repeat_last_n;
@@ -944,6 +945,7 @@ public:
                     llama_sample_tail_free(ctx, &candidates_p, tfs_z, 1);
                     llama_sample_typical(ctx, &candidates_p, typical_p, 1);
                     llama_sample_top_p(ctx, &candidates_p, top_p, 1);
+                    llama_sample_min_p(ctx, &candidates_p, min_p, 1);
                     llama_sample_temperature(ctx, &candidates_p, temp);
                     id = llama_sample_token(ctx, &candidates_p);
                 }

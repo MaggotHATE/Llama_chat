@@ -68,7 +68,35 @@ bool checkJNum(nlohmann::json& config, std::string name){
     return false;
 }
 
+nlohmann::json getJson(std::string fileName){
+    if (fileName.find(".json") == fileName.npos) fileName += ".json";
+    
+    nlohmann::json config;
+    std::fstream o1(fileName);
+    if (o1.is_open()) {
+        
+        o1 >> std::setw(4) >> config;
+        o1.close();
+        
+        std::cout << "Loaded: " << fileName << std::endl;
+    } else {
+        config["error"] = "is_open";
+        
+        std::cout << "Failed to load: " << fileName  << std::endl;
+    }
+    
+    return config;
+}
+
 void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+    
+    if (checkJString(config, "card")) {
+        std::string cardPath = loadNpring(config,"card");
+        
+        nlohmann::json card = getJson(cardPath);
+        
+        getParamsFromJson(card, params, hasFile, headless);
+    }
     
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
@@ -102,6 +130,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJNum(config, "temp")) params.temp = loadNpring(config,"temp", true);
     if (checkJNum(config, "top_k")) params.top_k = loadNpring(config,"top_k", true);
     if (checkJNum(config, "top_p")) params.top_p = loadNpring(config,"top_p", true);
+    if (checkJNum(config, "min_p")) params.min_p = loadNpring(config,"min_p", true);
     if (checkJNum(config, "typical_p")) params.typical_p = loadNpring(config,"typical_p", true);
     if (checkJNum(config, "tfs_z")) params.tfs_z = loadNpring(config,"tfs_z", true);
     if (checkJNum(config, "repeat_penalty")) params.repeat_penalty = loadNpring(config,"repeat_penalty", true);
@@ -259,20 +288,6 @@ void writeJson(nlohmann::json config, std::string filename) {
     o.close();
     o.flush();
 
-}
-
-nlohmann::json getJson(std::string fimeName){
-    nlohmann::json config;
-    std::fstream o1(fimeName);
-    if (o1.is_open()) {
-        
-        o1 >> std::setw(4) >> config;
-        o1.close();
-    } else {
-        config["error"] = "is_open";
-    }
-    
-    return config;
 }
 
 unsigned int getRand(){

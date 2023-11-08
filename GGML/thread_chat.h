@@ -718,7 +718,9 @@ struct configurableChat{
         // params = aChat.params;
     // }
     
-    
+    void getSettingsFromJson(nlohmann::json& config){
+        readParamsFromJson(config, params);
+    }
 
     void getSettingsFull(){
         params = paramsDefault;
