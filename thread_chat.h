@@ -542,6 +542,7 @@ struct configurableChat{
     
     nlohmann::json localConfig;
     nlohmann::json modelConfig;
+    bool tempFirst = true;
     std::vector<std::pair<std::string, std::string>> modelsFromConfig;
     
     std::string promptFilesFolder = "/prompts/";
@@ -689,11 +690,14 @@ struct configurableChat{
         // params = aChat.params;
     // }
     
-    
+    void getSettingsFromJson(nlohmann::json& config){
+        readParamsFromJson(config, params);
+    }
 
     void getSettingsFull(){
         params = paramsDefault;
         readParamsFromJson(localConfig, params);
+        if (localConfig.contains("temp_first")) tempFirst = localConfig["temp_first"];
         modelName = params.model;
         syncInputs();
     }
@@ -890,6 +894,8 @@ struct configurableChat{
         }
         
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
+        
+        modelConfig["temp_first"] = tempFirst;
     }
     
     void fillLocalJson(){

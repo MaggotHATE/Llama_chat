@@ -708,6 +708,19 @@ struct chatUI{
         }
     }
     
+    void openCard(){
+        if (ImGui::Button("Open a preset card")) {
+            auto presetCardFilePath = tinyfd_openFileDialog("Select a preset card file...", currPath.c_str(),1, jsonFilterPatterns, NULL,0);
+                    if (presetCardFilePath) {
+                        nlohmann::json presetCardFile = getJson(presetCardFilePath);
+                        localSettings.getSettingsFromJson(presetCardFile);
+                        localSettings.fillLocalJson();
+                    }
+            
+            
+        }
+    }
+    
     void settingsTab(){
         
         if (newChat.loaded == 9) {
@@ -755,6 +768,9 @@ struct chatUI{
                         //localJsonDump = localSettings.modelConfig.dump(3);
                         localSettings.updateDump();
                     }
+                    
+                    ImGui::SameLine();
+                    openCard();
                 }
             }
             
@@ -771,6 +787,8 @@ struct chatUI{
                 localSettings.getSettingsFromModelConfig();
                 localSettings.fillLocalJson();
             }
+            ImGui::SameLine();
+            openCard();
         }
         
         //ImGui::BeginChild("SettingsTabsHalf", ImVec2( ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y), false);

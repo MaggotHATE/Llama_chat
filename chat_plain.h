@@ -18,6 +18,7 @@
 #pragma once
 
 #include "common.h"
+#include "sampling_plus.h"
 #include "llama.h"
 
 #include "jsonParams.h"
@@ -180,7 +181,7 @@ private:
     //llama_sampling_context ctx_sampling;
     //llama_sampling_params & sparams;
     int n_vocab;
-    bool cleared = true;
+    bool cleared              = true;
         
     
     bool input_echo           = true;
@@ -189,6 +190,8 @@ private:
     bool is_antiprompt        = false;
     bool streaming            = true;
     bool saveToFile           = false;
+    
+    bool tempFirst            = true;
     
 
     int n_past                = 0;
@@ -446,6 +449,10 @@ public:
         
         //int result = init(configJson);
         readParamsFromJson(configJson, params);
+        if (configJson.contains("temp_first")) {
+            tempFirst = configJson["temp_first"];
+            printf("Temperature sampling first = %d\n", tempFirst);
+        }
         
         int result = load(soft);
         
@@ -1056,7 +1063,8 @@ public:
         
         
         // new generation function, moved to common 
-        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
+        //const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
+        const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
         
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.push_back(id);
@@ -1367,7 +1375,8 @@ public:
         //llama_sampling_context ctx_sampling = llama_sampling_context_init(params, grammar);
         
         // new generation function, moved to common 
-        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
+        //const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
+        const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
         
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.push_back(id);

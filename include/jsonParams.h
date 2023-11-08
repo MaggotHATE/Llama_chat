@@ -68,7 +68,31 @@ bool checkJNum(nlohmann::json& config, std::string name){
     return false;
 }
 
+nlohmann::json getJson(std::string fileName){
+     if (fileName.find(".json") == fileName.npos) fileName += ".json";
+    std::cout << "Opening json " << fileName << std::endl;
+    nlohmann::json config;
+    std::fstream o1(fileName);
+    if (o1.is_open()) {
+        o1 >> std::setw(4) >> config;
+        o1.close();
+    } else {
+        std::cout << fileName << " not found!" << std::endl;
+        config["error"] = "is_open";
+    }
+    
+    return config;
+}
+
 void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+    
+    if (checkJString(config, "card")) {
+        std::string cardPath = loadNpring(config,"card");
+        
+        nlohmann::json card = getJson(cardPath);
+        
+        getParamsFromJson(card, params, hasFile, headless);
+    }
     
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
@@ -137,7 +161,11 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     }
     
     std::cout << "headless: " << headless << std::endl;
+    
+    
 }
+
+
 
 void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
     
@@ -273,21 +301,7 @@ void writeJson(nlohmann::json config, std::string filename) {
 
 }
 
-nlohmann::json getJson(std::string fileName){
-     if (fileName.find(".json") == fileName.npos) fileName += ".json";
-    std::cout << "Opening json " << fileName << std::endl;
-    nlohmann::json config;
-    std::fstream o1(fileName);
-    if (o1.is_open()) {
-        o1 >> std::setw(4) >> config;
-        o1.close();
-    } else {
-        std::cout << fileName << " not found!" << std::endl;
-        config["error"] = "is_open";
-    }
-    
-    return config;
-}
+
 
 unsigned int getRand(){
     std::srand(std::time(nullptr));
