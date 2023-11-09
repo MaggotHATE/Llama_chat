@@ -406,6 +406,10 @@ public:
         }
     }
     
+    std::string getSparams(){
+        return "\n top_k = " + std::to_string(params.sparams.top_k) + "\n top_p = " + std::to_string(params.sparams.top_p) + "\n min_p = " + std::to_string(params.sparams.min_p) + "\n tfs_z = " + std::to_string(params.sparams.tfs_z) + "\n typical_p = " + std::to_string(params.sparams.typical_p) + "\n temp = " + std::to_string(params.sparams.temp) + "\n penalty_repeat = " + std::to_string(params.sparams.penalty_repeat) + "\n penalty_freq = " + std::to_string(params.sparams.penalty_freq) + "\n penalty_present = " + std::to_string(params.sparams.penalty_present) + "\n mirostat = " + std::to_string(params.sparams.mirostat) + "\n mirostat_tau = " + std::to_string(params.sparams.mirostat_tau) + "\n mirostat_eta = " + std::to_string(params.sparams.mirostat_eta);
+    }
+    
     int init(int argc, char ** argv){        
         // this is unsafe to run in threads;
         getArgs(argc, argv);

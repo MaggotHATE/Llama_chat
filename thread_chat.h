@@ -86,6 +86,7 @@ struct modelThread{
     float lastSpeedPrompt = 0.0f;
     std::string lastResult = "";
     std::string shortModelName = "";
+    std::string sparamsList = "";
 
     // ~modelThread(){
         // ~newChat;
@@ -100,6 +101,10 @@ struct modelThread{
         
         if (slash > rslash) shortModelName = shortModelName.substr(slash+1);
         else shortModelName = shortModelName.substr(rslash+1);
+    }
+    
+    void getSparamsList(){
+        sparamsList = newChat.getSparams();
     }
     
     void appendFirstPrompt(){
@@ -167,9 +172,10 @@ struct modelThread{
         Clear();
         
         std::cout << "Model: " << shortModelName << std::endl;
+        std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
+        std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
+        std::cout << sparamsList << std::endl;
         std::cout << "Generated: " << past_tokens << '\n' << std::endl;
-        std::cout << "input_prefix: " << newChat.params.input_prefix << '\n' << std::endl;
-        std::cout << "input_suffix: " << newChat.params.input_suffix << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
@@ -483,6 +489,7 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
 
             std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
+            getSparamsList();
             isContinue = 'i';
             
             return loaded;
@@ -504,6 +511,7 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
 
             std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
+            getSparamsList();
             isContinue = 'i';
             
             return loaded;
@@ -526,6 +534,7 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
 
             std::cout << "Reset complete!" << std::endl;
             getShortName();
+            getSparamsList();
             isContinue = 'i';
             
             loaded = 9;
