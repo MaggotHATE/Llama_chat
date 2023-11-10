@@ -713,11 +713,27 @@ struct chatUI{
     void openCard(){
         if (ImGui::Button("Open a preset card")) {
             auto presetCardFilePath = tinyfd_openFileDialog("Select a preset card file...", currPath.c_str(),1, jsonFilterPatterns, NULL,0);
-                    if (presetCardFilePath) {
-                        nlohmann::json presetCardFile = getJson(presetCardFilePath);
-                        localSettings.getSettingsFromJson(presetCardFile);
-                        localSettings.fillLocalJson();
-                    }
+            
+            if (presetCardFilePath) {
+                nlohmann::json presetCardFile = getJson(presetCardFilePath);
+                localSettings.getSettingsFromJson(presetCardFile);
+                // we probably don't want presets to be instantly applied
+                //localSettings.fillLocalJson();
+            }
+            
+            
+        }
+    }
+    
+    void saveCard(){
+        if (ImGui::Button("Save a preset card")) {
+            auto presetCardFilePath = tinyfd_saveFileDialog( "preset" , currPath.c_str() , 1 , jsonFilterPatterns, NULL);
+            
+            if (presetCardFilePath) {
+                nlohmann::json presetCardFile = localSettings.createNewCard();
+                
+                writeJson(presetCardFile, presetCardFilePath);
+            }
             
             
         }
@@ -758,13 +774,7 @@ struct chatUI{
                 ImGui::Spacing();
                 
                 if (newChat.isContinue != 'w') {
-                    if (ImGui::Button("Get settings from model")) {
-                        localSettings.getSettings(newChat.newChat);
-                        localSettings.fillLocalJson();
-                    }
-                    ImGui::SameLine();
-                    
-                    if (ImGui::Button("Apply and store settings")) {
+                    if (ImGui::Button("Apply settings")) {
                         localSettings.fillLocalJson();
                         localSettings.pushSettings(newChat.newChat);
                         //localJsonDump = localSettings.modelConfig.dump(3);
@@ -772,14 +782,23 @@ struct chatUI{
                     }
                     
                     ImGui::SameLine();
+                    
+                    if (ImGui::Button("Restore settings from model")) {
+                        localSettings.getSettings(newChat.newChat);
+                        localSettings.fillLocalJson();
+                    }
+                    
+                    ImGui::SameLine();
                     openCard();
+                    ImGui::SameLine();
+                    saveCard();
                 }
             }
             
         } else {
             ImGui::TextWrapped("Model isn't loaded yet...");
             
-            if (ImGui::Button("Store settings to config")) {
+            if (ImGui::Button("Apply settings")) {
                 localSettings.fillLocalJson();
                 //localJsonDump = localSettings.modelConfig.dump(3);
                 localSettings.updateDump();
@@ -791,6 +810,8 @@ struct chatUI{
             }
             ImGui::SameLine();
             openCard();
+            ImGui::SameLine();
+            saveCard();
         }
         
         //ImGui::BeginChild("SettingsTabsHalf", ImVec2( ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y), false);

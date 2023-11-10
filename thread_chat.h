@@ -172,10 +172,11 @@ struct modelThread{
         Clear();
         
         std::cout << "Model: " << shortModelName << std::endl;
+        std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
         std::cout << sparamsList << std::endl;
-        std::cout << "Generated: " << past_tokens << '\n' << std::endl;
+        std::cout << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
@@ -237,12 +238,33 @@ struct modelThread{
         }
     }
     
+    
     bool writeTextFile(){
         std::string path = std::to_string(newChat.params.seed) + ".txt";
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
+            for (auto r : resultsStringPairs){
+                file << r.first << DELIMINER;
+                file << ' ' << r.second << DELIMINER;
+            }
+            
+            file.close();
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    bool writeTextFileFull(std::string path, std::string name){
+        std::string path1 = path + name + ".txt";
+        std::ofstream file(path1, std::ios::app);
+        if (file.is_open()) {
+            file << shortModelName << DELIMINER;
+            file << lastTimings << DELIMINER;
+            file << std::to_string(newChat.params.seed) << DELIMINER;
+            file << sparamsList << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
                 file << ' ' << r.second << DELIMINER;
@@ -905,6 +927,76 @@ struct configurableChat{
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
         
         modelConfig["temp_first"] = tempFirst;
+    }
+    
+    nlohmann::json createNewCard(){
+        
+        nlohmann::json newCard;
+        
+        if (!params.input_suffix.empty()) newCard["input_suffix"] = params.input_suffix;
+        if (!params.input_prefix.empty()) newCard["input_prefix"] = params.input_prefix;
+        if (params.input_prefix_bos != paramsDefault.input_prefix_bos) newCard["input_prefix_bos"] = params.input_prefix_bos;
+        
+        if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) newCard["penalize_nl"] = params.sparams.penalize_nl;
+        if (params.use_mmap != paramsDefault.use_mmap) newCard["use_mmap"] = params.use_mmap;
+        
+        
+        if (params.sparams.temp != paramsDefault.sparams.temp) newCard["temp"] = params.sparams.temp;
+        if (params.sparams.top_k != paramsDefault.sparams.top_k) newCard["top_k"] = params.sparams.top_k;
+        if (params.sparams.top_p != paramsDefault.sparams.top_p) newCard["top_p"] = params.sparams.top_p;
+        if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
+        if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
+        if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
+        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) newCard["repeat_penalty"] = params.sparams.penalty_repeat;
+        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) newCard["frequency_penalty"] = params.sparams.penalty_freq;
+        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) newCard["presence_penalty"] = params.sparams.penalty_present;
+        if (params.sparams.mirostat != paramsDefault.sparams.mirostat) newCard["mirostat"] = params.sparams.mirostat;
+        if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) newCard["mirostat_tau"] = params.sparams.mirostat_tau;
+        if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) newCard["mirostat_eta"] = params.sparams.mirostat_eta;
+        if (params.sparams.cfg_scale != paramsDefault.sparams.cfg_scale) newCard["cfg-scale"] = params.sparams.cfg_scale;
+        if (params.n_ctx != paramsDefault.n_ctx) newCard["ctx-size"] = params.n_ctx;
+        if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
+        if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
+        if (params.n_threads != paramsDefault.n_threads) newCard["n_threads"] = params.n_threads;
+        
+        //#if GGML_EXPERIMENTAL1
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) newCard["n_threads_batch"] = params.n_threads_batch;
+        //#endif
+        if (params.n_gpu_layers != paramsDefault.n_gpu_layers) newCard["n_gpu_layers"] = params.n_gpu_layers;
+        
+        #if GGML_OLD_FORMAT
+        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) newCard["rms-norm-eps"] = params.rms_norm_eps;
+        #else 
+        if (params.n_threads_batch != paramsDefault.n_threads_batch) newCard["n_threads_batch"] = params.n_threads_batch;
+        #endif
+        
+        if (params.rope_freq_base != paramsDefault.rope_freq_base) newCard["rope_freq_base"] = params.rope_freq_base;
+        if (params.rope_freq_scale != paramsDefault.rope_freq_scale) newCard["rope_freq_scale"] = params.rope_freq_scale;
+        if (params.yarn_beta_slow != paramsDefault.yarn_beta_slow) newCard["yarn_beta_slow"] = params.yarn_beta_slow;
+        if (params.yarn_orig_ctx != paramsDefault.yarn_orig_ctx) newCard["yarn_orig_ctx"] = params.yarn_orig_ctx;
+        if (params.yarn_attn_factor != paramsDefault.yarn_attn_factor) newCard["yarn_attn_factor"] = params.yarn_attn_factor;
+        
+        if (params.rope_scaling_type != paramsDefault.rope_scaling_type) {
+            if (params.rope_scaling_type == LLAMA_ROPE_SCALING_NONE) newCard["rope_scaling_type"] = "none";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_LINEAR) newCard["rope_scaling_type"] = "linear";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_YARN) newCard["rope_scaling_type"] = "yarn";
+        }
+        
+        newCard["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;
+        if (params.prompt.size()) newCard["prompt"] = params.prompt;
+        else {
+            newCard["prompt"] = "### Instruction:";
+            params.prompt = "### Instruction:";
+        }
+        if(params.antiprompt.size()) newCard["reverse-prompt"] = params.antiprompt[0];
+        else {
+            newCard["reverse-prompt"] = "### Instruction:";
+            params.antiprompt.push_back("### Instruction:");
+        }
+        
+        if(grammarFile != "") newCard["grammar-file"] = grammarFile;
+        
+        return newCard;
     }
     
     void fillLocalJson(){
