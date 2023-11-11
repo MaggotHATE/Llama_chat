@@ -1,0 +1,6 @@
+{
+    "temp": 0.7,
+    "top_p": 0.9,
+    "repeat_penalty": 1.15,
+    "top_k": 20
+}

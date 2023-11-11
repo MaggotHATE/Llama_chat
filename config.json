@@ -8,10 +8,10 @@
     "n_gpu_layers": 5,
     "ctx-size": 2048,
     "n_keep": -1,
-    "temp": 0.9,
-    "repeat_penalty": 1.147,
+    "temp": 0.8,
+    "repeat_penalty": 1.1,
     "penalize_nl": true,
-    "top_p": 0.7,
+    "top_p": 0.95,
     "typical_p": 1.0,
     "tfs_z": 1.0,
     "frequency_penalty": 0.0,
@@ -24,7 +24,8 @@
             "prompt": "### SYSTEM: A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.\n\n### USER:",
             "reverse-prompt": "### USER:",
             "input_suffix": "### ASSISTANT:",
-            "ctx-size": 4096
+            "ctx-size": 4096,
+            "preset": "Midnight Enigma"
         },
     "models/mistral-7b-instruct-v0.1.Q4_K_S.gguf":
         {
