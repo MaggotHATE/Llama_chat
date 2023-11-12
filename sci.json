@@ -1,0 +1,47 @@
+{
+    "cycles": 10,
+    "folder": "S",
+    "prompts": [
+        "Analyze the given data as a result of creating a ceramic material using __material__, __base__. The results are: __results__. Write a scientific article aimed at __sphere__, based the results. The article should have: abstract, reasosning, material science behind the research, technological process and observation of results."
+    ],
+    "prompts0": [
+        "Write a scientific article proposing a novel __method__ method of creating __material__ ceramics for __sphere__, based the data: __data__. The article should have: abstract, reasosning, material science behind the research, technological process and observation of results."
+    ],
+    "material": [
+        "Titania",
+        "Aluminum Dioxide",
+        "Zirconium Dioxide"
+    ],
+    "sphere": [
+        "material science",
+        "filtering",
+        "semiconductors",
+        "military technologies",
+        "ecological technologies"
+    ],
+    "method": [
+        "gel-casting",
+        "freeze-casting"
+    ],
+    "data": [
+        "30% powder + 70% PVA as a gelation agent; sintering time: 3hrs; avg. porosity 30%; sample size 30 units",
+        "30% powder + 70% PVA as a gelation agent; sintering time: 3hrs; avg. porosity 40%; sample size 30 units",
+        "30% powder + 70% PVA as a gelation agent; sintering time: 3hrs; avg. porosity 50%; sample size 30 units"
+    ],
+    "base": [
+        "30% powder + 70% PVA as a gelation agent; sintering time: 3 hrs;",
+        "50% powder + 50% PVA as a gelation agent; sintering time: 3 hrs;",
+        "70% powder + 30% PVA as a gelation agent; sintering time: 3 hrs;"
+    ],
+    "samples": [
+        "sample size 30 units",
+        "sample size 40 units",
+        "sample size 50 units",
+        "sample size 100 units"
+    ],
+    "results": [
+        "avg. porosity 30%; sample size __samples__ units",
+        "avg. porosity 40%; sample size __samples__ units",
+        "avg. porosity 50%; sample size __samples__ units"
+    ]
+}

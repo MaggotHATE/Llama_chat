@@ -93,6 +93,7 @@ struct modelThread{
     // }
     
     void getShortName(){
+        //from slashes till dot of extension
         shortModelName = newChat.params.model;
         int slash = shortModelName.rfind('/');
         if (slash == shortModelName.npos) slash = 0;
@@ -100,7 +101,9 @@ struct modelThread{
         if (rslash == shortModelName.npos) rslash = 0;
         
         if (slash > rslash) shortModelName = shortModelName.substr(slash+1);
-        else shortModelName = shortModelName.substr(rslash+1);
+        else shortModelName = shortModelName.substr(rslash+1, shortModelName.rfind('.'));
+        
+        shortModelName = shortModelName.substr(0, shortModelName.rfind('.'));
     }
     
     void getSparamsList(){
@@ -258,7 +261,7 @@ struct modelThread{
     }
     
     bool writeTextFileFull(std::string path, std::string name){
-        std::string path1 = path + name + ".txt";
+        std::string path1 = path + name + "-" + shortModelName + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
@@ -1046,5 +1049,15 @@ struct configurableChat{
         if (noConfig == true && modelName != "NULL" && inputPrompt != "NULL"){
             noConfig = false;
         }
+    }
+    
+    void resetConfig(std::string fileName){
+        localConfig.clear();
+        modelConfig.clear();
+        params = paramsDefault;
+        getFromJson(fileName);
+        readParamsFromJson(localConfig, modelName, params);
+        fillLocalJson();
+        updateDump();
     }
 };

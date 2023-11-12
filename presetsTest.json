@@ -1,0 +1,19 @@
+{
+    "folder": "tales",
+    "prompt": "Write a magnificent tale about a gnome living in the woods of a fantasy land, as kingdoms wage wars and grow.",
+    "presets": [
+        "presets/Asterism",
+        "presets/Big O",
+        "presets/Divine Intellect",
+        "presets/LLaMA-Precise",
+        "presets/Midnight Enigma",
+        "presets/Mirostat",
+        "presets/Shortwave",
+        "presets/simple-1",
+        "presets/Space Alien",
+        "presets/StarChat",
+        "presets/tfs-with-top-a",
+        "presets/Titanic",
+        "presets/Yara"
+    ]
+}

@@ -109,16 +109,19 @@ struct presetTest{
             testParams = getJson(filename);
         }
         
+        if (testParams.contains("prompt")) {
+            prompt = testParams["prompt"];
+            
+        } else {
+            prompt = filename;
+            testParams = getJson("presetsTest.json");
+        }
+        
         if (testParams.contains("presets")){
             
             presetsNames = testParams["presets"];
                     
             if (testParams.contains("folder")) saveFolder = testParams["folder"];
-            
-            if (testParams.contains("prompt")) prompt = testParams["prompt"];
-            else {
-                prompt = filename;
-            }
         
         }
         
