@@ -25,6 +25,8 @@ struct wildcard{
     std::string prompt;
     
     void init(std::string filename){
+        std::cout << "Initializing wildcarded generator..." << std::endl;
+        
         seed = getRand();
         
         if (filename.empty()) wildcardsDB = getJson("wildcards.json");
@@ -45,6 +47,29 @@ struct wildcard{
             std::cout << " Enter the number of cycles: " << std::endl;
             std::getline(std::cin, cNum);
             cycles = std::stoi(cNum);
+        }
+        
+    }
+    
+    void init(nlohmann::json& file){
+        std::cout << "Initializing wildcarded generator..." << std::endl;
+        
+        seed = getRand();
+        
+        wildcardsDB = file;
+        
+        cycles = wildcardsDB["cycles"];
+                    
+        if (wildcardsDB.contains("folder")) saveFolder = wildcardsDB["folder"];
+        
+        
+        
+        if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
+        else {
+            std::string input2;
+            std::getline(std::cin, input2);
+            
+            promptsDB.push_back(input2);
         }
         
     }
@@ -102,6 +127,8 @@ struct presetTest{
     std::string prompt;
     
     void init(std::string filename){
+        std::cout << "Initializing presets test..." << std::endl;
+        
         seed = getRand();
         
         if (filename.empty()) testParams = getJson("presetsTest.json");
@@ -129,9 +156,51 @@ struct presetTest{
         
     }
     
+    void init(nlohmann::json& file){
+        std::cout << "Initializing presets test..." << std::endl;
+        
+        seed = getRand();
+        
+        testParams = file;
+        
+        if (testParams.contains("prompt")) {
+            prompt = testParams["prompt"];
+        } else {
+            std::string input2;
+            std::getline(std::cin, input2);
+            
+            prompt = input2;
+            
+        }
+            
+        presetsNames = testParams["presets"];
+                    
+        if (testParams.contains("folder")) saveFolder = testParams["folder"];
+    }
+    
 };
 
 int main(int argc, char ** argv) {
+    
+    wildcard Card;
+    presetTest Test;
+    std::string inputPrompt;
+    
+    if (argc > 1){
+        std::string filename = argv[1];
+        if (filename.rfind(".json") != filename.npos){
+            auto instantJson = getJson(filename);
+            if (instantJson.contains("presets")){
+                Test.init(instantJson);
+            } else if (instantJson.contains("cycles")){
+                Card.init(instantJson);
+                Card.getPrompt();
+            } 
+        } else if (filename.rfind(".txt") != filename.npos) {
+            std::cout << "Opening text file " << filename << std::endl;
+            inputPrompt = getText(filename);
+        }
+    }
     
     std::setlocale(LC_CTYPE, ".UTF8");
     
@@ -171,8 +240,7 @@ int main(int argc, char ** argv) {
     //nlohmann::json wildcardsDB;
     //std::string saveFolder = "R";
     
-    wildcard Card;
-    presetTest Test;
+    
     
     //std::srand(std::time(nullptr));
     //unsigned int cycleIDX = std::rand() * std::rand() / std::rand();
@@ -192,7 +260,7 @@ int main(int argc, char ** argv) {
             
             
             
-            if (Card.prompt.empty() && Test.prompt.empty()){
+            if (Card.prompt.empty() && Test.prompt.empty() && inputPrompt.empty()){
                 threadedChat.display();
                 //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
                 if (threadedChat.newChat.params.antiprompt.size() && 
@@ -234,7 +302,7 @@ int main(int argc, char ** argv) {
                          --Card.cycles;
                      //}
                 } else if (input == "test"){
-                     std::cout << "Write a filename for test .json or a prompt: " << std::endl; 
+                     std::cout << "Write a filename for test .json or a prompt, or skip to use default presetsTest.json: " << std::endl; 
                      std::string input2;
                      std::getline(std::cin, input2);
                     
@@ -261,7 +329,7 @@ int main(int argc, char ** argv) {
                     
                     
                 }
-            } else if (Card.cycles >= 0 && Test.prompt.empty()) {
+            } else if (Card.cycles >= 0 && Test.prompt.empty() && inputPrompt.empty()) {
                 std::cout << "Card cycles " << std::to_string(Card.cycles) << std::endl;
                 if(cycling == 1){
                     threadedChat.writeTextFile(Card.saveFolder + '/', std::to_string(Card.seed) + "-" + std::to_string(Card.cycles) + "-" + Card.subname);
@@ -284,7 +352,7 @@ int main(int argc, char ** argv) {
                     threadedChat.getResultAsyncStringFull2(true, true);
                     cycling = 1;
                 }
-            } else if (Test.cycle < Test.presetsNames.size()) {
+            } else if (Test.cycle < Test.presetsNames.size() && inputPrompt.empty()) {
                 std::cout << "Test cycle " << std::to_string(Test.cycle) << std::endl;
                 if(cycling == 1){
                     std::string name = Test.presetsNames[Test.cycle];
@@ -317,6 +385,12 @@ int main(int argc, char ** argv) {
                     threadedChat.getResultAsyncStringFull2(true, true);
                     cycling = 1;
                 }
+            } else {
+                threadedChat.appendQuestion(inputPrompt);
+                inputPrompt.clear();
+                threadedChat.display();
+                threadedChat.startGen();
+                threadedChat.getResultAsyncStringFull2(true, true);
             }
         }
         

@@ -107,7 +107,8 @@ struct modelThread{
     }
     
     void getSparamsList(){
-        sparamsList = newChat.getSparams();
+        //sparamsList = newChat.getSparams();
+        sparamsList = newChat.getSparamsChanged();
     }
     
     void appendFirstPrompt(){

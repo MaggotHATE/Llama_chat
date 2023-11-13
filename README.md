@@ -22,7 +22,7 @@ This project started from the main example of llama.cpp - the idea was to read p
 Recently I've added two bulk generation tests into chatTest as a way of determining how good a model is. After loading a model, input one of these instead of dialog.
 
 * cycle - generates X amount of results by a given prompt. It also has wildcards support for additional randomization. See sci.json as an example.
-* test - generates results for each given params preset on the same prompt and seed. See presetsTest.json as an example, which will me used by default.
+* test - generates results for each given params preset on the same prompt and seed. See presetsTest.json as an example, which will be used by default.
 
 In both cases it will ask you to enter file name or a prompt, cycle will also ask for a custom amount of cycles if no file given.
 

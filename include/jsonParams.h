@@ -84,6 +84,17 @@ nlohmann::json getJson(std::string fileName){
     return config;
 }
 
+std::string getText(std::string filename){
+    std::string result;
+    
+    std::ifstream file(filename);
+    if (file) {
+        std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(result));
+    }
+    
+    return result;
+}
+
 void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "card")) {
@@ -92,6 +103,14 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
         nlohmann::json card = getJson(cardPath);
         
         getParamsFromJson(card, params, hasFile, headless);
+    }
+    
+    if (checkJString(config, "preset")) {
+        std::string presetPath = loadNpring(config,"preset");
+        
+        nlohmann::json preset = getJson(presetPath);
+        
+        getParamsFromJson(preset, params, hasFile, headless);
     }
     
     if (checkJString(config, "file")) {
