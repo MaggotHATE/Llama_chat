@@ -18,7 +18,7 @@ struct wildcard{
     nlohmann::json wildcardsDB;
     std::string subname;
     std::string saveFolder = "R";
-    int cycles = 10;
+    int cycles = -1;
     unsigned int seed = 0;
     std::vector<std::string> promptsDB;
     std::string prompt0;
@@ -35,6 +35,7 @@ struct wildcard{
         }
         
         if (wildcardsDB.contains("cycles")) cycles = wildcardsDB["cycles"];
+        else cycles = 10;
                     
         if (wildcardsDB.contains("folder")) saveFolder = wildcardsDB["folder"];
         
@@ -185,6 +186,7 @@ int main(int argc, char ** argv) {
     wildcard Card;
     presetTest Test;
     std::string inputPrompt;
+    bool busy = false;
     
     if (argc > 1){
         std::string filename = argv[1];
@@ -192,13 +194,16 @@ int main(int argc, char ** argv) {
             auto instantJson = getJson(filename);
             if (instantJson.contains("presets")){
                 Test.init(instantJson);
+                busy = true;
             } else if (instantJson.contains("cycles")){
                 Card.init(instantJson);
                 Card.getPrompt();
+                busy = true;
             } 
         } else if (filename.rfind(".txt") != filename.npos) {
             std::cout << "Opening text file " << filename << std::endl;
             inputPrompt = getText(filename);
+            busy = true;
         }
     }
     
@@ -236,7 +241,8 @@ int main(int argc, char ** argv) {
     std::string input1;
     bool cycling = 0;
     
-    int cycles = 10;
+    
+    
     //nlohmann::json wildcardsDB;
     //std::string saveFolder = "R";
     
@@ -260,7 +266,7 @@ int main(int argc, char ** argv) {
             
             
             
-            if (Card.prompt.empty() && Test.prompt.empty() && inputPrompt.empty()){
+            
                 threadedChat.display();
                 //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
                 if (threadedChat.newChat.params.antiprompt.size() && 
@@ -269,21 +275,66 @@ int main(int argc, char ** argv) {
                 else std::cout << threadedChat.newChat.params.input_prefix;
                 
                 //std::cout << threadedChat.newChat.params.input_prefix << ">";
-                
                 std::string input;
+                if (!busy){
+                    std::getline(std::cin, input);
+                } else {
+                    if (Card.cycles >= 0) {
+                        std::cout << "Card cycles " << std::to_string(Card.cycles) << std::endl;
+                        if(cycling == 1){
+                            threadedChat.writeTextFile(Card.saveFolder + '/', std::to_string(Card.seed) + "-" + std::to_string(Card.cycles) + "-" + Card.subname);
+                            if (Card.cycles == 0) {
+                                return 0;
+                            } else {
+                                cycling = 0;
+                                input = "restart";
+                                //threadedChat.unload();
+                                //threadedChat.load(settings.modelConfig, false);
+                            }
+                        } else {
+                            --Card.cycles;
+                            Card.getPrompt();
+                            input = Card.prompt;
+                            cycling = 1;
+                        }
+                    } else if (Test.cycle < Test.presetsNames.size()) {
+                        std::cout << "Test cycle " << std::to_string(Test.cycle) << std::endl;
+                        if(cycling == 1){
+                            std::string name = Test.presetsNames[Test.cycle];
+                            
+                            size_t slash = Test.presetsNames[Test.cycle].rfind('/');
+                            if (slash != Test.presetsNames[Test.cycle].npos) name = Test.presetsNames[Test.cycle].substr(slash+1);
+                            
+                            name = std::to_string(Test.seed) + "-" + name;
+                            std::cout << "Writing into " << name << std::endl;
+                            
+                            threadedChat.writeTextFileFull(Test.saveFolder + '/', name);
+                            Test.cycle++;
+                            
+                            if (Test.cycle == Test.presetsNames.size()) {
+                                return 0;
+                            } else {
+                                cycling = 0;
+                                input = "restart";
+                                //threadedChat.unload();
+                                settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
+                                settings.modelConfig["seed"] = Test.seed;
+                                //threadedChat.load(settings.modelConfig, false);
+                            }
+                        } else {
+                            input = Test.prompt;
+                            cycling = 1;
+                        }
+                    } else if (!inputPrompt.empty()) {
+                        input = inputPrompt;
+                        inputPrompt.clear();
+                        busy = false;
+                    }
+                }
                 
-                std::getline(std::cin, input);
-                
-                if (input == "timings"){
-                    threadedChat.newChat.print_timings();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-                    
-                    
-                } else if (input == "restart"){
+                if (input == "restart"){
                     threadedChat.unload();
                     threadedChat.load(settings.modelConfig, false);
-                } else if (input == "write"){
-                    threadedChat.writeTextFile();
                 } else if (input == "save"){
                     threadedChat.writeTextFile();
                 } else if (input == "cycle"){
@@ -301,6 +352,7 @@ int main(int argc, char ** argv) {
                          cycling = 1;
                          --Card.cycles;
                      //}
+                     busy = true;
                 } else if (input == "test"){
                      std::cout << "Write a filename for test .json or a prompt, or skip to use default presetsTest.json: " << std::endl; 
                      std::string input2;
@@ -311,87 +363,16 @@ int main(int argc, char ** argv) {
                      settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
                      settings.modelConfig["seed"] = Test.seed;
                      threadedChat.load(settings.modelConfig, false);
+                     busy = true;
                 } else {
                     threadedChat.appendQuestion(input);
                     threadedChat.display();
-                    //threadedChat.isContinue = 'w';
-                    //threadedChat.lastResult = "";
-                    //threadedChat.getResultAsyncString(true);
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(true, true);
-                    
-                     // char input[2048];
-                    // fflush(stdout);
-                    // fgets(input, 2048, stdin);
 
                     
-                    // threadedChat.getResultAsyncCombined(input); 
-                    
                     
                 }
-            } else if (Card.cycles >= 0 && Test.prompt.empty() && inputPrompt.empty()) {
-                std::cout << "Card cycles " << std::to_string(Card.cycles) << std::endl;
-                if(cycling == 1){
-                    threadedChat.writeTextFile(Card.saveFolder + '/', std::to_string(Card.seed) + "-" + std::to_string(Card.cycles) + "-" + Card.subname);
-                    if (Card.cycles == 0) {
-                        return 0;
-                    } else {
-                        threadedChat.unload();
-                        threadedChat.load(settings.modelConfig, false);
-                        cycling = 0;
-                    }
-                } else if (threadedChat.isContinue == 'i'){
-                    //if (cycles <= 0) running = false;
-                    --Card.cycles;
-                    //auto result = findWildcard(wildcardsDB, input1);
-                    Card.getPrompt();
-                    
-                    threadedChat.appendQuestion(Card.prompt);
-                    threadedChat.display();
-                    threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(true, true);
-                    cycling = 1;
-                }
-            } else if (Test.cycle < Test.presetsNames.size() && inputPrompt.empty()) {
-                std::cout << "Test cycle " << std::to_string(Test.cycle) << std::endl;
-                if(cycling == 1){
-                    std::string name = Test.presetsNames[Test.cycle];
-                    
-                    size_t slash = Test.presetsNames[Test.cycle].rfind('/');
-                    if (slash != Test.presetsNames[Test.cycle].npos) name = Test.presetsNames[Test.cycle].substr(slash+1);
-                    
-                    name = std::to_string(Test.seed) + "-" + name;
-                    std::cout << "Writing into " << name << std::endl;
-                    
-                    threadedChat.writeTextFileFull(Test.saveFolder + '/', name);
-                    Test.cycle++;
-                    //std::string input2;
-                    //std::getline(std::cin, input2);
-                    
-                    if (Test.cycle == Test.presetsNames.size()) {
-                        return 0;
-                    } else {
-                        threadedChat.unload();
-                        settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
-                        settings.modelConfig["seed"] = Test.seed;
-                        threadedChat.load(settings.modelConfig, false);
-                        cycling = 0;
-                    }
-                } else if (threadedChat.isContinue == 'i'){
-                    
-                    threadedChat.appendQuestion(Test.prompt);
-                    threadedChat.display();
-                    threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(true, true);
-                    cycling = 1;
-                }
-            } else {
-                threadedChat.appendQuestion(inputPrompt);
-                inputPrompt.clear();
-                threadedChat.display();
-                threadedChat.startGen();
-                threadedChat.getResultAsyncStringFull2(true, true);
-            }
         }
         
         
