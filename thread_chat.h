@@ -267,7 +267,7 @@ struct modelThread{
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
-            file << std::to_string(newChat.params.seed) << DELIMINER;
+            file << "Seed = " << std::to_string(newChat.params.seed) << DELIMINER;
             file << sparamsList << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
