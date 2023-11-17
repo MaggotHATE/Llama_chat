@@ -87,6 +87,7 @@ struct modelThread{
     std::string lastResult = "";
     std::string shortModelName = "";
     std::string sparamsList = "";
+    std::string externalData = "";
 
     // ~modelThread(){
         // ~newChat;
@@ -179,6 +180,7 @@ struct modelThread{
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
+        std::cout << externalData << std::endl;
         std::cout << sparamsList << std::endl;
         std::cout << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
         

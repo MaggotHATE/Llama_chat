@@ -749,7 +749,8 @@ public:
         
         //const bool is_spm = llama_vocab_type(ctx) == LLAMA_VOCAB_TYPE_SPM;
         // Add BOS if SPM tokenizer
-        const bool add_bos = llama_vocab_type(model) == LLAMA_VOCAB_TYPE_SPM;
+        //const bool add_bos = llama_vocab_type(model) == LLAMA_VOCAB_TYPE_SPM;
+        const bool add_bos = llama_should_add_bos_token(model);
         printf("add_bos: %d\n", add_bos);
         
         /* // tokenize the prompt

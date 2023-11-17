@@ -187,6 +187,60 @@ struct presetTest{
     
 };
 
+int startTest(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, int latency = 20){
+    
+    presetTest Test;
+    bool cycling = 0;
+    
+    Test.init(jsonFile);
+    settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
+    settings.modelConfig["seed"] = Test.seed;
+    if (writeExternal) threadedChat.externalData = "Preset: " + Test.presetsNames[Test.cycle] + "(" + std::to_string(Test.cycle + 1) + "/" + std::to_string(Test.presetsNames.size()) + ")";
+    threadedChat.load(settings.modelConfig, false);
+    
+    while(Test.cycle != Test.presetsNames.size()){
+        if (threadedChat.isContinue != 'i') {
+            std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+        } else {
+            threadedChat.display();
+            std::cout << "Test cycle " << std::to_string(Test.cycle) << std::endl;
+            if(cycling == 1){
+                std::string name = Test.presetsNames[Test.cycle];
+                
+                size_t slash = Test.presetsNames[Test.cycle].rfind('/');
+                if (slash != Test.presetsNames[Test.cycle].npos) name = Test.presetsNames[Test.cycle].substr(slash+1);
+                
+                name = std::to_string(Test.seed) + "-" + name;
+                std::cout << "Writing into " << name << std::endl;
+                
+                threadedChat.writeTextFileFull(Test.saveFolder + '/', name);
+                Test.cycle++;
+                
+                if (Test.cycle == Test.presetsNames.size()) {
+                    threadedChat.unload();
+                    if (writeExternal) threadedChat.externalData = "Test finished!";
+                    return 0;
+                } else {
+                    cycling = 0;
+                    threadedChat.unload();
+                    settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
+                    settings.modelConfig["seed"] = Test.seed;
+                    if (writeExternal) threadedChat.externalData = "Preset: " + Test.presetsNames[Test.cycle] + "(" + std::to_string(Test.cycle + 1) + "/" + std::to_string(Test.presetsNames.size()) + ")";
+                    threadedChat.load(settings.modelConfig, false);
+                }
+            } else {
+                threadedChat.appendQuestion(Test.prompt);
+                threadedChat.display();
+                threadedChat.startGen();
+                threadedChat.getResultAsyncStringFull2(true, true);
+                cycling = 1;
+            }
+        }
+    }
+    
+    return 1;
+}
+
 int main(int argc, char ** argv) {
     
     wildcard Card;
@@ -211,17 +265,24 @@ int main(int argc, char ** argv) {
     
     settings.fillLocalJson(settings.params.model);
     
+    modelThread threadedChat;
+    
     if (argc > 1){
         std::string filename = argv[1];
         if (filename.rfind(".json") != filename.npos){
             auto instantJson = getJson(filename);
             if (instantJson.contains("presets")){
-                Test.init(instantJson);
-                busy = true;
+                //Test.init(instantJson);
+                //settings.modelConfig["card"] = Test.presetsNames[0];
+                //settings.modelConfig["seed"] = Test.seed;
+                //threadedChat.externalData = Test.presetsNames[0];
+                //busy = true;
+                startTest(instantJson, settings, threadedChat);
             } else if (instantJson.contains("cycles")){
                 Card.init(instantJson);
                 Card.getPrompt();
                 if (!Card.preset.empty()) settings.modelConfig["card"] = Card.preset;
+                threadedChat.externalData = Card.preset + "\nCycles left: " + std::to_string(Card.cycles);
                 busy = true;
             } 
         } else if (filename.rfind(".txt") != filename.npos) {
@@ -233,7 +294,7 @@ int main(int argc, char ** argv) {
     
     std::cout << settings.modelConfig.dump(3) << std::endl; 
     
-    modelThread threadedChat;
+    
     
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
@@ -287,6 +348,7 @@ int main(int argc, char ** argv) {
                             }
                         } else {
                             --Card.cycles;
+                            threadedChat.externalData = Card.preset + "\nCycles left: " + std::to_string(Card.cycles);
                             Card.getPrompt();
                             input = Card.prompt;
                             cycling = 1;
@@ -313,6 +375,7 @@ int main(int argc, char ** argv) {
                                 //threadedChat.unload();
                                 settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
                                 settings.modelConfig["seed"] = Test.seed;
+                                threadedChat.externalData = Test.presetsNames[Test.cycle] + "(" + std::to_string(Test.cycle + 1) + "/" + std::to_string(Test.presetsNames.size()) + ")";
                                 //threadedChat.load(settings.modelConfig, false);
                             }
                         } else {
