@@ -1064,3 +1064,271 @@ struct configurableChat{
         updateDump();
     }
 };
+
+struct presetTest{
+    nlohmann::json testParams;
+    std::string subname;
+    std::string saveFolder = "R";
+    unsigned int seed = 0;
+    int cycle = 0;
+    bool cycling = 0;
+    std::vector<std::string> presetsNames;
+    std::string prompt;
+    
+    void init(std::string filename){
+        std::cout << "Initializing presets test..." << std::endl;
+        
+        seed = getRand();
+        
+        if (filename.empty()) testParams = getJson("presetsTest.json");
+        else {
+            testParams = getJson(filename);
+        }
+        
+        if (testParams.contains("prompt")) {
+            prompt = testParams["prompt"];
+            
+        } else {
+            prompt = filename;
+            testParams = getJson("presetsTest.json");
+        }
+        
+        if (testParams.contains("presets")){
+            
+            presetsNames = testParams["presets"];
+                    
+            if (testParams.contains("folder")) saveFolder = testParams["folder"];
+        
+        }
+        
+        
+        
+    }
+    
+    void init(nlohmann::json& file){
+        std::cout << "Initializing presets test..." << std::endl;
+        
+        seed = getRand();
+        
+        testParams = file;
+        
+        if (testParams.contains("prompt")) {
+            prompt = testParams["prompt"];
+        } else {
+            std::string input2;
+            std::getline(std::cin, input2);
+            
+            prompt = input2;
+            
+        }
+            
+        presetsNames = testParams["presets"];
+                    
+        if (testParams.contains("folder")) saveFolder = testParams["folder"];
+    }
+    
+    int startTest(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, bool streaming = true, int latency = 20){
+    
+        
+        
+        init(jsonFile);
+        settings.modelConfig["card"] = presetsNames[cycle];
+        settings.modelConfig["seed"] = seed;
+        if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(presetsNames.size()) + ")";
+        threadedChat.load(settings.modelConfig, false);
+        
+        while(cycle != presetsNames.size()){
+            if (threadedChat.isContinue != 'i') {
+                std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+            } else {
+                threadedChat.display();
+                std::cout << "Test cycle " << std::to_string(cycle) << std::endl;
+                if(cycling == 1){
+                    std::string name = presetsNames[cycle];
+                    
+                    size_t slash = presetsNames[cycle].rfind('/');
+                    if (slash != presetsNames[cycle].npos) name = presetsNames[cycle].substr(slash+1);
+                    
+                    name = std::to_string(seed) + "-" + name;
+                    std::cout << "Writing into " << name << std::endl;
+                    
+                    threadedChat.writeTextFileFull(saveFolder + '/', name);
+                    cycle++;
+                    
+                    if (cycle == presetsNames.size()) {
+                        threadedChat.unload();
+                        if (writeExternal) threadedChat.externalData = "Test finished!";
+                        return 0;
+                    } else {
+                        cycling = 0;
+                        threadedChat.unload();
+                        settings.modelConfig["card"] = presetsNames[cycle];
+                        settings.modelConfig["seed"] = seed;
+                        if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(presetsNames.size()) + ")";
+                        threadedChat.load(settings.modelConfig, false);
+                    }
+                } else {
+                    threadedChat.appendQuestion(prompt);
+                    threadedChat.display();
+                    threadedChat.startGen();
+                    threadedChat.getResultAsyncStringFull2(streaming, true);
+                    cycling = 1;
+                }
+            }
+        }
+        
+        return 1;
+    }
+};
+
+struct wildcardGen{
+    nlohmann::json wildcardsDB;
+    std::string subname;
+    std::string saveFolder = "R";
+    int cycles = -1;
+    bool cycling = 0;
+    unsigned int seed = 0;
+    std::vector<std::string> promptsDB;
+    std::string prompt0;
+    std::string prompt;
+    std::string preset;
+    
+    void init(std::string filename){
+        std::cout << "Initializing wildcarded generator..." << std::endl;
+        
+        seed = getRand();
+        
+        if (filename.empty()) wildcardsDB = getJson("wildcards.json");
+        else {
+            wildcardsDB = getJson(filename);
+        }
+        
+        if (wildcardsDB.contains("cycles")) cycles = wildcardsDB["cycles"];
+        else cycles = 10;
+                    
+        if (wildcardsDB.contains("folder")) saveFolder = wildcardsDB["folder"];
+        
+        if (wildcardsDB.contains("preset")) preset = wildcardsDB["preset"];
+        
+        if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
+        else {
+            promptsDB.push_back(filename); // assuming that we passed the prompt itself instead of filename;
+            std::string cNum;
+            std::cout << " Enter the number of cycles: " << std::endl;
+            std::getline(std::cin, cNum);
+            cycles = std::stoi(cNum);
+        }
+        
+    }
+    
+    void init(nlohmann::json& file){
+        std::cout << "Initializing wildcarded generator..." << std::endl;
+        
+        seed = getRand();
+        
+        wildcardsDB = file;
+        
+        cycles = wildcardsDB["cycles"];
+                    
+        if (wildcardsDB.contains("folder")) saveFolder = wildcardsDB["folder"];
+        
+        if (wildcardsDB.contains("preset")) {
+            preset = wildcardsDB["preset"];
+            size_t slash = preset.rfind('/');
+            if (slash != preset.npos) subname = preset.substr(slash+1);
+            else subname = preset;
+        }
+        
+        if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
+        else {
+            std::string input2;
+            std::getline(std::cin, input2);
+            
+            promptsDB.push_back(input2);
+        }
+        
+    }
+    
+    void getPrompt(){
+        unsigned int x = getRand() % promptsDB.size();
+        prompt0 = promptsDB[x];
+        
+        prompt = findWildcard(prompt0);
+    }
+    
+    std::string findWildcard(std::string inputString){
+    
+        size_t last = inputString.rfind("__");
+        if (last != inputString.npos){
+            
+            std::string subInputString = inputString.substr(0,last);
+            std::cout << " subInputString: " << subInputString << std::endl;
+            size_t first = subInputString.rfind("__");
+            if (first != subInputString.npos){
+                std::string wildcard = subInputString.substr(first + 2);
+                
+                
+                if(wildcardsDB.contains(wildcard)) {
+                    
+                    std::vector<std::string> wildcardsArr = wildcardsDB[wildcard];
+                    unsigned int i = getRand() % wildcardsArr.size();
+                    std::string choice = wildcardsArr[i];
+                    inputString.replace(first,last - first + 2,choice);
+                    std::cout << "Replaced: " << inputString << std::endl;
+                    
+                    if (wildcardsDB.contains("subname")){
+                        if (wildcard == wildcardsDB["subname"].get<std::string>()){
+                            subname = choice;
+                        }
+                    }
+                    
+                    return findWildcard(inputString);
+                    
+                } else std::cout << " no wildcard: " << wildcard << std::endl;
+            } else std::cout << " no first __" << std::endl;
+        } else std::cout << " no last __" << std::endl;
+            
+        return inputString;
+    }
+    
+    int cycle(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, bool streaming = true, int latency = 20){
+        
+        
+        init(jsonFile);
+        if (!preset.empty()) settings.modelConfig["card"] = preset;
+        if (writeExternal) threadedChat.externalData = "Preset: " + preset + "\nCycles left: " + std::to_string(cycles);
+        threadedChat.load(settings.modelConfig, false);
+        
+        while(cycles >= 0){
+            if (threadedChat.isContinue != 'i') {
+                std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+            } else {
+                if(cycling == 1){
+                    threadedChat.writeTextFileFull(saveFolder + '/', std::to_string(seed) + "-" + subname + "-" + std::to_string(cycles));
+                    if (cycles == 0) {
+                        threadedChat.unload();
+                        if (writeExternal) threadedChat.externalData = "Test finished!";
+                        return 0;
+                    } else {
+                        cycling = 0;
+                        //input = "restart";
+                        settings.modelConfig["card"] = preset;
+                        threadedChat.unload();
+                        threadedChat.load(settings.modelConfig, false);
+                    }
+                } else {
+                    --cycles;
+                    if (writeExternal) threadedChat.externalData = "Preset: " + preset + "\nCycles left: " + std::to_string(cycles);
+                    getPrompt();
+                    //input = Card.prompt;
+                    threadedChat.appendQuestion(prompt);
+                    threadedChat.display();
+                    threadedChat.startGen();
+                    threadedChat.getResultAsyncStringFull2(streaming, true);
+                    cycling = 1;
+                }
+            }
+        }
+    } 
+};
+
