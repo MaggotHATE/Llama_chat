@@ -1127,7 +1127,19 @@ struct presetTest{
         if (testParams.contains("folder")) saveFolder = testParams["folder"];
     }
     
-    int startTest(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, bool streaming = true, int latency = 20){
+    std::string writeName(){
+        std::string name = presetsNames[cycle];
+                    
+        size_t slash = presetsNames[cycle].rfind('/');
+        if (slash != presetsNames[cycle].npos) name = presetsNames[cycle].substr(slash+1);
+        
+        name = std::to_string(seed) + "-" + name;
+        std::cout << "Writing into " << name << std::endl;
+        
+        return name;
+    }
+    
+    int startTest(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, bool streaming = true, bool waiting = true, int latency = 20){
     
         
         
@@ -1139,20 +1151,12 @@ struct presetTest{
         
         while(cycle != presetsNames.size()){
             if (threadedChat.isContinue != 'i') {
-                std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+                if (waiting) std::this_thread::sleep_for(std::chrono::milliseconds(latency));
             } else {
-                threadedChat.display();
+                if (streaming) threadedChat.display();
                 std::cout << "Test cycle " << std::to_string(cycle) << std::endl;
                 if(cycling == 1){
-                    std::string name = presetsNames[cycle];
-                    
-                    size_t slash = presetsNames[cycle].rfind('/');
-                    if (slash != presetsNames[cycle].npos) name = presetsNames[cycle].substr(slash+1);
-                    
-                    name = std::to_string(seed) + "-" + name;
-                    std::cout << "Writing into " << name << std::endl;
-                    
-                    threadedChat.writeTextFileFull(saveFolder + '/', name);
+                    threadedChat.writeTextFileFull(saveFolder + '/', writeName());
                     cycle++;
                     
                     if (cycle == presetsNames.size()) {
@@ -1169,7 +1173,7 @@ struct presetTest{
                     }
                 } else {
                     threadedChat.appendQuestion(prompt);
-                    threadedChat.display();
+                    if (streaming) threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(streaming, true);
                     cycling = 1;
@@ -1291,7 +1295,7 @@ struct wildcardGen{
         return inputString;
     }
     
-    int cycle(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, bool streaming = true, int latency = 20){
+    int cycle(nlohmann::json& jsonFile, configurableChat& settings, modelThread& threadedChat, bool writeExternal = true, bool streaming = true, bool waiting = true, int latency = 20){
         
         
         init(jsonFile);
@@ -1301,7 +1305,7 @@ struct wildcardGen{
         
         while(cycles >= 0){
             if (threadedChat.isContinue != 'i') {
-                std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+                if (waiting) std::this_thread::sleep_for(std::chrono::milliseconds(latency));
             } else {
                 if(cycling == 1){
                     threadedChat.writeTextFileFull(saveFolder + '/', std::to_string(seed) + "-" + subname + "-" + std::to_string(cycles));
@@ -1322,7 +1326,7 @@ struct wildcardGen{
                     getPrompt();
                     //input = Card.prompt;
                     threadedChat.appendQuestion(prompt);
-                    threadedChat.display();
+                    if (streaming) threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(streaming, true);
                     cycling = 1;

@@ -647,6 +647,14 @@ struct chatUI{
     
     nlohmann::json templatesJson = getJson("templates.json");
     
+    presetTest Test;
+    nlohmann::json testJson;
+    std::string testPrompt;
+    std::string testFolder;
+    std::vector<std::string> testPresets;
+    std::string testPresetsSummary;
+    bool isGeneratingTest = false;
+    
     std::map<std::string, std::vector<std::string>> sessionHistory;
     
     
@@ -839,9 +847,10 @@ struct chatUI{
     
     void jsonTab(){
         if (ImGui::Button("Reset config")) {
-            localSettings.getFromJson("config.json");
-            localSettings.fillLocalJson();
-            localSettings.updateDump();
+            localSettings.resetConfig("config.json");
+            //localSettings.getFromJson("config.json");
+            //localSettings.fillLocalJson();
+            //localSettings.updateDump();
         }
         ImGui::SameLine();
         if (ImGui::Button("Update config")) {
@@ -863,7 +872,7 @@ struct chatUI{
     
     void templatesTab(){
         if (!templatesJson.contains("error")){
-            if (ImGui::Button("Reset config")) {
+            if (ImGui::Button("Reset templates config")) {
                 templatesJson = getJson("templates.json");
                 //localSettings.getFromJson("config.json");
                 //localSettings.fillLocalJson();
@@ -2098,6 +2107,7 @@ struct chatUI{
                     tokens_this_session = newChat.last_tokens;
                     consumed_this_session = newChat.consumed_tokens;
                     past_this_session = newChat.past_tokens;
+                    Test.cycling = 0;
                     cancelled = true;
                 }
                 ImGui::SameLine();
@@ -2177,7 +2187,123 @@ struct chatUI{
                 historyTab();
                 
                 ImGui::EndTabItem();
-            }          
+            }
+//History tab//////////////////////////////////////////////////////////////////////////
+            if (ImGui::BeginTabItem("Tests"))
+            {
+                ImGui::BeginChild("Test");
+                
+                if (Test.cycling == 0){
+                
+                    if (ImGui::Button("Open")){ 
+                        auto presetTestFilePath = tinyfd_openFileDialog("Select a test file...", currPath.c_str(),1, jsonFilterPatterns, NULL,0);
+            
+                        if (presetTestFilePath) {
+                            testJson = getJson(presetTestFilePath);
+                            if (testJson.contains("prompt")) {
+                                testPrompt = testJson["prompt"];
+                            }
+                            if (testJson.contains("folder")) {
+                                testFolder = testJson["folder"];
+                            }
+                            if (testJson.contains("presets")){
+                                if (testJson["presets"].is_array()){
+                                    testPresets = testJson["presets"];
+                                }
+                            }
+                        }
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Load")){
+                        if (std::filesystem::exists("presetsTest.json")){
+                            testJson = getJson("presetsTest.json");
+                            if (testJson.contains("prompt")) {
+                                testPrompt = testJson["prompt"];
+                            }
+                            if (testJson.contains("folder")) {
+                                testFolder = testJson["folder"];
+                            }
+                            if (testJson.contains("presets")){
+                                if (testJson["presets"].is_array()){
+                                    testPresets = testJson["presets"];
+                                }
+                            }
+                        } else {
+                            ImGui::TextWrapped("presetsTest.json is missing! Open a presets test file.");
+                        }
+                    }
+                    
+                    ImGui::SameLine();
+                    if (ImGui::Button("Start")){
+                        //Test.startTest(testJson, localSettings, newChat, false, false, false);
+                        testJson["prompt"] = testPrompt;
+                        testJson["folder"] = testFolder;
+                        Test.init(testJson);
+                        localSettings.modelConfig["card"] = Test.presetsNames[Test.cycle];
+                        localSettings.modelConfig["seed"] = Test.seed;
+                        newChat.load(localSettings.modelConfig, false);
+                        Test.cycling = 1;
+                        
+                        
+                    }
+                    
+                    //ImGui::TextWrapped(testPrompt.c_str());
+                    ImGui::InputTextMultiline("input text", &testPrompt);
+                    ImGui::InputText("folder", &testFolder);
+                    
+                    
+                    for (auto preset : testPresets){
+                        if (std::filesystem::exists(preset+".json")){
+                            if (ImGui::Button(preset.c_str())){ 
+                                nlohmann::json presetCardFile = getJson(preset);
+                                localSettings.getSettingsFromJson(presetCardFile);
+                            }
+                        } else ImGui::Text((preset + " doesnt's exist!").c_str());
+                    }
+                
+                } else {
+                    if (newChat.loaded == 9) {
+                        ImGui::Text(("Current prompt: " + Test.prompt).c_str());
+                        ImGui::Text(("Current preset: " + Test.presetsNames[Test.cycle]).c_str());
+                        if (newChat.isContinue != 'w') {
+                            if (!isGeneratingTest){
+                                newChat.appendQuestion(Test.prompt);
+                                localResultPairs = newChat.resultsStringPairs;
+                                newChat.startGen();
+                                newChat.getResultAsyncStringFull2(false, true);
+                                isGeneratingTest = true;
+                            } else {
+                                newChat.writeTextFileFull(Test.saveFolder + '/', Test.writeName());
+                                newChat.loaded = 0;
+                                tokens_this_session = 0;
+                                copiedDialog = false;
+                                copiedSettings = false;
+                                copiedTimings = false;
+                                initTokens = false;
+                                cancelled = false;
+
+                                hasModel = false;
+                                newChat.unload();
+                                Test.cycle++;
+                                if (Test.cycle == Test.presetsNames.size()) {
+                                    Test.cycling = 0;
+                                } else {
+                                    localSettings.modelConfig["card"] = Test.presetsNames[Test.cycle];
+                                    localSettings.modelConfig["seed"] = Test.seed;
+                                    newChat.load(localSettings.modelConfig, false);
+                                    isGeneratingTest = false;
+                                }
+                            }
+                        }
+                    } else ImGui::Text("Loading...");
+                }
+                
+                    
+                ImGui::EndChild();
+                
+                ImGui::EndTabItem();
+            }
+            
             
 //END TABS/////////////////////////////////////////////////////////////////////////////////////
             ImGui::EndTabBar();

@@ -97,22 +97,6 @@ std::string getText(std::string filename){
 
 void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
-    if (checkJString(config, "card")) {
-        std::string cardPath = loadNpring(config,"card");
-        
-        nlohmann::json card = getJson(cardPath);
-        
-        getParamsFromJson(card, params, hasFile, headless);
-    }
-    
-    if (checkJString(config, "preset")) {
-        std::string presetPath = loadNpring(config,"preset");
-        
-        nlohmann::json preset = getJson(presetPath);
-        
-        getParamsFromJson(preset, params, hasFile, headless);
-    }
-    
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
     } else if (!hasFile) {
@@ -183,10 +167,42 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     
     std::cout << "headless: " << headless << std::endl;
     
+    // separated for better compatibility and less redundancy
+    // if (checkJString(config, "card")) {
+        // std::string cardPath = loadNpring(config,"card");
+        
+        // nlohmann::json card = getJson(cardPath);
+        
+        // getParamsFromJson(card, params, hasFile, headless);
+    // }
     
+    // if (checkJString(config, "preset")) {
+        // std::string presetPath = loadNpring(config,"preset");
+        
+        // nlohmann::json preset = getJson(presetPath);
+        
+        // getParamsFromJson(preset, params, hasFile, headless);
+    // }
 }
 
-
+void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+    
+    if (checkJString(config, "card")) {
+        std::string cardPath = loadNpring(config,"card");
+        
+        nlohmann::json card = getJson(cardPath);
+        
+        getParamsFromJson(card, params, hasFile, headless);
+    }
+    
+    if (checkJString(config, "preset")) {
+        std::string presetPath = loadNpring(config,"preset");
+        
+        nlohmann::json preset = getJson(presetPath);
+        
+        getParamsFromJson(preset, params, hasFile, headless);
+    }
+}
 
 void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
     
@@ -198,7 +214,8 @@ void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headles
         bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
         getParamsFromJson(modelConfig, params, hasFiles, headless);
     }
-
+    
+    getParamsFromPreset(config, params, false, headless);
 }
 
 void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_params& params, bool headless = false){
@@ -212,6 +229,8 @@ void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_param
         bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
         getParamsFromJson(modelConfig, params, hasFiles, headless);
     }
+    
+    getParamsFromPreset(config, params, false, headless);
 
 }
 
@@ -229,6 +248,8 @@ void readParamsFromFile(std::string fimeName, gpt_params& params, bool headless 
             bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
             getParamsFromJson(modelConfig, params, hasFiles, headless);
         }
+        
+        getParamsFromPreset(config, params, false, headless);
         
         o1.close();
     }
@@ -249,6 +270,8 @@ void readParamsFromFile(std::string fimeName, std::string modelName, gpt_params&
             bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
             getParamsFromJson(modelConfig, params, hasFiles, headless);
         }
+        
+        getParamsFromPreset(config, params, false, headless);
         
         o1.close();
     }
