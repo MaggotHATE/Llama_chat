@@ -180,6 +180,7 @@ struct modelThread{
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
+        std::cout << newChat.formatRepresentation << std::endl;
         std::cout << externalData << std::endl;
         std::cout << sparamsList << std::endl;
         std::cout << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
@@ -895,6 +896,11 @@ struct configurableChat{
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
         
+        if (params.format_instruct != paramsDefault.format_instruct) modelConfig[model]["format_instruct"] = params.format_instruct;
+        if (params.format_dialog != paramsDefault.format_dialog) modelConfig[model]["format_dialog"] = params.format_dialog;
+        if (params.bos != paramsDefault.bos) modelConfig[model]["bos"] = params.bos;
+        if (params.eos != paramsDefault.eos) modelConfig[model]["eos"] = params.eos;
+        
         //#if GGML_EXPERIMENTAL1
         if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
         //#endif
@@ -933,6 +939,7 @@ struct configurableChat{
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
         
         modelConfig["temp_first"] = tempFirst;
+        
     }
     
     nlohmann::json createNewCard(){

@@ -120,6 +120,10 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     }
     if (checkJString(config, "input_prefix")) params.input_prefix = loadNpring(config,"input_prefix", true);
     if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
+    if (checkJString(config, "format_instruct")) params.format_instruct = loadNpring(config,"format_instruct", true);
+    if (checkJString(config, "format_dialog")) params.format_dialog = loadNpring(config,"format_dialog", true);
+    if (checkJString(config, "bos")) params.bos = loadNpring(config,"bos", true);
+    if (checkJString(config, "eos")) params.eos = loadNpring(config,"eos", true);
     
     if (checkJNum(config, "seed")) params.seed = loadNpring(config,"seed", true);
     if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);

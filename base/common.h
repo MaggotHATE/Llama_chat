@@ -82,39 +82,43 @@ struct gpt_params {
 
     // TODO: avoid tuple, use struct
     std::vector<std::tuple<std::string, float>> lora_adapter; // lora adapter path with user defined scale
-    std::string lora_base  = "";                              // base model path for the lora adapter
+    std::string lora_base         = "";                              // base model path for the lora adapter
+    std::string format_instruct   = "bie";                              // format for the first prompt
+    std::string format_dialog     = "bpiebs";                              // format for interacive
+    std::string bos               = "";
+    std::string eos               = "";
 
-    int  ppl_stride        = 0;     // stride for perplexity calculations. If left at 0, the pre-existing approach will be used.
+    int  ppl_stride               = 0;     // stride for perplexity calculations. If left at 0, the pre-existing approach will be used.
     int  ppl_output_type   = 0;     // = 0 -> ppl output is as usual, = 1 -> ppl output is num_tokens, ppl, one per line
                                     //                                       (which is more convenient to use for plotting)
                                     //
-    bool hellaswag         = false; // compute HellaSwag score over random tasks from datafile supplied in prompt
-    size_t hellaswag_tasks = 400;   // number of tasks to use when computing the HellaSwag score
+    bool hellaswag                = false; // compute HellaSwag score over random tasks from datafile supplied in prompt
+    size_t hellaswag_tasks        = 400;   // number of tasks to use when computing the HellaSwag score
 
-    bool mul_mat_q         = true;  // if true, use mul_mat_q kernels instead of cuBLAS
-    bool memory_f16        = true;  // use f16 instead of f32 for memory kv
-    bool random_prompt     = false; // do not randomize prompt if none provided
-    bool use_color         = false; // use color to distinguish generations and inputs
-    bool interactive       = false; // interactive mode
-    bool prompt_cache_all  = false; // save user input and generations to prompt cache
-    bool prompt_cache_ro   = false; // open the prompt cache read-only and do not update it
+    bool mul_mat_q                = true;  // if true, use mul_mat_q kernels instead of cuBLAS
+    bool memory_f16               = true;  // use f16 instead of f32 for memory kv
+    bool random_prompt            = false; // do not randomize prompt if none provided
+    bool use_color                = false; // use color to distinguish generations and inputs
+    bool interactive              = false; // interactive mode
+    bool prompt_cache_all         = false; // save user input and generations to prompt cache
+    bool prompt_cache_ro          = false; // open the prompt cache read-only and do not update it
 
-    bool embedding         = false; // get only sentence embedding
-    bool escape            = false; // escape "\n", "\r", "\t", "\'", "\"", and "\\"
-    bool interactive_first = false; // wait for user input immediately
-    bool multiline_input   = false; // reverse the usage of `\`
-    bool simple_io         = false; // improves compatibility with subprocesses and limited consoles
-    bool cont_batching     = false; // insert new sequences for decoding on-the-fly
+    bool embedding                = false; // get only sentence embedding
+    bool escape                   = false; // escape "\n", "\r", "\t", "\'", "\"", and "\\"
+    bool interactive_first        = false; // wait for user input immediately
+    bool multiline_input          = false; // reverse the usage of `\`
+    bool simple_io                = false; // improves compatibility with subprocesses and limited consoles
+    bool cont_batching            = false; // insert new sequences for decoding on-the-fly
 
-    bool input_prefix_bos  = false; // prefix BOS to user inputs, preceding input_prefix
-    bool ignore_eos        = false; // ignore generated EOS tokens
-    bool instruct          = false; // instruction mode (used for Alpaca models)
-    bool logits_all        = false; // return logits for all tokens in the batch
-    bool use_mmap          = true;  // use mmap for faster loads
-    bool use_mlock         = false; // use mlock to keep model in memory
-    bool numa              = false; // attempt optimizations that help on some NUMA systems
-    bool verbose_prompt    = false; // print prompt tokens before generation
-    bool infill            = false; // use infill mode
+    bool input_prefix_bos         = false; // prefix BOS to user inputs, preceding input_prefix
+    bool ignore_eos               = false; // ignore generated EOS tokens
+    bool instruct                 = false; // instruction mode (used for Alpaca models)
+    bool logits_all               = false; // return logits for all tokens in the batch
+    bool use_mmap                 = true;  // use mmap for faster loads
+    bool use_mlock                = false; // use mlock to keep model in memory
+    bool numa                     = false; // attempt optimizations that help on some NUMA systems
+    bool verbose_prompt           = false; // print prompt tokens before generation
+    bool infill                   = false; // use infill mode
 
     // multimodal models (see examples/llava)
     std::string mmproj = ""; // path to multimodal projector

@@ -155,6 +155,19 @@ float llama_string_evalPrompt(const llama_timings & timings) {
     std::vector<int>   output_tokens;
 }; */
 
+typedef struct format{
+    //position, definition
+    std::string bos;
+    std::string eos;
+    // i for input
+    // o for output
+    // p for prefix
+    // s for suffix
+    // b for bos
+    // e for eos
+    // d for \n or \r
+    std::string sequence;
+}; 
 
 //CLASS////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -224,6 +237,9 @@ private:
 public:
     gpt_params params;
     bool finished = true;
+    
+    std::string formatRepresentation;
+    
     //std::map<std::string,std::string> stats;
 
 	chat(int argc, char ** argv){
@@ -484,10 +500,72 @@ public:
             printf("Temperature sampling first = %d\n", tempFirst);
         }
         
+        
+        //chatFormat.sequence = params.format;
+        //printf("Format = %s\n", params.format.c_str());
+        formatRepresentation = "Format:\n";
+        
         int result = load(soft);
         
         generate(streamed);
         return result;
+    }
+    
+    void formatInput(std::string format, std::string& buffer){
+        
+        for (auto s : format){
+            switch (s){
+                case 'a':{
+                    if (params.antiprompt.size()){
+                        formatRepresentation += params.antiprompt[0];
+                        const auto line_antiprompt_format = ::llama_tokenize(ctx, params.antiprompt[0], false, true);
+                        embd_inp.insert(embd_inp.end(), line_antiprompt_format.begin(), line_antiprompt_format.end());
+                    }
+                    break;
+                }
+                case 'b':{
+                    formatRepresentation += params.bos;
+                    const auto line_bos_format = ::llama_tokenize(ctx, params.bos, false, true);
+                    embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
+                    break;
+                }
+                case 'e':{
+                    formatRepresentation += params.eos;
+                    const auto line_eos_format = ::llama_tokenize(ctx, params.eos, false, true);
+                    embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+                    break;
+                }
+                case 'p':{
+                    formatRepresentation += params.input_prefix;
+                    const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+                    embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
+                    break;
+                }
+                case 'i':{
+                    if (format == params.format_instruct) formatRepresentation += buffer;
+                    else formatRepresentation += "{input}\n";
+                    const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+                    embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+                    n_remain -= line_inp.size();
+                    break;
+                }
+                case 's':{
+                    formatRepresentation += params.input_suffix;
+                    const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+                    embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
+                    break;
+                }
+                case 'd':{
+                    formatRepresentation += "\n";
+                    const auto line_delim = ::llama_tokenize(ctx, "\n", false, true);
+                    embd_inp.insert(embd_inp.end(), line_delim.begin(), line_delim.end());
+                    break;
+                }
+            }
+            
+        }
+        
+        
     }
     
     int checkPreLoad(){
@@ -766,7 +844,10 @@ public:
         
         
         if (params.interactive_first || params.instruct || !params.prompt.empty() || session_tokens.empty()) {
-            embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos, true);
+            //this is the first problem we have
+            // there is no formatting for the initial prompt
+            //embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos, true);
+            formatInput(params.format_instruct, params.prompt);
         } else {
             embd_inp = session_tokens;
         }
@@ -1554,6 +1635,19 @@ public:
         }
     }
     
+    
+    void classicProcessing(std::string& buffer){
+        const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+        const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+        const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+        
+        embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
+        embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+        embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
+        
+        n_remain -= line_inp.size();
+    }
+    
     int subInputNew(std::string& line){
         
         //std::string buffer = line + DELIMINER;
@@ -1563,9 +1657,13 @@ public:
             
             // Add tokens to embd only if the input buffer is non-empty
             // Entering a empty line lets the user pass control back
-            appendPrefixBos();
+            //appendPrefixBos();
             
-            std::string buffer = params.input_prefix + line + DELIMINER + params.input_suffix;
+            //given the latest commit for chatml prompt, I feel like it's time for formats
+            // from jsons or smth else
+            //std::string buffer = params.input_prefix + line + DELIMINER + params.input_suffix;
+            // since we have format now, all the rest will be added according to it
+            std::string buffer = line;
             
             const size_t original_size = embd_inp.size();
 
@@ -1582,13 +1680,25 @@ public:
 
             //auto line_inp = ::llama_tokenize(ctx, buffer, false);
             //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
-            const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
-            const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+            // const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+            // const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+            // const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
             //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-            embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
-            embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-            embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
+            // embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
+            
+            // if (chatFormat.eos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+            // if (chatFormat.bos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
+            
+            // embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+            
+            // if (chatFormat.eos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+            // if (chatFormat.bos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
+            
+           // embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
+           
+            //classicProcessing(buffer);
+            formatInput(params.format_dialog, buffer);
+            //formatInput(buffer);
             
             
             
@@ -1606,7 +1716,7 @@ public:
             
             
 
-            n_remain -= line_inp.size();
+            // n_remain -= line_inp.size();
         }
 
         //is_antiprompt = false;
@@ -1629,6 +1739,8 @@ public:
             resetGrammar();
             is_interacting = false;
         }
+        
+        formatRepresentation += "{output}\n";
         
         //checkInfinite();
 
