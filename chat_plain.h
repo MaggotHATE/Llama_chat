@@ -542,8 +542,8 @@ public:
                     break;
                 }
                 case 'i':{
-                    if (format == params.format_instruct) formatRepresentation += buffer;
-                    else formatRepresentation += "{input}\n";
+                    /* if (format == params.format_instruct) */ formatRepresentation += buffer;
+                    //else formatRepresentation += "{input}";
                     const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
                     embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
                     n_remain -= line_inp.size();
@@ -1740,7 +1740,7 @@ public:
             is_interacting = false;
         }
         
-        formatRepresentation += "{output}\n";
+        formatRepresentation += "{output}";
         
         //checkInfinite();
 

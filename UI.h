@@ -1587,7 +1587,28 @@ struct chatUI{
                     newChat.isContinue = 'l';
                 }
             }
-            
+            ImGui::SameLine();
+            if (ImGui::Button("Open settings json")) {
+                auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
+                
+                if (jsonConfigFilePath) {
+                    nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
+                    if (jsonConfigFile.contains("model")){
+                         localSettings.modelName = jsonConfigFile["model"];
+                    }
+                    localSettings.getSettingsFromJson(jsonConfigFile);
+                    //localSettings.getSettingsFull();
+                    localSettings.fillLocalJson();
+                    localSettings.updateDump();
+                    localSettings.syncInputs();
+                    
+                    inputPrompt = localSettings.params.prompt;
+                    if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
+                    // we probably don't want presets to be instantly applied
+                    //localSettings.fillLocalJson();
+                }
+            }
+                
             if (ImGui::BeginPopup("No Model")) {
                 ImVec2 work_size = viewport->WorkSize;
                 ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.5, work_size.y * 0.1));
@@ -1763,20 +1784,21 @@ struct chatUI{
         
         //ImGui::EndChild();
         
-        ImGui::InputTextMultiline("Antiprompt", &inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 2)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
+        ImGui::InputTextMultiline("Antiprompt", &inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
         if (ImGui::Button("Apply antiprompt")) {
                     localSettings.inputAntiprompt = inputAntiprompt;
                 } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
                     localSettings.inputAntiprompt = "NULL";
                 }
+        ImGui::InputTextMultiline("Prefix", &localSettings.params.input_prefix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
+                
+        ImGui::InputTextMultiline("Suffix", &localSettings.params.input_suffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
+        
         ImGui::InputText("Grammar file", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
         if (ImGui::Button("Choose grammar")) {
                 inputGrammar = openGrammar();
             }
-        ImGui::InputText("Prefix", &localSettings.params.input_prefix); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
-                
-        ImGui::InputTextMultiline("Suffix", &localSettings.params.input_suffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );         
-                
+            
         ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG, ImVec2(initWidth, ImGui::GetTextLineHeight() * 5)); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." );
         if (ImGui::Button("Apply CFG antiprompt")) {
                     localSettings.inputAntiCFG = inputAntiCFG;
