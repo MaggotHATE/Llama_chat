@@ -1,0 +1,9 @@
+{
+    "temp": 0.87,
+    "top_p": 1.00,
+    "min_p": 0.1,
+    "typical_p": 0.68,
+    "tfs_z": 0.68,
+    "repeat_penalty": 1.00,
+    "top_k": 85
+}
