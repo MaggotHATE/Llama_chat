@@ -211,30 +211,36 @@ void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFil
 void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
+    getParamsFromPreset(config, params, false, headless);
     
-    if(config["model"].is_string() && config[params.model].is_object()){
-        std::cout << "Found settings for model " << params.model << std::endl;
-        nlohmann::json modelConfig = config[params.model];
-        bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
-        getParamsFromJson(modelConfig, params, hasFiles, headless);
+    if(config.contains("model")){
+        if(config["model"].is_string() && config[params.model].is_object()){
+            std::cout << "Found settings for model " << params.model << std::endl;
+            nlohmann::json modelConfig = config[params.model];
+            bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
+            getParamsFromJson(modelConfig, params, hasFiles, headless);
+            getParamsFromPreset(modelConfig, params, false, headless);
+        }
     }
     
-    getParamsFromPreset(config, params, false, headless);
 }
 
 void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
+    getParamsFromPreset(config, params, false, headless);
     params.model = modelName;
     
-    if(config["model"].is_string() && config[params.model].is_object()){
-        std::cout << "Found settings for model " << params.model << std::endl;
-        nlohmann::json modelConfig = config[params.model];
-        bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
-        getParamsFromJson(modelConfig, params, hasFiles, headless);
+    if(config.contains("model")){
+        if(config["model"].is_string() && config[params.model].is_object()){
+            std::cout << "Found settings for model " << params.model << std::endl;
+            nlohmann::json modelConfig = config[params.model];
+            bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
+            getParamsFromJson(modelConfig, params, hasFiles, headless);
+            getParamsFromPreset(modelConfig, params, false, headless);
+        }
     }
     
-    getParamsFromPreset(config, params, false, headless);
 
 }
 
@@ -245,15 +251,18 @@ void readParamsFromFile(std::string fimeName, gpt_params& params, bool headless 
         o1 >> std::setw(4) >> config;
         
         getParamsFromJson(config, params, false, headless);
+        getParamsFromPreset(config, params, false, headless);
         
-        if(config["model"].is_string() && config[params.model].is_object()){
-            std::cout << "Found settings for model " << params.model << std::endl;
-            nlohmann::json modelConfig = config[params.model];
-            bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
-            getParamsFromJson(modelConfig, params, hasFiles, headless);
+        if(config.contains("model")){
+            if(config["model"].is_string() && config[params.model].is_object()){
+                std::cout << "Found settings for model " << params.model << std::endl;
+                nlohmann::json modelConfig = config[params.model];
+                bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
+                getParamsFromJson(modelConfig, params, hasFiles, headless);
+                getParamsFromPreset(modelConfig, params, false, headless);
+            }
         }
         
-        getParamsFromPreset(config, params, false, headless);
         
         o1.close();
     }
@@ -266,16 +275,19 @@ void readParamsFromFile(std::string fimeName, std::string modelName, gpt_params&
         o1 >> std::setw(4) >> config;
         
         getParamsFromJson(config, params, false, headless);
+        getParamsFromPreset(config, params, false, headless);
         params.model = modelName;
         
-        if(config[modelName].is_object()){
-            std::cout << "Found settings for model " << params.model << std::endl;
-            nlohmann::json modelConfig = config[params.model];
-            bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
-            getParamsFromJson(modelConfig, params, hasFiles, headless);
+        if(config.contains(modelName)){
+            if(config[modelName].is_object()){
+                std::cout << "Found settings for model " << params.model << std::endl;
+                nlohmann::json modelConfig = config[params.model];
+                bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
+                getParamsFromJson(modelConfig, params, hasFiles, headless);
+                getParamsFromPreset(modelConfig, params, false, headless);
+            }
         }
         
-        getParamsFromPreset(config, params, false, headless);
         
         o1.close();
     }

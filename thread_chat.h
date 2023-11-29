@@ -1056,6 +1056,17 @@ struct configurableChat{
         }
     }
     
+    void readJsonToParams(nlohmann::json& file){
+        readParamsFromJson(file, params);
+        
+        if (!file.contains("model") && file.contains(params.model)){
+            nlohmann::json subJson = file[params.model];
+            readParamsFromJson(subJson, params);
+        }
+        
+        fillLocalJson(params.model);
+    }
+    
     void checkLocalConfig(){
         if (noConfig == true && modelName != "NULL" && inputPrompt != "NULL"){
             noConfig = false;
@@ -1152,6 +1163,14 @@ struct presetTest{
         
         
         init(jsonFile);
+        if (jsonFile.contains("config")){
+            std::cout << " Found config inside presets test file..." << std::endl;
+            if (jsonFile["config"].is_object()){
+                //readParamsFromJson(jsonFile["config"], settings.params);
+                nlohmann::json config = jsonFile["config"];
+                settings.readJsonToParams(config);
+            }
+        }
         settings.modelConfig["card"] = presetsNames[cycle];
         settings.modelConfig["seed"] = seed;
         if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(presetsNames.size()) + ")";
@@ -1307,7 +1326,17 @@ struct wildcardGen{
         
         
         init(jsonFile);
-        if (!preset.empty()) settings.modelConfig["card"] = preset;
+        if (jsonFile.contains("config")){
+            std::cout << " Found config inside cycle test file..." << std::endl;
+            if (jsonFile["config"].is_object()){
+                //readParamsFromJson(jsonFile["config"], settings.params);
+                nlohmann::json config = jsonFile["config"];
+                if (config.contains("card")) preset = config["card"];
+                if (config.contains("preset")) preset = config["preset"];
+                settings.readJsonToParams(config);
+            }
+        }
+        //if (!preset.empty()) settings.modelConfig["card"] = preset;
         if (writeExternal) threadedChat.externalData = "Preset: " + preset + "\nCycles left: " + std::to_string(cycles);
         threadedChat.load(settings.modelConfig, false);
         
