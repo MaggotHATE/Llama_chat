@@ -3699,22 +3699,30 @@ static struct ggml_tensor * llm_build_kqv(
     struct ggml_tensor * kq = ggml_mul_mat(ctx, k, q);
     cb(kq, "kq", il);
 
-    kq = ggml_scale(ctx, kq, kq_scale);
-    cb(kq, "kq_scaled", il);
 
     if (max_alibi_bias > 0.0f) {
-        // TODO: n_head or n_head_kv
-        // TODO: K-shift is likely not working
-        // TODO: change to ggml_add
-        kq = ggml_alibi(ctx, kq, /*n_past*/ 0, n_head, max_alibi_bias);
-        cb(kq, "kq_scaled_alibi", il);
+        // temporary branch until we figure out how to handle ggml_alibi through ggml_add
+        kq = ggml_scale(ctx, kq, kq_scale);
+        cb(kq, "kq_scaled", il);
+
+        if (max_alibi_bias > 0.0f) {
+            // TODO: n_head or n_head_kv
+            // TODO: K-shift is likely not working
+            // TODO: change to ggml_add
+            kq = ggml_alibi(ctx, kq, /*n_past*/ 0, n_head, max_alibi_bias);
+            cb(kq, "kq_scaled_alibi", il);
+        }
+
+        kq = ggml_add(ctx, kq, kq_mask);
+        cb(kq, "kq_masked", il);
+
+        kq = ggml_soft_max(ctx, kq);
+        cb(kq, "kq_soft_max", il);
+        
+    } else {
+        kq = ggml_soft_max_ext(ctx, kq, kq_mask, 1.0f/sqrtf(float(n_embd_head)));
+        cb(kq, "kq_soft_max_ext", il);
     }
-
-    kq = ggml_add(ctx, kq, kq_mask);
-    cb(kq, "kq_masked", il);
-
-    kq = ggml_soft_max(ctx, kq);
-    cb(kq, "kq_soft_max", il);
 
     // split cached v into n_head heads
     struct ggml_tensor * v =
@@ -5036,6 +5044,7 @@ static const std::unordered_map<const char *, llm_offload_func_e> k_offload_map 
     { "kq_scaled_alibi",            OFFLOAD_FUNC_KQ  },
     { "kq_masked",                  OFFLOAD_FUNC_KQ  },
     { "kq_soft_max",                OFFLOAD_FUNC_V   },
+    { "kq_soft_max_ext",            OFFLOAD_FUNC_V   },
     { "v",                          OFFLOAD_FUNC_V   },
     { "kqv",                        OFFLOAD_FUNC_V   },
     { "kqv_merged",                 OFFLOAD_FUNC_V   },
@@ -6880,32 +6889,6 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     }
 }
 
-// void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * candidates, float p, size_t min_keep) {
-    // if (p <= 0.0f || !candidates->size) {
-        // return;
-    // }
-
-    // llama_sample_softmax(ctx, candidates);
-
-    // const int64_t t_start_sample_us = ggml_time_us();
-
-    // float scale = candidates->data[0].p; // scale by max prob
-    // size_t i = 1; // first token always matches
-
-    // for (; i < candidates->size; ++i) {
-        // if (candidates->data[i].p < p * scale && i >= min_keep) {
-            // break; // prob too small
-        // }
-    // }
-
-    ////Resize the output vector to keep only the matching tokens
-    // candidates->size = i;
-
-    // if (ctx) {
-        // ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
-    // }
-// }
-
 void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTrueRNG, unsigned int &rngSeed) {
     std::ifstream infile("ExtStuff.txt");
     if (!infile.good()) {
@@ -6942,6 +6925,32 @@ void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTru
     }
 }
 
+// void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * candidates, float p, size_t min_keep) {
+    // if (p <= 0.0f || !candidates->size) {
+        // return;
+    // }
+
+    // llama_sample_softmax(ctx, candidates);
+
+    // const int64_t t_start_sample_us = ggml_time_us();
+
+    // float scale = candidates->data[0].p; // scale by max prob
+    // size_t i = 1; // first token always matches
+
+    // for (; i < candidates->size; ++i) {
+        // if (candidates->data[i].p < p * scale && i >= min_keep) {
+            // break; // prob too small
+        // }
+    // }
+
+    ////Resize the output vector to keep only the matching tokens
+    // candidates->size = i;
+
+    // if (ctx) {
+        // ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    // }
+// }
+
 void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * candidates, float p, size_t min_keep) {
     if (p <= 0.0f || !candidates->size) {
         return;
@@ -6959,7 +6968,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
     if (randomizationFactor > 0.0) {
-        //printf("Override: Applying Gaussian noise to logits due to the randomizationFactor being greater than 0.0\n");
 
         // Read or write the external values
         read_or_write_ext(worstToken, randomizationFactor, isTrueRNG, rngSeed);
@@ -6969,25 +6977,14 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         if (isTrueRNG) {
             // Seed with a real random value, if available
             std::random_device rd;
-            //printf("Real RNG seed was used (because isTrueRNG was set to True.)\n");
             generator.seed(rd());
         } else {
             // Use a fixed seed for deterministic behavior
             generator.seed(rngSeed);
-            //printf("Fixed seed was used because isTrueRNG was set to False.\n");
         }
 
         // Create a Gaussian distribution with mean 0 and standard deviation of your choice
         std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-        
-        // Print the randomization factor read from the file
-        //printf("Read randomizationFactor from file: %f\n", randomizationFactor);
-
-        // Print the top tokens before filtering
-        //printf("Top 15 tokens before NOISY SAMPLING:\n");
-        for (size_t i = 0; i < candidates->size && i < 15; ++i) {
-            //printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
-        }
 
         // Apply Gaussian noise to each logit
         for (size_t i = 0; i < candidates->size; ++i) {
@@ -7000,30 +6997,11 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         // Re-normalize probabilities if necessary
         llama_sample_softmax(ctx, candidates);
 
-        // Print the top tokens after filtering
-        //printf("Top 15 tokens after NOISY SAMPLING:\n");
-        for (size_t i = 0; i < candidates->size && i < 15; ++i) {
-            //printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
-        }
     }
 
     // Store original top probability
     float original_top_prob = candidates->data[0].p;
 
-    // Print the original top probability
-    //printf("Original top probability: %.6f%%\n", original_top_prob * 100);  // Multiplying by 100 to convert to percentage
-
-    // Print the top tokens before filtering
-    //printf("Top 15 tokens before MIN P:\n");
-    for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
-        //printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
-    float multiplication_factor = candidates->data[0].p;  // Assuming the probabilities are sorted
-    //printf("Highest scoring token probability (multiplication factor): %f\n", multiplication_factor);
-
-    //printf("Min P base value: %f\n", p);
-    //printf("Modified Min P for this token: %f\n", p * multiplication_factor);
 
     float scale = candidates->data[0].p; // scale by max prob
     size_t i = 1; // first token always matches
@@ -7037,12 +7015,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
     llama_sample_softmax(ctx, candidates);
-
-    // Print the top tokens before filtering
-    //printf("Remaining (top 15) tokens after MIN P:\n");
-    for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
-        //printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
@@ -7165,6 +7137,7 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     // Replace the data in candidates with the new_candidates data
     std::copy(new_candidates.begin(), new_candidates.end(), candidates->data);
     candidates->size = new_candidates.size();
+    candidates->sorted = false;
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;

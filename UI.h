@@ -777,7 +777,7 @@ struct chatUI{
                     ImGui::TextWrapped( ("rope_freq_base: " + std::to_string(localSettings.params.rope_freq_base)).c_str() ); ImGui::SameLine(); HelpMarker("Specific paramenter to adjust for extra large context models.");
                     ImGui::Separator();
                 }
-                ImGui::TextWrapped( ("context size: " + std::to_string(localSettings.params.n_ctx)).c_str() ); ImGui::SameLine(); HelpMarker("The amount of data that can be stored and processed by the model within a session - depends on the model and should be used carefully. Models with context higher than 2048 usually have it in their name or description.");
+                ImGui::TextWrapped( ("Context size: " + std::to_string(localSettings.params.n_ctx)).c_str() ); ImGui::SameLine(); HelpMarker("The amount of data that can be stored and processed by the model within a session - depends on the model and should be used carefully. Models with context higher than 2048 usually have it in their name or description.");
                 ImGui::Separator();
                 ImGui::Spacing();
                 
@@ -800,6 +800,10 @@ struct chatUI{
                     openCard();
                     ImGui::SameLine();
                     saveCard();
+                    
+                    ImGui::Checkbox("Temperature first", &newChat.newChat.tempFirst);
+                    ImGui::SameLine();
+                    HelpMarker("Temperature sampling is originally last in llama.cpp, which affect how it's randomeness affects the resulting array of tokens. You can change it for experiment.");
                 }
             }
             
@@ -1608,7 +1612,7 @@ struct chatUI{
                     //localSettings.fillLocalJson();
                 }
             }
-                
+            
             if (ImGui::BeginPopup("No Model")) {
                 ImVec2 work_size = viewport->WorkSize;
                 ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.5, work_size.y * 0.1));
