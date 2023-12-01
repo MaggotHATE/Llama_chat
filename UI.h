@@ -804,7 +804,7 @@ struct chatUI{
                     ImGui::Checkbox("Temperature first", &newChat.newChat.tempFirst);
                     ImGui::SameLine();
                     HelpMarker("Temperature sampling is originally last in llama.cpp, which affect how it's randomeness affects the resulting array of tokens. You can change it for experiment.");
-                }
+                } else ImGui::TextWrapped( (newChat.newChat.tempFirst ? "Temperature is first in sampling." : "Temperature is last in sampling.") );
             }
             
         } else {
@@ -1406,7 +1406,8 @@ struct chatUI{
                     //newChat.isContinue = 'w';
                     newChat.startGen();
                     output = "...";
-                    newChat.getResultAsyncStringFull2(false, true);
+                    //newChat.getResultAsyncStringFull2(false, true);
+                    newChat.getResultAsyncStringFull3();
                     copiedDialog = false;
                     copiedTimings = false;
                     scrolled = false;
@@ -2296,7 +2297,8 @@ struct chatUI{
                                 newChat.appendQuestion(Test.prompt);
                                 localResultPairs = newChat.resultsStringPairs;
                                 newChat.startGen();
-                                newChat.getResultAsyncStringFull2(false, true);
+                                //newChat.getResultAsyncStringFull2(false, true);
+                                newChat.getResultAsyncStringFull3();
                                 isGeneratingTest = true;
                             } else {
                                 newChat.writeTextFileFull(Test.saveFolder + '/', Test.writeName());

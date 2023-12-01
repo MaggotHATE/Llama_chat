@@ -388,20 +388,74 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                 std::string output = newChat.cycleStringsOnly(false);
                 lastResult += output;
                 
-                if (streaming) {
-                    if (full) {
-                        //getTimigsBoth();
-                        //getTimigsPre();
+                if (full == true) {
+                    if (streaming == true) {
                         getTimigsGen();
                         display();
                         std::cout << lastResult;
-                    } else std::cout << output;
-                } else {
-                    if (full) {
-                        getTimigsGen();
-                        //getTimigsPre();
-                    }
+                    } else getTimigsGen();
+                } else if (streaming == true) std::cout << output;
+                
+                //getTimigsSimple();
+                
+                if (newChat.finished){
+                    //newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseAntiprompt(lastResult);
+                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
+                    
+                    resultsStringPairs.push_back(std::pair("AI",lastResult));
+                    isContinue = 'i';
+                    
+                    getTimigsBoth();
+                    newChat.clear_speed();
                 }
+                    
+                
+                //futureTextString.get();
+
+                last_tokens = newChat.getLastTokens();
+                //remain_tokens = newChat.getRemainTokens();
+                consumed_tokens = newChat.getConsumedTokens();
+                past_tokens = newChat.getPastTokens();
+            
+            }
+            
+            std::string result = "ready";
+                
+            return result;
+        });
+        
+    }
+    
+// for UI
+void getResultAsyncStringFull3() {
+        //isContinue = 'w';
+        //std::cout << " ** " << input << std::endl;
+        newChat.clearLastTokens();
+        
+        
+        futureTextString = std::async(std::launch::async, [this] mutable {
+            
+            std::string input = resultsStringPairs.back().second;
+                
+            getTimigsPre();
+            //newChat.inputOnly(input);
+            newChat.inputOnlyNew(input);
+            isPregen = 'i';
+            consumed_tokens = newChat.getConsumedTokens();
+            past_tokens = newChat.getPastTokens();
+            
+            getTimigsPre();
+            
+            
+            while (isContinue != 'i'){
+        
+
+                std::string output = newChat.cycleStringsOnly(false);
+                lastResult += output;
+                
+                getTimigsGen();
+                
                 //getTimigsSimple();
                 
                 if (newChat.finished){
