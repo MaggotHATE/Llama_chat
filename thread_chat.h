@@ -955,6 +955,7 @@ struct configurableChat{
         if (params.format_dialog != paramsDefault.format_dialog) modelConfig[model]["format_dialog"] = params.format_dialog;
         if (params.bos != paramsDefault.bos) modelConfig[model]["bos"] = params.bos;
         if (params.eos != paramsDefault.eos) modelConfig[model]["eos"] = params.eos;
+        if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
         
         //#if GGML_EXPERIMENTAL1
         if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;

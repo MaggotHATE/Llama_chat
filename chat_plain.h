@@ -204,7 +204,7 @@ private:
     bool streaming            = true;
     bool saveToFile           = false;
     
-    bool tempFirst            = true;
+    
     
 
     int n_past                = 0;
@@ -236,7 +236,8 @@ private:
     
 public:
     gpt_params params;
-    bool finished = true;
+    bool tempFirst           = true;
+    bool finished            = true;
     
     std::string formatRepresentation;
     
@@ -433,21 +434,31 @@ public:
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "\n penalty_freq = " + std::to_string(params.sparams.penalty_freq); 
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "\n penalty_present = " + std::to_string(params.sparams.penalty_present); 
         
-        if (tempFirst && params.sparams.temp != paramsDefault.sparams.temp) result += "\n temp = " + std::to_string(params.sparams.temp);
+        
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
+            if (params.sparams.temp != paramsDefault.sparams.temp) result += "\n temp = " + std::to_string(params.sparams.temp);
             result += "\n mirostat = " + std::to_string(params.sparams.mirostat); 
             result += "\n mirostat_tau = " + std::to_string(params.sparams.mirostat_tau); 
             result += "\n mirostat_eta = " + std::to_string(params.sparams.mirostat_eta);
         } else {
-            if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "\n top_k = " + std::to_string(params.sparams.top_k);
-            if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result +="\n tfs_z = " + std::to_string(params.sparams.tfs_z); 
-            if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "\n typical_p = " + std::to_string(params.sparams.typical_p); 
-            if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "\n top_p = " + std::to_string(params.sparams.top_p);
-            if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "\n min_p = " + std::to_string(params.sparams.min_p);
+            // if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "\n top_k = " + std::to_string(params.sparams.top_k);
+            // if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result +="\n tfs_z = " + std::to_string(params.sparams.tfs_z); 
+            // if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "\n typical_p = " + std::to_string(params.sparams.typical_p); 
+            // if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "\n top_p = " + std::to_string(params.sparams.top_p);
+            // if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "\n min_p = " + std::to_string(params.sparams.min_p);
+            for (auto s : params.sparams.samplers_sequence){
+                switch (s){
+                    case 'k': result += "\n top_k "; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "= " + std::to_string(params.sparams.top_k); break;
+                    case 'f': result += "\n tfs_z "; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += "= " + std::to_string(params.sparams.tfs_z); break;
+                    case 'y': result += "\n typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "= "+ std::to_string(params.sparams.typical_p); break;
+                    case 'p': result += "\n top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "= " + std::to_string(params.sparams.top_p); break;
+                    case 'm': result += "\n min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "= " + std::to_string(params.sparams.min_p); break;
+                    case 't': result += "\n temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); break;
+                    default : break;
+                }
+            }
         }
-        
-        if (!tempFirst && params.sparams.temp != paramsDefault.sparams.temp) result += "\n temp = " + std::to_string(params.sparams.temp);
         
         return result;
     }
