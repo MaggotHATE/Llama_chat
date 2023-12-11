@@ -690,6 +690,8 @@ struct chatUI{
     
     int messageWidth = width;
     
+    int themeIdx = 2;
+    
     ImGuiWindowFlags chat_window_flags = ImGuiWindowFlags_MenuBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize;
     
     void setLable(){
@@ -714,6 +716,9 @@ struct chatUI{
             if (configJson["fontSize"].is_number()) fontSize = configJson["fontSize"].get<float>();
             if (configJson.contains("modelsFolder") && configJson["modelsFolder"].is_string()) modelsFolderName = configJson["modelsFolder"].get<std::string>();
             if (configJson.contains("promptsFolder") && configJson["promptsFolder"].is_string()) promptsFolderName = configJson["promptsFolder"].get<std::string>();
+            if (configJson.contains("theme") && configJson["theme"].is_number()) {
+                themeIdx = configJson["theme"].get<int>();
+            }
             //configJson.erase("error");
         }
     }
@@ -801,10 +806,13 @@ struct chatUI{
                     ImGui::SameLine();
                     saveCard();
                     
-                    ImGui::Checkbox("Temperature first", &newChat.newChat.tempFirst);
-                    ImGui::SameLine();
-                    HelpMarker("Temperature sampling is originally last in llama.cpp, which affect how it's randomeness affects the resulting array of tokens. You can change it for experiment.");
-                } else ImGui::TextWrapped( (newChat.newChat.tempFirst ? "Temperature is first in sampling." : "Temperature is last in sampling.") );
+                    // ImGui::Checkbox("Temperature first", &newChat.newChat.tempFirst);
+                    // ImGui::SameLine();
+                    // HelpMarker("Temperature sampling is originally last in llama.cpp, which affect how it's randomeness affects the resulting array of tokens. You can change it for experiment.");
+                //} else ImGui::TextWrapped( (newChat.newChat.tempFirst ? "Temperature is first in sampling." : "Temperature is last in sampling.") );
+                } 
+                
+                ImGui::TextWrapped( ("Order of samplers: " + newChat.sparamsList ).c_str() );
             }
             
         } else {
@@ -1963,6 +1971,7 @@ struct chatUI{
                     settingsJson["fontSize"] = fontSize;
                     if(modelsFolderName != "NULL") settingsJson["modelsFolder"] = modelsFolderName;
                     settingsJson["promptsFolder"] = localSettings.promptFilesFolder;
+                    settingsJson["theme"] = themeIdx;
                     
                     writeJson(settingsJson, "chatConfig.json");
                     // if (modelsFolderName == "NULL"){
@@ -2052,15 +2061,16 @@ struct chatUI{
         }
         
         ImGui::BeginChild("Styles", ImVec2( ImGui::GetContentRegionAvail().x * 0.4f, fontSize + 6.0f));
-        static int style_idx = 3;
-        if (ImGui::Combo("", &style_idx, "Dark theme\0Light theme\0Classic theme\0Retro theme\0", 4))
+        //static int style_idx = 3;
+        if (ImGui::Combo("", &themeIdx, "Dark theme\0Light theme\0Classic theme\0Retro theme\0", 4))
         {
-            switch (style_idx)
+            switch (themeIdx)
             {
                 case 0: ImGui::StyleColorsDark(); break;
                 case 1: ImGui::StyleColorsLight(); break;
                 case 2: ImGui::StyleColorsClassic(); break;
                 case 3: retroTheme(); break;
+                default: retroTheme(); break;
             }
         }
         
@@ -2367,6 +2377,15 @@ struct chatUI{
 #else
         inputAntiCFG = localSettings.params.sparams.cfg_negative_prompt;
 #endif
+
+        switch (themeIdx)
+        {
+            case 0: ImGui::StyleColorsDark(); break;
+            case 1: ImGui::StyleColorsLight(); break;
+            case 2: ImGui::StyleColorsClassic(); break;
+            case 3: retroTheme(); break;
+            default: retroTheme(); break;
+        }
     }
     
 };

@@ -1186,8 +1186,8 @@ public:
         
         
         // new generation function, moved to common 
-        //const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
-        const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
+        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
+        //const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
         
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.push_back(id);
@@ -1273,6 +1273,7 @@ public:
                     : 0;
 
                 if (last_output.find(antiprompt, search_start_pos) != std::string::npos) {
+                    formatRepresentation += params.antiprompt[0];
                     if (params.interactive) {
                         is_interacting = true;
                     }
@@ -1770,7 +1771,10 @@ public:
         
         //appendPrefixBos();
         
-        if (hasAntiprompt(params.prompt) == -1 && params.input_prefix.empty())  params.prompt += DELIMINER + params.antiprompt[0];
+        if (hasAntiprompt(params.prompt) == -1 && params.input_prefix.empty())  {
+            params.prompt += DELIMINER + params.antiprompt[0];
+            //formatRepresentation += DELIMINER + params.antiprompt[0];
+        }
         
         //ctx_sampling = llama_sampling_context_init(params, grammar);
         
@@ -1788,9 +1792,11 @@ public:
             if ((int) embd_inp.size() <= n_consumed) {
                 if (debug) fprintf(stderr, "5");
                 
-                checkAntiprompt();
+                //checkAntiprompt();
                 
                 if (n_past > 0 && is_interacting) {
+                    checkAntiprompt();
+                    
                     if (!streaming) 
                         std::cout << result << " ";
                     
@@ -1944,8 +1950,8 @@ public:
                 //eraseAntiprompt(result);
                 finished = true;
                 
-                checkAntiprompt();
-                setEOS();
+                //checkAntiprompt();
+                //setEOS();
                 
                 return result;
             }

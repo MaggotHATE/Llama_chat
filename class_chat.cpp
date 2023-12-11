@@ -14,6 +14,27 @@ std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
 
+static void sanitizePath(std::string& path){
+    int slashes = path.rfind("\\");
+    while (slashes != path.npos){
+        path.replace(slashes,1,"/");
+        slashes = path.rfind("\\");
+    }
+}
+
+std::string getFileWithSameName(std::string input, std::string type){
+    std::string result;
+
+    sanitizePath(input);
+    size_t lastDot = input.rfind('.');
+    size_t lastSlash = input.rfind('/');
+    if (lastDot != input.npos){
+        result = input.substr(lastSlash + 1, lastDot - lastSlash - 1) + type;
+    }
+    
+    return result;
+}
+
 int main(int argc, char ** argv) {
     
     wildcardGen Card;
@@ -21,10 +42,18 @@ int main(int argc, char ** argv) {
     std::string inputPrompt;
     bool busy = false;
     
-    
-    
     std::setlocale(LC_CTYPE, ".UTF8");
     
+    std::cout << argv[0] << std::endl;
+    
+    auto configName = getFileWithSameName(argv[0], ".json");
+    
+    if (std::filesystem::exists(configName)){
+        std::cout << "Loading " << configName << std::endl;
+    } else {
+        std::cout << "Can't find " << configName << ", loading default config.json" << std::endl;
+        configName = "config.json";
+    }
     
     //std::setlocale(LC_ALL, "en_US.utf8");
     SetConsoleOutputCP(CP_UTF8);
@@ -33,7 +62,7 @@ int main(int argc, char ** argv) {
     //task_lambda();
     configurableChat settings;
     
-    settings.localConfig = getJson("config.json");
+    settings.localConfig = getJson(configName);
     settings.getSettingsFull();
     
     settings.fillLocalJson(settings.params.model);
@@ -58,7 +87,9 @@ int main(int argc, char ** argv) {
                 // threadedChat.externalData = Card.preset + "\nCycles left: " + std::to_string(Card.cycles);
                 // busy = true;
                 Card.cycle(instantJson, settings, threadedChat);
-            } 
+            } else {
+                settings.readJsonToParams(instantJson);
+            }
         } else if (filename.rfind(".txt") != filename.npos) {
             std::cout << "Opening text file " << filename << std::endl;
             inputPrompt = getText(filename);
@@ -172,25 +203,34 @@ int main(int argc, char ** argv) {
                      std::cout << "Write a filename for .json or a prompt: " << std::endl; 
                      std::string input2;
                      std::getline(std::cin, input2);
-                    
-                     Card.init(input2);
-                     Card.getPrompt();
+                     threadedChat.unload();
+                     auto wildcardsDB = getJson(input2);
                      
-                     if (Card.preset.empty()){
-                         threadedChat.appendQuestion(Card.prompt);
-                         threadedChat.display();
-                         threadedChat.startGen();
-                         threadedChat.getResultAsyncStringFull2(true, true);
-                         cycling = 1;
-                         --Card.cycles;
-                         
-                     } else {
-                         threadedChat.unload();
-                         settings.modelConfig["card"] = Card.preset;
-                         threadedChat.load(settings.modelConfig, false);
+                     if (wildcardsDB.contains("prompts")) Card.cycle(wildcardsDB, settings, threadedChat);
+                     else {
+                        Card.promptsDB.push_back(input2); 
+                        auto wildcardsDB = getJson("wildcards.json");
+                        Card.cycle(wildcardsDB, settings, threadedChat);
                      }
                      
-                     busy = true;
+                     //Card.init(input2);
+                     //Card.getPrompt();
+                     
+                     // if (Card.preset.empty()){
+                         // threadedChat.appendQuestion(Card.prompt);
+                         // threadedChat.display();
+                         // threadedChat.startGen();
+                         // threadedChat.getResultAsyncStringFull2(true, true);
+                         // cycling = 1;
+                         // --Card.cycles;
+                         
+                     // } else {
+                         // threadedChat.unload();
+                         // settings.modelConfig["card"] = Card.preset;
+                         // threadedChat.load(settings.modelConfig, false);
+                     // }
+                     
+                     //busy = true;
                 } else if (input == "test"){
                      std::cout << "Write a filename for test .json or a prompt, or skip to use default presetsTest.json: " << std::endl; 
                      std::string input2;

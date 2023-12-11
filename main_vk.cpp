@@ -516,7 +516,7 @@ int main(int, char**)
     UI.init();
     
     // applying starting theme and style
-    retroTheme();
+    //retroTheme();
     addStyling();
     
     //starting windows management

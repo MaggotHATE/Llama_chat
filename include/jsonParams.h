@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <random>
 
 #pragma once
 
@@ -69,7 +70,7 @@ bool checkJNum(nlohmann::json& config, std::string name){
 }
 
 nlohmann::json getJson(std::string fileName){
-     if (fileName.find(".json") == fileName.npos) fileName += ".json";
+    if (fileName.find(".json") == fileName.npos) fileName += ".json";
     std::cout << "Opening json " << fileName << std::endl;
     nlohmann::json config;
     std::fstream o1(fileName);
@@ -122,6 +123,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
     if (checkJString(config, "format_instruct")) params.format_instruct = loadNpring(config,"format_instruct", true);
     if (checkJString(config, "format_dialog")) params.format_dialog = loadNpring(config,"format_dialog", true);
+    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = loadNpring(config,"samplers_sequence", true);
     if (checkJString(config, "bos")) params.bos = loadNpring(config,"bos", true);
     if (checkJString(config, "eos")) params.eos = loadNpring(config,"eos", true);
     
@@ -213,14 +215,12 @@ void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headles
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
     
-    if(config.contains("model")){
-        if(config["model"].is_string() && config[params.model].is_object()){
-            std::cout << "Found settings for model " << params.model << std::endl;
-            nlohmann::json modelConfig = config[params.model];
-            bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
-            getParamsFromJson(modelConfig, params, hasFiles, headless);
-            getParamsFromPreset(modelConfig, params, false, headless);
-        }
+    if(config.contains(params.model) && config[params.model].is_object()){
+        std::cout << "Found settings for model " << params.model << std::endl;
+        nlohmann::json modelConfig = config[params.model];
+        bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
+        getParamsFromJson(modelConfig, params, hasFiles, headless);
+        getParamsFromPreset(modelConfig, params, false, headless);
     }
     
 }
@@ -364,10 +364,12 @@ void writeJson(nlohmann::json config, std::string filename) {
 
 
 unsigned int getRand(){
-    std::srand(std::time(nullptr));
-    if (std::rand() > std::rand()){
-        return std::rand()*std::rand();
-    } else return std::rand();
+    // std::srand(std::time(nullptr));
+    // if (std::rand() > std::rand()){
+        // return std::rand()*std::rand();
+    // } else return std::rand();
+    std::random_device rd;
+    return rd();
 }
 
 std::string processByWildcards(nlohmann::json& config, std::string inputString){

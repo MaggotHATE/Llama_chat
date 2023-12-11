@@ -84,7 +84,7 @@ struct gpt_params {
     std::vector<std::tuple<std::string, float>> lora_adapter; // lora adapter path with user defined scale
     std::string lora_base         = "";                              // base model path for the lora adapter
     std::string format_instruct   = "bie";                              // format for the first prompt
-    std::string format_dialog     = "bpiebs";                              // format for interacive
+    std::string format_dialog     = "bpiedbs";                              // format for interacive
     std::string bos               = "";
     std::string eos               = "";
 
@@ -120,9 +120,12 @@ struct gpt_params {
     bool verbose_prompt           = false; // print prompt tokens before generation
     bool infill                   = false; // use infill mode
 
+    std::string cache_type_k      = "f16"; // KV cache data type for the K
+    std::string cache_type_v      = "f16"; // KV cache data type for the V
+    
     // multimodal models (see examples/llava)
-    std::string mmproj = ""; // path to multimodal projector
-    std::string image = ""; // path to an image file
+    std::string mmproj            = ""; // path to multimodal projector
+    std::string image             = ""; // path to an image file
 };
 
 bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params);

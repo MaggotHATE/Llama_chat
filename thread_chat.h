@@ -150,7 +150,7 @@ struct modelThread{
     }
     
     void appendQuestion(std::string& input){
-        if (input.back() == DELIMINER ) input.pop_back();
+        //if (input.back() == DELIMINER ) input.pop_back();
         //resultsString.push_back(input);
         //if(newChat.params.input_prefix.empty()) 
             resultsStringPairs.push_back(std::pair(newChat.params.antiprompt[0],input));

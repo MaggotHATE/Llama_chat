@@ -264,8 +264,10 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.yarn_beta_slow = std::stof(argv[i]);
-        } else if (arg == "--memory-f32") {
-            params.memory_f16 = false;
+        } else if (arg == "-ctk" || arg == "--cache-type-k") {
+            params.cache_type_k = argv[++i];
+        } else if (arg == "-ctv" || arg == "--cache-type-v") {
+            params.cache_type_v = argv[++i];
         } else if (arg == "--top-p") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -869,6 +871,29 @@ struct llama_model_params llama_model_params_from_gpt_params(const gpt_params & 
     return mparams;
 }
 
+static ggml_type kv_cache_type_from_str(const std::string & s) {
+    if (s == "f16") {
+        return GGML_TYPE_F16;
+    }
+    if (s == "q8_0") {
+        return GGML_TYPE_Q8_0;
+    }
+    if (s == "q4_0") {
+        return GGML_TYPE_Q4_0;
+    }
+    if (s == "q4_1") {
+        return GGML_TYPE_Q4_1;
+    }
+    if (s == "q5_0") {
+        return GGML_TYPE_Q5_0;
+    }
+    if (s == "q5_1") {
+        return GGML_TYPE_Q5_1;
+    }
+
+    throw std::runtime_error("Invalid cache type: " + s);
+}
+
 struct llama_context_params llama_context_params_from_gpt_params(const gpt_params & params) {
     auto cparams = llama_context_default_params();
 
@@ -878,7 +903,6 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.n_threads_batch   = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
     cparams.mul_mat_q         = params.mul_mat_q;
     cparams.seed              = params.seed;
-    cparams.f16_kv            = params.memory_f16;
     cparams.logits_all        = params.logits_all;
     cparams.embedding         = params.embedding;
     cparams.rope_scaling_type = params.rope_scaling_type;
@@ -889,6 +913,9 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.yarn_beta_fast    = params.yarn_beta_fast;
     cparams.yarn_beta_slow    = params.yarn_beta_slow;
     cparams.yarn_orig_ctx     = params.yarn_orig_ctx;
+    
+    cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
+    cparams.type_v = kv_cache_type_from_str(params.cache_type_v);
 
     return cparams;
 }
