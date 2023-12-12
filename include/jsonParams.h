@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.h"
 #include "llama.h"
 #include "grammar-parser.h"
@@ -10,9 +12,7 @@
 #include <vector>
 #include <random>
 
-#pragma once
-
-void readGrammarFile(gpt_params& params, std::string fileName){
+static void readGrammarFile(gpt_params& params, std::string fileName){
     std::ifstream file(fileName);
     if (!file) {
         fprintf(stderr, "error: failed to open file '%s'\n", fileName);
@@ -25,12 +25,7 @@ void readGrammarFile(gpt_params& params, std::string fileName){
     }
 }
 
-auto loadNpring(nlohmann::json& config, std::string confName, bool verbose = true){
-    if (verbose) std::cout << "load: " << confName << " = "  << config[confName] << std::endl;
-    return config[confName];
-}
-
-void processInstructFile(std::string filename, gpt_params& params, bool headless = false){
+static void processInstructFile(std::string filename, gpt_params& params, bool headless = false){
     std::ifstream file(filename);
     if (!file) {
         fprintf(stderr, "error: failed to open file '%s'\n", filename);
@@ -53,7 +48,7 @@ void processInstructFile(std::string filename, gpt_params& params, bool headless
     }
 }
 
-bool checkJString(nlohmann::json& config, std::string name){
+static bool checkJString(nlohmann::json& config, std::string name){
     if(config.contains(name)){
         if(config[name].is_string()) return true;
     }
@@ -61,7 +56,7 @@ bool checkJString(nlohmann::json& config, std::string name){
     return false;
 }
 
-bool checkJNum(nlohmann::json& config, std::string name){
+static bool checkJNum(nlohmann::json& config, std::string name){
     if(config.contains(name)){
         if(config[name].is_number()) return true;
     }
@@ -69,7 +64,7 @@ bool checkJNum(nlohmann::json& config, std::string name){
     return false;
 }
 
-nlohmann::json getJson(std::string fileName){
+static nlohmann::json getJson(std::string fileName){
     if (fileName.find(".json") == fileName.npos) fileName += ".json";
     std::cout << "Opening json " << fileName << std::endl;
     nlohmann::json config;
@@ -85,7 +80,7 @@ nlohmann::json getJson(std::string fileName){
     return config;
 }
 
-std::string getText(std::string filename){
+static std::string getText(std::string filename){
     std::string result;
     
     std::ifstream file(filename);
@@ -96,7 +91,7 @@ std::string getText(std::string filename){
     return result;
 }
 
-void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
@@ -112,58 +107,58 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     }
     
     if (checkJString(config, "model")) params.model = config["model"];
-    if (checkJString(config, "cfg-negative-prompt")) params.sparams.cfg_negative_prompt = loadNpring(config,"cfg-negative-prompt", true);
-    if (checkJNum(config, "cfg-scale")) params.sparams.cfg_scale = loadNpring(config,"cfg-scale", true);
-    //if (config["cfg-smooth-factor"].is_number()) params.cfg_smooth_factor = loadNpring(config,"cfg-smooth-factor", false);
+    if (checkJString(config, "cfg-negative-prompt")) params.sparams.cfg_negative_prompt = config["cfg-negative-prompt"];
+    if (checkJNum(config, "cfg-scale")) params.sparams.cfg_scale = config["cfg-scale"];
+    //if (config["cfg-smooth-factor"].is_number()) params.cfg_smooth_factor = config["cfg-smooth-factor", false);
     if (checkJString(config, "lora")) {
         params.lora_adapter = config["lora"];
         params.use_mmap = false;
     }
-    if (checkJString(config, "input_prefix")) params.input_prefix = loadNpring(config,"input_prefix", true);
-    if (checkJString(config, "input_suffix")) params.input_suffix = loadNpring(config,"input_suffix", true);
-    if (checkJString(config, "format_instruct")) params.format_instruct = loadNpring(config,"format_instruct", true);
-    if (checkJString(config, "format_dialog")) params.format_dialog = loadNpring(config,"format_dialog", true);
-    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = loadNpring(config,"samplers_sequence", true);
-    if (checkJString(config, "bos")) params.bos = loadNpring(config,"bos", true);
-    if (checkJString(config, "eos")) params.eos = loadNpring(config,"eos", true);
+    if (checkJString(config, "input_prefix")) params.input_prefix = config["input_prefix"];
+    if (checkJString(config, "input_suffix")) params.input_suffix = config["input_suffix"];
+    if (checkJString(config, "format_instruct")) params.format_instruct = config["format_instruct"];
+    if (checkJString(config, "format_dialog")) params.format_dialog = config["format_dialog"];
+    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
+    if (checkJString(config, "bos")) params.bos = config["bos"];
+    if (checkJString(config, "eos")) params.eos = config["eos"];
     
-    if (checkJNum(config, "seed")) params.seed = loadNpring(config,"seed", true);
-    if (checkJNum(config, "n_threads")) params.n_threads = loadNpring(config,"n_threads", true);
-    if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = loadNpring(config,"n_threads_batch", true);
-    if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = loadNpring(config,"n_gpu_layers", true);
-    if (checkJNum(config, "ctx-size")) params.n_ctx = loadNpring(config,"ctx-size", true);
-    if (checkJNum(config, "n_keep")) params.n_keep = loadNpring(config,"n_keep", true);
-    if (checkJNum(config, "n_batch")) params.n_batch = loadNpring(config,"n_batch", true);
-    if (checkJNum(config, "temp")) params.sparams.temp = loadNpring(config,"temp", true);
-    if (checkJNum(config, "top_k")) params.sparams.top_k = loadNpring(config,"top_k", true);
-    if (checkJNum(config, "top_p")) params.sparams.top_p = loadNpring(config,"top_p", true);
-    if (checkJNum(config, "min_p")) params.sparams.min_p = loadNpring(config,"min_p", true);
-    if (checkJNum(config, "typical_p")) params.sparams.typical_p = loadNpring(config,"typical_p", true);
-    if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = loadNpring(config,"tfs_z", true);
-    if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = loadNpring(config,"repeat_penalty", true);
-    if (checkJNum(config, "frequency_penalty")) params.sparams.penalty_freq = loadNpring(config,"frequency_penalty", true);
-    if (checkJNum(config, "presence_penalty")) params.sparams.penalty_present = loadNpring(config,"presence_penalty", true);
-    if (checkJNum(config, "mirostat")) params.sparams.mirostat = loadNpring(config,"mirostat", true);
-    if (checkJNum(config, "mirostat_tau")) params.sparams.mirostat_tau = loadNpring(config,"mirostat_tau", true);
-    if (checkJNum(config, "mirostat_eta")) params.sparams.mirostat_eta = loadNpring(config,"mirostat_eta", true);
-    //if (config["color"].is_boolean()) params.use_color = loadNpring(config,"color", false);
-    if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = loadNpring(config,"penalize_nl", false);
-    if (config["use_mmap"].is_boolean()) params.use_mmap = loadNpring(config,"use_mmap", false);
-    if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = loadNpring(config,"input_prefix_bos", false);
+    if (checkJNum(config, "seed")) params.seed = config["seed"];
+    if (checkJNum(config, "n_threads")) params.n_threads = config["n_threads"];
+    if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = config["n_threads_batch"];
+    if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
+    if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
+    if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
+    if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
+    if (checkJNum(config, "temp")) params.sparams.temp = config["temp"];
+    if (checkJNum(config, "top_k")) params.sparams.top_k = config["top_k"];
+    if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
+    if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
+    if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
+    if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
+    if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
+    if (checkJNum(config, "frequency_penalty")) params.sparams.penalty_freq = config["frequency_penalty"];
+    if (checkJNum(config, "presence_penalty")) params.sparams.penalty_present = config["presence_penalty"];
+    if (checkJNum(config, "mirostat")) params.sparams.mirostat = config["mirostat"];
+    if (checkJNum(config, "mirostat_tau")) params.sparams.mirostat_tau = config["mirostat_tau"];
+    if (checkJNum(config, "mirostat_eta")) params.sparams.mirostat_eta = config["mirostat_eta"];
+    //if (config["color"].is_boolean()) params.use_color = config["color"];
+    if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
+    if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
+    if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = config["input_prefix_bos"];
     
     if (checkJString(config, "grammar")) params.sparams.grammar = config["grammar"];
     if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
     
     #ifdef GGML_OLD_FORMAT
-    if (checkJNum(config, "rms-norm-eps")) params.rms_norm_eps = loadNpring(config,"rms-norm-eps", true);
+    if (checkJNum(config, "rms-norm-eps")) params.rms_norm_eps = config["rms-norm-eps"];
     #endif
     
-    if (checkJNum(config, "rope_freq_base")) params.rope_freq_base = loadNpring(config,"rope_freq_base", true);
-    if (checkJNum(config, "rope_freq_scale")) params.rope_freq_scale = loadNpring(config,"rope_freq_scale", true);
+    if (checkJNum(config, "rope_freq_base")) params.rope_freq_base = config["rope_freq_base"];
+    if (checkJNum(config, "rope_freq_scale")) params.rope_freq_scale = config["rope_freq_scale"];
     
-    if (checkJNum(config, "yarn_orig_ctx")) params.yarn_orig_ctx = loadNpring(config,"yarn_orig_ctx");
-    if (checkJNum(config, "yarn_attn_factor")) params.yarn_attn_factor = loadNpring(config,"yarn_attn_factor");
-    if (checkJNum(config, "yarn_beta_slow")) params.yarn_beta_slow = loadNpring(config,"yarn_beta_slow");
+    if (checkJNum(config, "yarn_orig_ctx")) params.yarn_orig_ctx = config["yarn_orig_ctx"];
+    if (checkJNum(config, "yarn_attn_factor")) params.yarn_attn_factor = config["yarn_attn_factor"];
+    if (checkJNum(config, "yarn_beta_slow")) params.yarn_beta_slow = config["yarn_beta_slow"];
     
     if (checkJString(config, "rope_scaling_type")) {
         if (config["rope_scaling_type"] == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_NONE; }
@@ -175,7 +170,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     
     // separated for better compatibility and less redundancy
     // if (checkJString(config, "card")) {
-        // std::string cardPath = loadNpring(config,"card");
+        // std::string cardPath = config["card"];
         
         // nlohmann::json card = getJson(cardPath);
         
@@ -183,7 +178,7 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     // }
     
     // if (checkJString(config, "preset")) {
-        // std::string presetPath = loadNpring(config,"preset");
+        // std::string presetPath = config["preset"];
         
         // nlohmann::json preset = getJson(presetPath);
         
@@ -191,10 +186,10 @@ void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile 
     // }
 }
 
-void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "card")) {
-        std::string cardPath = loadNpring(config,"card");
+        std::string cardPath = config["card"];
         
         nlohmann::json card = getJson(cardPath);
         
@@ -202,7 +197,7 @@ void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFil
     }
     
     if (checkJString(config, "preset")) {
-        std::string presetPath = loadNpring(config,"preset");
+        std::string presetPath = config["preset"];
         
         nlohmann::json preset = getJson(presetPath);
         
@@ -210,7 +205,7 @@ void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFil
     }
 }
 
-void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
+static void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
@@ -225,7 +220,7 @@ void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headles
     
 }
 
-void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_params& params, bool headless = false){
+static void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
@@ -244,7 +239,7 @@ void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_param
 
 }
 
-void readParamsFromFile(std::string fimeName, gpt_params& params, bool headless = false){
+static void readParamsFromFile(std::string fimeName, gpt_params& params, bool headless = false){
     std::fstream o1(fimeName);
     if (o1.is_open()) {
         nlohmann::json config;
@@ -268,7 +263,7 @@ void readParamsFromFile(std::string fimeName, gpt_params& params, bool headless 
     }
 }
 
-void readParamsFromFile(std::string fimeName, std::string modelName, gpt_params& params, bool headless = false ){
+static void readParamsFromFile(std::string fimeName, std::string modelName, gpt_params& params, bool headless = false ){
     std::fstream o1(fimeName);
     if (o1.is_open()) {
         nlohmann::json config;
@@ -293,7 +288,7 @@ void readParamsFromFile(std::string fimeName, std::string modelName, gpt_params&
     }
 }
 
-bool writeTextFile(std::string path, std::string text){
+static bool writeTextFile(std::string path, std::string text){
     std::ofstream file(path, std::ios::app);
     if (file.is_open()) {
         file << text;
@@ -304,7 +299,7 @@ bool writeTextFile(std::string path, std::string text){
     }
 }
 
-bool writeTextFile(std::string path, std::vector<char*>& texts){
+static bool writeTextFile(std::string path, std::vector<char*>& texts){
     std::ofstream file(path, std::ios::app);
     if (file.is_open()) {
         
@@ -319,7 +314,7 @@ bool writeTextFile(std::string path, std::vector<char*>& texts){
     }
 }
 
-bool writeTextFileOver(std::string path, std::string text){
+static bool writeTextFileOver(std::string path, std::string text){
     std::ofstream file(path);
     if (file.is_open()) {
         file << text;
@@ -330,7 +325,7 @@ bool writeTextFileOver(std::string path, std::string text){
     }
 }
 
-bool writeTextFileOver(std::string path, std::vector<char*>& texts){
+static bool writeTextFileOver(std::string path, std::vector<char*>& texts){
     std::ofstream file(path);
     if (file.is_open()) {
         
@@ -345,7 +340,7 @@ bool writeTextFileOver(std::string path, std::vector<char*>& texts){
     }
 }
 
-void writeJson(nlohmann::json config, std::string filename) {
+static void writeJson(nlohmann::json config, std::string filename) {
     if (filename.find(".json") == filename.npos)
         filename += ".json";
 
@@ -363,7 +358,7 @@ void writeJson(nlohmann::json config, std::string filename) {
 
 
 
-unsigned int getRand(){
+static unsigned int getRand(){
     // std::srand(std::time(nullptr));
     // if (std::rand() > std::rand()){
         // return std::rand()*std::rand();
@@ -372,7 +367,7 @@ unsigned int getRand(){
     return rd();
 }
 
-std::string processByWildcards(nlohmann::json& config, std::string inputString){
+static std::string processByWildcards(nlohmann::json& config, std::string inputString){
     
     size_t last = inputString.rfind("__");
     if (last != inputString.npos){
