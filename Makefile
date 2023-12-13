@@ -190,8 +190,8 @@ CXXFLAGS = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtun
 # https://github.com/ggerganov/llama.cpp/issues/2922
 ifneq '' '$(findstring mingw,$(shell $(CC) -dumpmachine))'
     CFLAGS   += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS += -Xassembler -muse-unaligned-vector-move
-    CXXFLAGS_UI   += -Xassembler -muse-unaligned-vector-move
+    CXXFLAGS += -Xassembler -muse-unaligned-vector-move -D_WIN32_WINNT=0x602
+    CXXFLAGS_UI   += -Xassembler -muse-unaligned-vector-move -D_WIN32_WINNT=0x602
 endif
 
 LIBS =
@@ -683,6 +683,9 @@ demo_e1_cl: $(EXE)_e1_cl
 demo_cl: $(EXE_CL)
 	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
     
+demo_cl_mini: $(EXE_CL)_mini
+	@echo Build $(EXE_CL)_mini complete for $(ECHO_MESSAGE)
+    
 demo_vk: $(EXE_VK)
 	@echo Build $(EXE_VK) complete for $(ECHO_MESSAGE)
     
@@ -737,6 +740,9 @@ chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
     
 $(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
+    
+$(EXE_CL)_mini: $(OBJS) $(OBJS_GGUF_CL) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
+	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
         
 chatTest_cl:class_chat.cpp                                  chat_plain.h thread_chat.h $(OBJS_GGUF_CL)
 	$(CXX) $(I_GGUF) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)

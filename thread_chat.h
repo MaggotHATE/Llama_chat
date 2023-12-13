@@ -181,7 +181,7 @@ struct modelThread{
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
-        std::cout << newChat.formatRepresentation << std::endl;
+        //std::cout << newChat.formatRepresentation << std::endl;
         std::cout << externalData << std::endl;
         std::cout << sparamsList << std::endl;
         std::cout << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
@@ -629,6 +629,27 @@ void getResultAsyncStringFull3() {
     
 };
 
+static bool exists( const std::filesystem::path& p) noexcept {
+    try {
+        return std::filesystem::exists(p);
+    } catch (std::filesystem::filesystem_error const& ex) {
+        std::cout << "what():  " << ex.what() << '\n'
+                  << "path1(): " << ex.path1() << '\n'
+                  << "path2(): " << ex.path2() << '\n'
+                  << "code().value():    " << ex.code().value() << '\n'
+                  << "code().message():  " << ex.code().message() << '\n'
+                  << "code().category(): " << ex.code().category().name() << '\n';
+    }
+    
+    return false;
+}
+
+struct model_card {
+    std::string name;
+    std::string path;
+    std::string format;
+};
+
 struct configurableChat{
     gpt_params params;
     //gpt_params paramsDefault;
@@ -658,10 +679,10 @@ struct configurableChat{
     std::string grammarFile = "";
     std::string localJsonDump;
     
-    void getModelsList(){
+    void getModelsList() noexcept{
         modelsFromConfig.clear();
         for (auto& [key, value] : localConfig.items() ){
-            if (value.is_object()) {
+            if (value.is_object() && exists(key)) {
                 std::string fullName = key;
                 auto lastSlash = fullName.rfind('/');
                 auto lastRslash = fullName.rfind('\\');
@@ -671,9 +692,13 @@ struct configurableChat{
                 std::string onlyName = fullName.substr(
                     (lastRslash > lastSlash ? lastRslash : lastSlash) + 1  
                 );
+                
                 modelsFromConfig.push_back( std::pair(fullName,onlyName) );
+                    //std::cout << "Adding " << fullName << std::endl;
             }
         }
+        
+        std::cout << "getModelsList finished" << std::endl;
     }
     
     void getFilesList(){
@@ -1318,11 +1343,13 @@ struct wildcardGen{
                     
         if (wildcardsDB.contains("folder")) saveFolder = wildcardsDB["folder"];
         
+        subname = std::to_string(seed);
+        
         if (wildcardsDB.contains("preset")) {
             preset = wildcardsDB["preset"];
             size_t slash = preset.rfind('/');
-            if (slash != preset.npos) subname = preset.substr(slash+1);
-            else subname = preset;
+            if (slash != preset.npos) subname += "-" + preset.substr(slash+1);
+            else subname += "-" + preset;
         }
         
         if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
@@ -1364,7 +1391,7 @@ struct wildcardGen{
                     
                     if (wildcardsDB.contains("subname")){
                         if (wildcard == wildcardsDB["subname"].get<std::string>()){
-                            subname = choice;
+                            subname += "-" + choice;
                         }
                     }
                     
@@ -1392,7 +1419,7 @@ struct wildcardGen{
             }
         }
         //if (!preset.empty()) settings.modelConfig["card"] = preset;
-        if (writeExternal) threadedChat.externalData = "Preset: " + preset + "\nCycles left: " + std::to_string(cycles);
+        //if (writeExternal) threadedChat.externalData = "-Preset: " + preset + "\n-Cycles left: " + std::to_string(cycles) + "\n-File name: " + subname + "-"+ std::to_string(threadedChat.newChat.params.seed) + "\n";
         threadedChat.load(settings.modelConfig, false);
         
         while(cycles >= 0){
@@ -1400,7 +1427,7 @@ struct wildcardGen{
                 if (waiting) std::this_thread::sleep_for(std::chrono::milliseconds(latency));
             } else {
                 if(cycling == 1){
-                    threadedChat.writeTextFileFull(saveFolder + '/', std::to_string(seed) + "-" + subname + "-" + std::to_string(cycles));
+                    threadedChat.writeTextFileFull(saveFolder + '/', subname + "-"+ std::to_string(threadedChat.newChat.params.seed) + "-" + std::to_string(cycles));
                     if (cycles == 0) {
                         threadedChat.unload();
                         if (writeExternal) threadedChat.externalData = "Test finished!";
@@ -1414,7 +1441,7 @@ struct wildcardGen{
                     }
                 } else {
                     --cycles;
-                    if (writeExternal) threadedChat.externalData = "Preset: " + preset + "\nCycles left: " + std::to_string(cycles);
+                    if (writeExternal) threadedChat.externalData = "-Preset: " + preset + "\n-Cycles left: " + std::to_string(cycles) + "\n-File subname: " + subname + "-"+ std::to_string(threadedChat.newChat.params.seed) + "\n";
                     getPrompt();
                     //input = Card.prompt;
                     threadedChat.appendQuestion(prompt);

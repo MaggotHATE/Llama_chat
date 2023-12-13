@@ -363,8 +363,14 @@ static unsigned int getRand(){
     // if (std::rand() > std::rand()){
         // return std::rand()*std::rand();
     // } else return std::rand();
+    //std::random_device rd;
+    //return rd();
+    
     std::random_device rd;
-    return rd();
+    std::seed_seq sseq ({rd()%1000,rd()%10000,rd()%100000});
+    std::knuth_b kr(sseq);
+    
+    return kr();
 }
 
 static std::string processByWildcards(nlohmann::json& config, std::string inputString){

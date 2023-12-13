@@ -10,7 +10,11 @@
 // Read comments in imgui_impl_vulkan.h.
 
 //#include "imgui.h"
+#if defined(UI_SIMPLE)
+#include "UI_simple.h"
+#else 
 #include "UI.h"
+#endif
 
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
@@ -565,7 +569,10 @@ int main(int, char**)
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (UI.show_demo_window)
             ImGui::ShowDemoWindow(&UI.show_demo_window);
-
+#if defined(UI_SIMPLE)
+        if (UI.show_settings)
+            UI.settingsWindow();
+#endif
         
         ImGui::SetNextWindowPos(UI.use_work_area ? viewport->WorkPos : viewport->Pos);
         ImGui::SetNextWindowSize(UI.use_work_area ? viewport->WorkSize : viewport->Size);
