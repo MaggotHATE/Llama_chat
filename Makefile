@@ -89,7 +89,8 @@ EXE_VK2 = Llama_Chat_gguf_vulkan_pre
 EXE_CL = Llama_Chat_gguf_clblast
 EXE_GGML = Llama_Chat_ggml
 EXE_CL_GGML = Llama_Chat_ggml_clblast
-IMGUI_DIR = imgui
+# IMGUI_DIR = imgui
+IMGUI_DIR = imgui_f6836ff
 VULKAN_DIR = VulkanSDK
 SOURCES = main.cpp
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
@@ -104,13 +105,13 @@ endif
 SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
 OBJS0 = $(addprefix o/imgui/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 ifndef SDL2
-OBJS = $(subst o/imgui/main.o,main_vk.cpp,$(OBJS0))
+OBJS = $(subst o/imgui/main.o,main_vk2.cpp,$(OBJS0))
 else
 OBJS = $(subst o/imgui/main.o,main.cpp,$(OBJS0))
 endif
 OBJS += o/tinyfiledialogs.o
 
-OBJS_UI_VK = $(subst main_vk.cpp,VULKAN/main_vk.cpp,$(OBJS))
+# OBJS_UI_VK = $(subst main_vk2.cpp,VULKAN/main_vk.cpp,$(OBJS))
 
 FILE_D = -Itinyfiledialogs
 I_GGUF = -I. -Ibase -Iinclude

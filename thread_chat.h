@@ -210,6 +210,23 @@ struct modelThread{
         //std::cout<< DELIMINER;
     }
     
+    bool writeTextFileSimple(std::string path){
+        std::ofstream file(path, std::ios::app);
+        if (file.is_open()) {
+            file << shortModelName << DELIMINER;
+            file << lastTimings << DELIMINER;
+            for (auto r : resultsStringPairs){
+                file << r.first << DELIMINER;
+                file << ' ' << r.second << DELIMINER;
+            }
+            
+            file.close();
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
     bool writeTextFile(std::string path){
         std::string path1 = path + std::to_string(newChat.params.seed) + ".txt";
         std::ofstream file(path1, std::ios::app);
@@ -684,13 +701,18 @@ struct configurableChat{
         for (auto& [key, value] : localConfig.items() ){
             if (value.is_object() && exists(key)) {
                 std::string fullName = key;
-                auto lastSlash = fullName.rfind('/');
-                auto lastRslash = fullName.rfind('\\');
+                size_t lastSlash = fullName.rfind('/');
+                size_t lastRslash = fullName.rfind('\\');
                 if (lastSlash == std::string::npos) lastSlash = -1;
                 if (lastRslash == std::string::npos) lastRslash = -1;
+                size_t result = (lastSlash > lastRslash ? lastRslash : lastSlash);
                 
-                std::string onlyName = fullName.substr(
-                    (lastRslash > lastSlash ? lastRslash : lastSlash) + 1  
+                std::string onlyName = fullName.substr(result + 1);
+                
+                printf("\n%d vs %d = %d: result in %s\n", lastSlash, 
+                                                          lastRslash, 
+                                                          result, 
+                                                          onlyName.c_str()
                 );
                 
                 modelsFromConfig.push_back( std::pair(fullName,onlyName) );
@@ -1427,7 +1449,7 @@ struct wildcardGen{
                 if (waiting) std::this_thread::sleep_for(std::chrono::milliseconds(latency));
             } else {
                 if(cycling == 1){
-                    threadedChat.writeTextFileFull(saveFolder + '/', subname + "-"+ std::to_string(threadedChat.newChat.params.seed) + "-" + std::to_string(cycles));
+                    threadedChat.writeTextFileFull(saveFolder + '/', subname + "-" + std::to_string(cycles) + "-"+ std::to_string(threadedChat.newChat.params.seed));
                     if (cycles == 0) {
                         threadedChat.unload();
                         if (writeExternal) threadedChat.externalData = "Test finished!";
@@ -1441,7 +1463,7 @@ struct wildcardGen{
                     }
                 } else {
                     --cycles;
-                    if (writeExternal) threadedChat.externalData = "-Preset: " + preset + "\n-Cycles left: " + std::to_string(cycles) + "\n-File subname: " + subname + "-"+ std::to_string(threadedChat.newChat.params.seed) + "\n";
+                    if (writeExternal) threadedChat.externalData = "-Preset: " + preset + "\n-Cycles left: " + std::to_string(cycles) + "\n-File subname: " + subname + "-" + std::to_string(cycles) + "-"+ std::to_string(threadedChat.newChat.params.seed) + "\n";
                     getPrompt();
                     //input = Card.prompt;
                     threadedChat.appendQuestion(prompt);
