@@ -376,8 +376,11 @@ static void FramePresent(ImGui_ImplVulkanH_Window* wd)
 int main(int, char**)
 {
     std::setlocale(LC_CTYPE, ".UTF8");
+    
     chatUI UI;
+    
     UI.readFromConfigJson();
+    UI.setLable();
     
     // Setup SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
@@ -471,11 +474,8 @@ int main(int, char**)
 
     // Our state
     UI.init();
-    
-    // applying starting theme and style
-    //retroTheme();
     addStyling();
-    
+    UI.readStyleFromConfigJson();
     //starting windows management
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();

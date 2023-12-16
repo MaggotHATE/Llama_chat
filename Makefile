@@ -693,6 +693,9 @@ demo_vk: $(EXE_VK)
 demo_vk2: $(EXE_VK2)
 	@echo Build $(EXE_VK2) complete for $(ECHO_MESSAGE)
     
+demo_vk2_mini: $(EXE_VK2)_mini
+	@echo Build $(EXE_VK2)_mini complete for $(ECHO_MESSAGE)
+    
 demo_ob: $(EXE_OB)
 	@echo Build $(EXE_OB) complete for $(ECHO_MESSAGE) 
     
@@ -810,6 +813,9 @@ chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
     
 $(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) -I. -Iinclude -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
+     
+$(EXE_VK2)_mini: $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
+	 $(CXX) -I. -Iinclude -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
     
 chatTest_vk2:class_chat.cpp $(OBJS_VK2) chat_plain.h thread_chat.h
 	$(CXX) -I. -Iinclude -IVULKAN2 $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@

@@ -90,19 +90,6 @@ void process_escapes(std::string& input) {
                 case '\'': input[output_idx++] = '\''; break;
                 case '\"': input[output_idx++] = '\"'; break;
                 case '\\': input[output_idx++] = '\\'; break;
-                case 'x':
-                    // Handle \x12, etc
-                    if (input_idx + 2 < input_len) {
-                        const char x[3] = { input[input_idx + 1], input[input_idx + 2], 0 };
-                        char *err_p = nullptr;
-                        const long val = std::strtol(x, &err_p, 16);
-                        if (err_p == x + 2) {
-                            input_idx += 2;
-                            input[output_idx++] = char(val);
-                            break;
-                        }
-                    }
-                    // fall through
                 default:   input[output_idx++] = '\\';
                            input[output_idx++] = input[input_idx]; break;
             }
@@ -277,8 +264,10 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.yarn_beta_slow = std::stof(argv[i]);
-        } else if (arg == "--memory-f32") {
-            params.memory_f16 = false;
+        } else if (arg == "-ctk" || arg == "--cache-type-k") {
+            params.cache_type_k = argv[++i];
+        } else if (arg == "-ctv" || arg == "--cache-type-v") {
+            params.cache_type_v = argv[++i];
         } else if (arg == "--top-p") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -416,18 +405,6 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.n_sequences = std::stoi(argv[i]);
-        } else if (arg == "--p-accept" || arg == "-pa") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.p_accept = std::stof(argv[i]);
-        } else if (arg == "--p-split" || arg == "-ps") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.p_split = std::stof(argv[i]);
         } else if (arg == "-m" || arg == "--model") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -803,8 +780,6 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("  --chunks N            max number of chunks to process (default: %d, -1 = all)\n", params.n_chunks);
     printf("  -np N, --parallel N   number of parallel sequences to decode (default: %d)\n", params.n_parallel);
     printf("  -ns N, --sequences N  number of sequences to decode (default: %d)\n", params.n_sequences);
-    printf("  -pa N, --p-accept N   speculative decoding accept probability (default: %.1f)\n", (double)params.p_accept);
-    printf("  -ps N, --p-split N    speculative decoding split probability (default: %.1f)\n", (double)params.p_split);
     printf("  -cb, --cont-batching  enable continuous batching (a.k.a dynamic batching) (default: disabled)\n");
     printf("  --mmproj MMPROJ_FILE  path to a multimodal projector file for LLaVA. see examples/llava/README.md\n");
     printf("  --image IMAGE_FILE    path to an image file. use with multimodal models\n");
@@ -896,6 +871,29 @@ struct llama_model_params llama_model_params_from_gpt_params(const gpt_params & 
     return mparams;
 }
 
+static ggml_type kv_cache_type_from_str(const std::string & s) {
+    if (s == "f16") {
+        return GGML_TYPE_F16;
+    }
+    if (s == "q8_0") {
+        return GGML_TYPE_Q8_0;
+    }
+    if (s == "q4_0") {
+        return GGML_TYPE_Q4_0;
+    }
+    if (s == "q4_1") {
+        return GGML_TYPE_Q4_1;
+    }
+    if (s == "q5_0") {
+        return GGML_TYPE_Q5_0;
+    }
+    if (s == "q5_1") {
+        return GGML_TYPE_Q5_1;
+    }
+
+    throw std::runtime_error("Invalid cache type: " + s);
+}
+
 struct llama_context_params llama_context_params_from_gpt_params(const gpt_params & params) {
     auto cparams = llama_context_default_params();
 
@@ -905,7 +903,6 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.n_threads_batch   = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
     cparams.mul_mat_q         = params.mul_mat_q;
     cparams.seed              = params.seed;
-    cparams.f16_kv            = params.memory_f16;
     cparams.logits_all        = params.logits_all;
     cparams.embedding         = params.embedding;
     cparams.rope_scaling_type = params.rope_scaling_type;
@@ -916,6 +913,9 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.yarn_beta_fast    = params.yarn_beta_fast;
     cparams.yarn_beta_slow    = params.yarn_beta_slow;
     cparams.yarn_orig_ctx     = params.yarn_orig_ctx;
+    
+    cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
+    cparams.type_v = kv_cache_type_from_str(params.cache_type_v);
 
     return cparams;
 }
@@ -1194,7 +1194,6 @@ void dump_string_yaml_multiline(FILE * stream, const char * prop_name, const cha
     if (!data_str.empty() && (std::isspace(data_str[0]) || std::isspace(data_str.back()))) {
         data_str = std::regex_replace(data_str, std::regex("\n"), "\\n");
         data_str = std::regex_replace(data_str, std::regex("\""), "\\\"");
-        data_str = std::regex_replace(data_str, std::regex(R"(\\[^n"])"), R"(\$&)");
         data_str = "\"" + data_str + "\"";
         fprintf(stream, "%s: %s\n", prop_name, data_str.c_str());
         return;

@@ -734,7 +734,35 @@ struct chatUI{
             if (configJson.contains("theme") && configJson["theme"].is_number()) {
                 themeIdx = configJson["theme"].get<int>();
             }
+            
+            
+            
             //configJson.erase("error");
+        }
+    }
+    
+    void readStyleFromConfigJson(){
+        if (!configJson["error"].is_string()){
+            if (configJson.contains("style") && configJson["style"].is_object()) {
+                ImGuiStyle& style = ImGui::GetStyle();
+                
+                if (configJson["style"].contains("AntiAliasedLines") && configJson["style"]["AntiAliasedLines"].is_boolean()) style.AntiAliasedLines = configJson["style"]["AntiAliasedLines"];
+                if (configJson["style"].contains("AntiAliasedLinesUseTex") && configJson["style"]["AntiAliasedLinesUseTex"].is_boolean()) style.AntiAliasedLinesUseTex = configJson["style"]["AntiAliasedLinesUseTex"];
+                if (configJson["style"].contains("AntiAliasedFill") && configJson["style"]["AntiAliasedFill"].is_boolean()) style.AntiAliasedFill = configJson["style"]["AntiAliasedFill"];
+               
+                if (configJson["style"].contains("FrameBorderSize") && configJson["style"]["FrameBorderSize"].is_number()) style.FrameBorderSize  = configJson["style"]["FrameBorderSize"];
+                if (configJson["style"].contains("ChildBorderSize") && configJson["style"]["ChildBorderSize"].is_number()) style.ChildBorderSize  = configJson["style"]["ChildBorderSize"];
+                if (configJson["style"].contains("WindowPadding.x") && configJson["style"]["WindowPadding.x"].is_number()) style.WindowPadding.x = configJson["style"]["WindowPadding.x"];
+                if (configJson["style"].contains("CellPadding.x") && configJson["style"]["CellPadding.x"].is_number()) style.CellPadding.x = configJson["style"]["CellPadding.x"];
+                if (configJson["style"].contains("ItemSpacing.x") && configJson["style"]["ItemSpacing.x"].is_number()) style.ItemSpacing.x  = configJson["style"]["ItemSpacing.x"];
+                if (configJson["style"].contains("ChildRounding") && configJson["style"]["ChildRounding"].is_number()) style.ChildRounding  = configJson["style"]["ChildRounding"];
+                if (configJson["style"].contains("FrameRounding") && configJson["style"]["FrameRounding"].is_number()) style.FrameRounding  = configJson["style"]["FrameRounding"];
+                if (configJson["style"].contains("PopupRounding") && configJson["style"]["PopupRounding"].is_number()) style.PopupRounding  = configJson["style"]["PopupRounding"];
+                if (configJson["style"].contains("TabRounding") && configJson["style"]["TabRounding"].is_number()) style.TabRounding  = configJson["style"]["TabRounding"];
+                if (configJson["style"].contains("GrabRounding") && configJson["style"]["GrabRounding"].is_number()) style.GrabRounding  = configJson["style"]["GrabRounding"];
+                if (configJson["style"].contains("WindowRounding") && configJson["style"]["WindowRounding"].is_number()) style.WindowRounding  = configJson["style"]["WindowRounding"];
+                if (configJson["style"].contains("FramePadding.x") && configJson["style"]["FramePadding.x"].is_number()) style.FramePadding.x  = configJson["style"]["FramePadding.x"];
+            }
         }
     }
     
@@ -937,7 +965,7 @@ struct chatUI{
             
             // ImGui::EndPopup();
         // }
-        if (!ImGui::Begin("Parameters settings", &show_settings, ImGuiWindowFlags_AlwaysAutoResize))
+        if (!ImGui::Begin("Prompts settings", &show_settings, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::End();
             return;
@@ -1674,6 +1702,10 @@ struct chatUI{
                             }
                     }
                     
+                    if (ImGui::Button("Prompts history")) {
+                        show_history = !show_history;
+                    }
+                    
                     // if (ImGui::Button("Current settings")) {
                         
                         // //ImGui::OpenPopup("Parameters settings");
@@ -1800,6 +1832,27 @@ struct chatUI{
                 show_models_list = false;
                 arrow = ">";
                 loadModel();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Open settings json")) {
+                auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
+                
+                if (jsonConfigFilePath) {
+                    nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
+                    if (jsonConfigFile.contains("model")){
+                         localSettings.modelName = jsonConfigFile["model"];
+                    }
+                    localSettings.getSettingsFromJson(jsonConfigFile);
+                    //localSettings.getSettingsFull();
+                    localSettings.fillLocalJson();
+                    localSettings.updateDump();
+                    localSettings.syncInputs();
+                    
+                    inputPrompt = localSettings.params.prompt;
+                    if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
+                    // we probably don't want presets to be instantly applied
+                    //localSettings.fillLocalJson();
+                }
             }
         } else ImGui::TextWrapped((localSettings.modelName + " doesn't exist!").c_str());
         //modelsCombo();
@@ -2197,28 +2250,43 @@ struct chatUI{
             
             ImGui::Checkbox("Autoscroll", &autoscroll);
             ImGui::SameLine();
-            if (ImGui::Button("Config")) {
-                show_json = !show_json;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Settings")) {
-                show_settings = !show_settings;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Advanced")) {
-                show_settings_advanced = !show_settings_advanced;
-            }
-            if (newChat.isContinue == 'i') {
-                ImGui::SameLine();
-                if (ImGui::Button("Save all")) {
-                    auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
 
-                    if (saveAnswer){
-                        newChat.writeTextFileSimple(saveAnswer);
-                    }
-                }
+            if (ImGui::Button("Config")) {
+                ImGui::OpenPopup("configs");
             }
             
+            if (ImGui::BeginPopup("configs")) {
+                if (ImGui::Selectable("Currents config")) {
+                    show_json = !show_json;
+                }
+                
+                //ImGui::SameLine();
+                if (ImGui::Selectable("Prompt settings")) {
+                    show_settings = !show_settings;
+                }
+                
+                //ImGui::SameLine();
+                if (ImGui::Selectable("Advanced settings")) {
+                    show_settings_advanced = !show_settings_advanced;
+                }
+                
+                if (newChat.isContinue == 'i') {
+                    //ImGui::SameLine();
+                    if (ImGui::Selectable("Save all")) {
+                        auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+
+                        if (saveAnswer){
+                            newChat.writeTextFileSimple(saveAnswer);
+                        }
+                    }
+                }
+                ImGui::EndPopup();
+                
+            }
+                
+                
+                
+                
             
             ImGui::EndChild();
         }
@@ -2478,10 +2546,32 @@ struct chatUI{
                     settingsJson["width"] = width;
                     settingsJson["height"] = height;
                     settingsJson["font"] = fontFile;
+                    settingsJson["fontEmojisFile"] = fontEmojisFile;
                     settingsJson["fontSize"] = fontSize;
                     if(modelsFolderName != "NULL") settingsJson["modelsFolder"] = modelsFolderName;
                     settingsJson["promptsFolder"] = localSettings.promptFilesFolder;
                     settingsJson["theme"] = themeIdx;
+                    
+                    ImGuiStyle& style = ImGui::GetStyle();
+                    
+                    
+                    
+                    settingsJson["style"]["AntiAliasedLines"] = style.AntiAliasedLines;
+                    settingsJson["style"]["AntiAliasedLinesUseTex"] = style.AntiAliasedLinesUseTex;
+                    settingsJson["style"]["AntiAliasedFill"] =  style.AntiAliasedFill;
+                   
+                    settingsJson["style"]["FrameBorderSize"] =  style.FrameBorderSize;
+                    settingsJson["style"]["ChildBorderSize"] =  style.ChildBorderSize;
+                    settingsJson["style"]["WindowPadding.x"] =  style.WindowPadding.x;
+                    settingsJson["style"]["CellPadding.x"] = style.CellPadding.x;
+                    settingsJson["style"]["ItemSpacing.x"] = style.ItemSpacing.x;
+                    settingsJson["style"]["ChildRounding"] = style.ChildRounding;
+                    settingsJson["style"]["FrameRounding"] = style.FrameRounding;
+                    settingsJson["style"]["PopupRounding"] = style.PopupRounding;
+                    settingsJson["style"]["TabRounding"] = style.TabRounding;
+                    settingsJson["style"]["GrabRounding"] = style.GrabRounding;
+                    settingsJson["style"]["WindowRounding"] = style.WindowRounding;
+                    settingsJson["style"]["FramePadding.x"] = style.FramePadding.x;
                     
                     writeJson(settingsJson, "chatConfig.json");
                     // if (modelsFolderName == "NULL"){
@@ -2568,9 +2658,9 @@ struct chatUI{
                     show_tests = !show_tests;
                 }
                 
-                if (ImGui::MenuItem("Prompts history")) {
-                    show_history = !show_history;
-                }
+                // if (ImGui::MenuItem("Prompts history")) {
+                    // show_history = !show_history;
+                // }
                 
                 if (ImGui::MenuItem("Open a font file")) {
                     std::string fontFileOpened = openFile(fontFilterPatterns);
@@ -2592,7 +2682,7 @@ struct chatUI{
                 ImGui::EndMenu();
             }
             
-            if (ImGui::BeginMenu("Settings"))
+            if (ImGui::BeginMenu("Settings..."))
             {
                 
                 ImGui::CheckboxFlags("Enter sends message ", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);

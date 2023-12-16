@@ -723,6 +723,33 @@ struct configurableChat{
         std::cout << "getModelsList finished" << std::endl;
     }
     
+    void getModelsList(nlohmann::json& configFile) noexcept{
+        modelsFromConfig.clear();
+        for (auto& [key, value] : configFile.items() ){
+            if (value.is_object() && exists(key)) {
+                std::string fullName = key;
+                size_t lastSlash = fullName.rfind('/');
+                size_t lastRslash = fullName.rfind('\\');
+                if (lastSlash == std::string::npos) lastSlash = -1;
+                if (lastRslash == std::string::npos) lastRslash = -1;
+                size_t result = (lastSlash > lastRslash ? lastRslash : lastSlash);
+                
+                std::string onlyName = fullName.substr(result + 1);
+                
+                printf("\n%d vs %d = %d: result in %s\n", lastSlash, 
+                                                          lastRslash, 
+                                                          result, 
+                                                          onlyName.c_str()
+                );
+                
+                modelsFromConfig.push_back( std::pair(fullName,onlyName) );
+                    //std::cout << "Adding " << fullName << std::endl;
+            }
+        }
+        
+        std::cout << "getModelsList finished" << std::endl;
+    }
+    
     void getFilesList(){
         promptFiles.clear();
         
