@@ -689,7 +689,7 @@ struct configurableChat{
     std::string cfgNegativePrompt;
     std::string inputPrompt = "NULL";
     std::string inputAntiprompt = "NULL";
-    std::string inputAntiCFG = "NULL";
+    std::string inputAntiCFG = "";
     std::string inputInstructFile = "NULL";
     std::string modelName = "NULL";
     std::string modelShortName = "NULL";
@@ -879,7 +879,7 @@ struct configurableChat{
         int result = 0;
         if (inputPrompt != "NULL" && inputPrompt != params.prompt) result += 1;
         if (inputAntiprompt != "NULL" && params.antiprompt.size() && inputAntiprompt != params.antiprompt[0]) result += 2;
-        if (inputAntiCFG != "NULL" && inputAntiCFG != params.sparams.cfg_negative_prompt) result += 4;
+        if (!inputAntiCFG.empty() && inputAntiCFG != params.sparams.cfg_negative_prompt) result += 4;
         
         return result;
     }
@@ -966,7 +966,7 @@ struct configurableChat{
     }
     
     bool checkInputAntiCFG(){
-        if (inputAntiCFG != "NULL" && inputAntiCFG != modelConfig[modelName]["cfg-negative-prompt"].get<std::string>()) return false;
+        if (!inputAntiCFG.empty() && inputAntiCFG != modelConfig[modelName]["cfg-negative-prompt"].get<std::string>()) return false;
         
         return true;
     }
@@ -1162,7 +1162,7 @@ struct configurableChat{
             else
                 params.antiprompt[0] = inputAntiprompt;
         }
-        if (inputAntiCFG != "NULL") params.sparams.cfg_negative_prompt = inputAntiCFG;
+        if (!inputAntiCFG.empty()) params.sparams.cfg_negative_prompt = inputAntiCFG;
     }
     
     void pushToMainConfig(){

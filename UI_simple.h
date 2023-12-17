@@ -402,9 +402,7 @@ static void sliderCfgScale(float& cfg_scale, float& default_cfg_scale){
     } ImGui::SameLine(); HelpMarker(("How strong the cfg is. High values might result in no answer generated. Default: " + std::to_string(default_cfg_scale)).c_str());
 }
 
-static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
-    ImGui::BeginChild("Params", size, false);
-    
+static void paramsPanel(gpt_params& params, int& totalThreads) {
 #if GGML_OLD_FORMAT
         
         sliderTemp(params.temp, paramsDefault.temp);
@@ -485,14 +483,26 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
         
         sliderCfgScale(params.sparams.cfg_scale, paramsDefault.sparams.cfg_scale);
 #endif
-        ImGui::SliderInt("n_threads", &params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
-        
-        
-        //#ifdef GGML_EXPERIMENTAL1
-        ImGui::SliderInt("n_threads_batch", &params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
-        //#endif
-        // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
+}
 
+static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
+    ImGui::BeginChild("Params", size, false);
+    
+    ImGui::TextWrapped(" Performance settings");
+        
+    ImGui::SliderInt("Generation threads", &params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+    
+    
+    //#ifdef GGML_EXPERIMENTAL1
+    ImGui::SliderInt("Evaluation threads", &params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+    //#endif
+    // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
+#if GGML_USE_CLBLAST || GGML_USE_VULKAN
+    ImGui::SliderInt("Gpu layers", &params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
+#endif
+    ImGui::TextWrapped(" Samping parameters");
+    paramsPanel(params, totalThreads);
+    
     ImGui::EndChild();
 }
 
@@ -694,7 +704,9 @@ struct chatUI{
     int mdlIdx = 0;
     
     bool show_models_list = true;
+    bool show_immediate_settings = false;
     char* arrow = "<";
+    char* vert_arrow = "v";
     
     
     bool show_settings = false;
@@ -952,7 +964,7 @@ struct chatUI{
     
     void settingsWindow() {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
+        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.4f, ImGui::GetTextLineHeightWithSpacing() * 37);
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         // if (ImGui::BeginPopupModal("Parameters settings")) {
             // ImVec2 work_size = viewport->WorkSize;
@@ -1706,16 +1718,6 @@ struct chatUI{
                         show_history = !show_history;
                     }
                     
-                    // if (ImGui::Button("Current settings")) {
-                        
-                        // //ImGui::OpenPopup("Parameters settings");
-                        
-                        // show_settings = !show_settings;
-                        
-                    // }
-                    
-                    
-                    //settingsWindow();
                         
                     if(cancelled){
                         //ImGui::SameLine();
@@ -1848,8 +1850,8 @@ struct chatUI{
                     localSettings.updateDump();
                     localSettings.syncInputs();
                     
-                    inputPrompt = localSettings.params.prompt;
-                    if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
+                    localSettings.inputPrompt = localSettings.params.prompt;
+                    if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
                     // we probably don't want presets to be instantly applied
                     //localSettings.fillLocalJson();
                 }
@@ -1872,19 +1874,19 @@ struct chatUI{
             
             
                   
-            if(modelsFolderName != "NULL") {
-                ImGui::TextWrapped(( "Models folder: " + modelsFolderName).c_str());
-                ImGui::Separator();
-            }
+            // if(modelsFolderName != "NULL") {
+                // ImGui::TextWrapped(( "Models folder: " + modelsFolderName).c_str());
+                // ImGui::Separator();
+            // }
             
             //if (!localSettings.params.input_prefix.empty()) ImGui::TextWrapped(( "Prefix: " + localSettings.params.input_prefix).c_str());
             //if (!localSettings.params.input_suffix.empty()) ImGui::TextWrapped(( "input_suffix: " + localSettings.params.input_suffix).c_str());
             
-            if(localSettings.modelName != "NULL") 
-                ImGui::TextWrapped(( "Selected model: " + localSettings.modelName).c_str());
-            else
-                ImGui::TextWrapped(( "Default model: " + localSettings.modelFromJson).c_str());
-            ImGui::Separator();
+            // if(localSettings.modelName != "NULL") 
+                // ImGui::TextWrapped(( "Selected model: " + localSettings.modelName).c_str());
+            // else
+                // ImGui::TextWrapped(( "Default model: " + localSettings.modelFromJson).c_str());
+            // ImGui::Separator();
             
             if (localSettings.instructFileFromJson != "NULL") {
                 ImGui::TextWrapped( ("Default instruct file: " + localSettings.instructFileFromJson).c_str() );
@@ -1896,11 +1898,20 @@ struct chatUI{
             ImGui::Indent();
 
             
-            if (!localSettings.checkInputPrompt()) ImGui::TextWrapped( ("Set prompt to " + localSettings.inputPrompt).c_str() );
+            if (!localSettings.checkInputPrompt()) {
+                ImGui::TextWrapped( ("Set prompt to: " + localSettings.inputPrompt).c_str() );
+                ImGui::Separator();
+            }
             
-            if (!localSettings.checkInputAntiprompt()) ImGui::TextWrapped( ("Set antiprompt to " + localSettings.inputAntiprompt).c_str() );
+            if (!localSettings.checkInputAntiprompt()) {
+                ImGui::TextWrapped( ("Set antiprompt to: " + localSettings.inputAntiprompt).c_str() );
+                ImGui::Separator();
+            }
             
-            if (!localSettings.checkInputAntiCFG()) ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
+            if (!localSettings.checkInputAntiCFG()) {
+                ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
+                ImGui::Separator();
+            }
     #if GGML_OLD_FORMAT
             if (localSettings.params.cfg_scale > 1.0) {
                 ImGui::TextWrapped( ("Set CFG cfg_scale to " + std::to_string(localSettings.params.cfg_scale)).c_str() );
@@ -1935,36 +1946,36 @@ struct chatUI{
             ImGui::SameLine();
             
             if (!localSettings.noConfig){
-                if (newChat.isContinue == '_') {
-                    if (!hasModel) {
-                        if (ImGui::Button("Load and init model")) {
-                            if (std::filesystem::exists(localSettings.modelConfig["model"])){
-                                newChat.jsonConfig = localSettings.modelConfig;
+                // if (newChat.isContinue == '_') {
+                    // if (!hasModel) {
+                        // if (ImGui::Button("Load and init model")) {
+                            // if (std::filesystem::exists(localSettings.modelConfig["model"])){
+                                // newChat.jsonConfig = localSettings.modelConfig;
                                 
-                                newChat.load();
+                                // newChat.load();
                                 
-                                hasModel = true;
-                                copiedDialog = false;
-                                copiedSettings = false;
-                                newChat.isContinue = 'l';
-                            } else {
-                                ImGui::OpenPopup("No Model");
-                            }
-                        }
-                    } else {
-                        if (ImGui::Button("Init model")) {
+                                // hasModel = true;
+                                // copiedDialog = false;
+                                // copiedSettings = false;
+                                // newChat.isContinue = 'l';
+                            // } else {
+                                // ImGui::OpenPopup("No Model");
+                            // }
+                        // }
+                    // } else {
+                        // if (ImGui::Button("Init model")) {
 
-                            copiedDialog = false;
-                            copiedSettings = false;
-                            copiedTimings = false;
-                            //load(newChat, localSettings.localConfig, hasModel);
-                            newChat.load(localSettings.modelConfig, hasModel);
-                            //load_task(newChat, localSettings, hasModel);
-                            newChat.isContinue = 'l';
-                        }
-                    }
-                }
-                ImGui::SameLine();
+                            // copiedDialog = false;
+                            // copiedSettings = false;
+                            // copiedTimings = false;
+                            ////load(newChat, localSettings.localConfig, hasModel);
+                            // newChat.load(localSettings.modelConfig, hasModel);
+                            ////load_task(newChat, localSettings, hasModel);
+                            // newChat.isContinue = 'l';
+                        // }
+                    // }
+                // }
+                //ImGui::SameLine();
                 if (ImGui::Button("Open settings json")) {
                     auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
                     
@@ -1979,8 +1990,8 @@ struct chatUI{
                         localSettings.updateDump();
                         localSettings.syncInputs();
                         
-                        inputPrompt = localSettings.params.prompt;
-                        if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
+                        localSettings.inputPrompt = localSettings.params.prompt;
+                        if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
                         // we probably don't want presets to be instantly applied
                         //localSettings.fillLocalJson();
                     }
@@ -2013,21 +2024,15 @@ struct chatUI{
                 
                 if (localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
                 
-                ImGui::InputTextMultiline("Prompt", &inputPrompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 6)); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
-                if (ImGui::Button("Apply prompt")) {
-                        localSettings.inputPrompt = inputPrompt;
-                    } ImGui::SameLine(); if (ImGui::Button("Clear prompt")) {
-                        localSettings.inputPrompt = "NULL";
-                }
-                //ImGui::SameLine();
-                //ImGui::BeginChild("Dialog", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y*0.2f), false);
+                
+
                 if (ImGui::Button("Open an instruct file...")) {
                     
                     auto inputInstructFile = tinyfd_openFileDialog("Select an instruct file...", currPath.c_str(),1, instructFilterPatterns, NULL,0);
                     if (inputInstructFile) {
                         //localSettings.inputInstructFile = inputInstructFile;
                         
-                        localSettings.readInstructFile(inputInstructFile, inputPrompt, inputAntiprompt);
+                        localSettings.readInstructFile(inputInstructFile, localSettings.inputPrompt, localSettings.inputAntiprompt);
                         //localSettings.syncInputs();
                     }
                 }
@@ -2050,7 +2055,7 @@ struct chatUI{
                             //ImGui::TextWrapped(promptFile.filename().c_str());
                             if (ImGui::Selectable( promptFile.filename().string().c_str() )){
                                 //localSettings.inputInstructFile = promptFile.string();
-                                localSettings.readInstructFile(promptFile.string(), inputPrompt, inputAntiprompt);
+                                localSettings.readInstructFile(promptFile.string(), localSettings.inputPrompt, localSettings.inputAntiprompt);
                                 //localSettings.syncInputs();
                             }
                         }
@@ -2064,14 +2069,14 @@ struct chatUI{
                 
                 if (ImGui::Button("Save current instruct...")) {
                     //ImGui::OpenPopup("Save instruct");
-                    auto savedInstruct = tinyfd_saveFileDialog( inputAntiprompt.c_str() , localSettings.promptFilesFolder.c_str() , 1 , instructFilterPatterns, NULL);
+                    auto savedInstruct = tinyfd_saveFileDialog( localSettings.inputAntiprompt.c_str() , localSettings.promptFilesFolder.c_str() , 1 , instructFilterPatterns, NULL);
                     
                     if (savedInstruct){
-                        std::string fileContents = inputPrompt;
+                        std::string fileContents = localSettings.inputPrompt;
                         
                         int antiPos = fileContents.rfind('\n');
-                        if (antiPos == fileContents.npos && inputPrompt != inputAntiprompt) {
-                            fileContents += '\n' + inputAntiprompt;
+                        if (antiPos == fileContents.npos && localSettings.inputPrompt != localSettings.inputAntiprompt) {
+                            fileContents += '\n' + localSettings.inputAntiprompt;
                         }
                         
                         //std::string filename = localSettings.promptFilesFolder + savedInstruct + ".txt";
@@ -2092,7 +2097,7 @@ struct chatUI{
                     
                     if (ImGui::BeginChild("File name", ImVec2( work_size.x * 0.5f, work_size.y * 0.5f)))
                     {
-                        static std::string instructName = inputAntiprompt;
+                        static std::string instructName = localSettings.inputAntiprompt;
                         struct TextFilters
                         {
                             static int FilterFileLetters(ImGuiInputTextCallbackData* data)
@@ -2103,11 +2108,11 @@ struct chatUI{
                             }
                         };
                         if (localSettings.promptFilesFolder.back() != '\\' && localSettings.promptFilesFolder.back() != '/') localSettings.promptFilesFolder += '/';
-                        std::string fileContents = inputPrompt;
+                        std::string fileContents = localSettings.inputPrompt;
                         
                         int antiPos = fileContents.rfind('\n');
                         if (antiPos == fileContents.npos) {
-                            fileContents += inputAntiprompt;
+                            fileContents += localSettings.inputAntiprompt;
                         }
                         
                         ImGui::TextWrapped(( "Save to: " + localSettings.promptFilesFolder + instructName + ".txt").c_str());
@@ -2160,13 +2165,13 @@ struct chatUI{
             }
             
             //ImGui::EndChild();
-            
-            ImGui::InputTextMultiline("Antiprompt", &inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
-            if (ImGui::Button("Apply antiprompt")) {
-                        localSettings.inputAntiprompt = inputAntiprompt;
-                    } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
-                        localSettings.inputAntiprompt = "NULL";
-                    }
+            ImGui::InputTextMultiline("Prompt", &localSettings.inputPrompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 15)); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
+            ImGui::InputTextMultiline("Antiprompt", &localSettings.inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
+            // if (ImGui::Button("Apply antiprompt")) {
+                        // localSettings.inputAntiprompt = inputAntiprompt;
+                    // } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
+                        // localSettings.inputAntiprompt = "NULL";
+                    // }
             ImGui::InputTextMultiline("Prefix", &localSettings.params.input_prefix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
                     
             ImGui::InputTextMultiline("Suffix", &localSettings.params.input_suffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
@@ -2176,12 +2181,12 @@ struct chatUI{
                     inputGrammar = openGrammar();
                 }
                 
-            ImGui::InputTextMultiline("CFG Antiprompt", &inputAntiCFG, ImVec2(initWidth, ImGui::GetTextLineHeight() * 5)); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." );
-            if (ImGui::Button("Apply CFG antiprompt")) {
-                        localSettings.inputAntiCFG = inputAntiCFG;
-                    } ImGui::SameLine(); if (ImGui::Button("Clear CFG antiprompt")) {
-                        localSettings.inputAntiCFG = "NULL";
-                    }
+            ImGui::InputTextMultiline("CFG Antiprompt", &localSettings.inputAntiCFG, ImVec2(initWidth, ImGui::GetTextLineHeight() * 5)); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." );
+            // if (ImGui::Button("Apply CFG antiprompt")) {
+                        // localSettings.inputAntiCFG = inputAntiCFG;
+                    // } ImGui::SameLine(); if (ImGui::Button("Clear CFG antiprompt")) {
+                        // localSettings.inputAntiCFG = "NULL";
+                    // }
     #if GGML_OLD_FORMAT
             ImGui::SliderFloat("cfg_scale", &localSettings.params.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
     #elif GGML_USE_VULKAN2
@@ -2189,16 +2194,6 @@ struct chatUI{
     #else 
             ImGui::SliderFloat("cfg_scale", &localSettings.params.sparams.cfg_scale, 1.0f, 4.0f); ImGui::SameLine(); HelpMarker("How strong the cfg is. High values might result in no answer generated.");
     #endif
-            ImGui::SliderInt("n_threads", &localSettings.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
-            
-            
-            //#ifdef GGML_EXPERIMENTAL1
-            ImGui::SliderInt("n_threads_batch", &localSettings.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
-            //#endif
-    #if GGML_USE_CLBLAST || GGML_USE_VULKAN
-                ImGui::SliderInt("n_gpu_layers", &localSettings.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
-    #endif
-            
             //paramsPanel(localSettings, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.70f, ImGui::GetContentRegionAvail().y));
             
             
@@ -2235,7 +2230,21 @@ struct chatUI{
         }
     }
     
-    void header(){
+    void immediateSettings(){
+        //ImGui::SetNextItemAllowOverlap();
+        if (ImGui::BeginChild("Immediate settings", ImVec2( ImGui::GetContentRegionAvail().x * 0.77f, fontSize + 70.0f))){ 
+            ImGui::SliderInt("n_threads", &newChat.newChat.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+    
+            ImGui::SliderInt("n_threads_batch", &newChat.newChat.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+#if GGML_USE_CLBLAST || GGML_USE_VULKAN
+            ImGui::SliderInt("n_gpu_layers", &newChat.newChat.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
+#endif
+        ImGui::EndChild();
+        }
+        //ImGui::SetNextItemAllowOverlap();
+    }
+    
+    void settingsHeader(){
         if (ImGui::BeginChild("Header", ImVec2( ImGui::GetContentRegionAvail().x * 0.77f, fontSize + 6.0f))){
             
             if (ImGui::Button(arrow)) {
@@ -2251,40 +2260,111 @@ struct chatUI{
             ImGui::Checkbox("Autoscroll", &autoscroll);
             ImGui::SameLine();
 
-            if (ImGui::Button("Config")) {
-                ImGui::OpenPopup("configs");
-            }
+            //if (ImGui::Button("Config")) {
+            //    ImGui::OpenPopup("configs");
+            //}
             
-            if (ImGui::BeginPopup("configs")) {
-                if (ImGui::Selectable("Currents config")) {
-                    show_json = !show_json;
+            /* if (newChat.isContinue != '_'){
+                ImGui::SameLine();
+                if (ImGui::Button("Params")) {
+                    // show_immediate_settings = !show_immediate_settings;
+                    // if (show_immediate_settings == true) vert_arrow = "^";
+                    // else vert_arrow = "v";
+                    ImGui::OpenPopup("immediate settings");
                 }
+            } */
+            
+            
+            //if (ImGui::BeginPopup("configs")) {
+                
+            if (newChat.isContinue != '_') {
+                ImGui::SameLine();
+                if (ImGui::Button("Current json")) {
+                    //show_json = !show_json;
+                    ImGui::OpenPopup("Json config");
+                }
+            }
+                
+            //ImGui::SameLine();
+            ImGui::SameLine();
+            if (ImGui::Button("Settings")) {
+                //show_settings = !show_settings;
+                ImGui::OpenPopup("Basic settings");
+            }
                 
                 //ImGui::SameLine();
-                if (ImGui::Selectable("Prompt settings")) {
-                    show_settings = !show_settings;
-                }
+            ImGui::SameLine();
+            if (ImGui::Button("Advanced")) {
+                //show_settings_advanced = !show_settings_advanced;
+                ImGui::OpenPopup("Sampling settings");
+            }
                 
-                //ImGui::SameLine();
-                if (ImGui::Selectable("Advanced settings")) {
-                    show_settings_advanced = !show_settings_advanced;
-                }
-                
-                if (newChat.isContinue == 'i') {
-                    //ImGui::SameLine();
-                    if (ImGui::Selectable("Save all")) {
-                        auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+            if (newChat.isContinue == 'i') {
+                ImGui::SameLine();
+                if (ImGui::Button("Save all")) {
+                    auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
 
-                        if (saveAnswer){
-                            newChat.writeTextFileSimple(saveAnswer);
-                        }
+                    if (saveAnswer){
+                        newChat.writeTextFileSimple(saveAnswer);
                     }
                 }
-                ImGui::EndPopup();
-                
             }
+                //ImGui::EndPopup();
                 
+            //}
+            
+            ImVec2 immediate_popup_size = ImVec2(ImGui::GetWindowWidth() * 0.9, ImGui::GetTextLineHeightWithSpacing() * 25);
                 
+            if (ImGui::BeginPopup("immediate settings")) {
+                
+                ImGui::BeginChild("Params", immediate_popup_size, ImGuiWindowFlags_NoMove);
+    
+                    //ImGui::TextWrapped(" Performance settings");
+                    // ImGui::SliderInt("Prompt evaluation threads", &newChat.newChat.params.n_threads_batch, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+                    // ImGui::SliderInt("Generation threas", &newChat.newChat.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+
+                    
+                    paramsPanel(newChat.newChat.params, totalThreads);
+                ImGui::EndChild();
+                    
+            ImGui::EndPopup();
+            }
+            
+            ImVec2 settings_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
+            if (ImGui::BeginPopup("Basic settings")) {
+                
+                ImGui::BeginChild(ImGui::GetID("Settings frame"), settings_size, ImGuiWindowFlags_NoMove);
+        
+                firstSettings(settings_size.x);
+                
+                ImGui::EndChild();
+                    
+            ImGui::EndPopup();
+            }
+            
+            ImVec2 advanced_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
+            if (ImGui::BeginPopup("Sampling settings")) {
+                
+                ImGui::BeginChild(ImGui::GetID("Sampling settings frame"), advanced_size, ImGuiWindowFlags_NoMove);
+        
+                settingsTab();
+                
+                ImGui::EndChild();
+                    
+            ImGui::EndPopup();
+            }
+            
+            ImVec2 json_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 20);
+            if (ImGui::BeginPopup("Json config")) {
+                
+                ImGui::BeginChild(ImGui::GetID("Json frame"), json_size, ImGuiWindowFlags_NoMove);
+        
+                jsonTab();
+                
+                ImGui::EndChild();
+                    
+            ImGui::EndPopup();
+            }
                 
                 
             
@@ -2685,7 +2765,7 @@ struct chatUI{
             if (ImGui::BeginMenu("Settings..."))
             {
                 
-                ImGui::CheckboxFlags("Enter sends message ", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);
+                ImGui::CheckboxFlags("Send messages by Enter", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);
                 
                 ImGui::EndMenu();
             }
@@ -2737,11 +2817,15 @@ struct chatUI{
         }
         
         if (ImGui::BeginChild("Dialog tab")){
-            header();
+            settingsHeader();
             ImGui::SameLine();
             buttonsHeader();
             ImGui::Separator();
+            if (show_immediate_settings) {
+                immediateSettings();
+            }
             dialogTab(viewport);
+            
             ImGui::EndChild();
         }
         

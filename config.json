@@ -19,6 +19,7 @@
     "mirostat": 0,
     "mirostat_tau": 5.0,
     "mirostat_eta": 0.1,
+    "samplers_sequence": "tkm",
     "models/redmond-puffin-13b.Q4_K_S.gguf":
         {
             "prompt": "### SYSTEM: A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.\n\n### USER:",
@@ -27,12 +28,13 @@
             "ctx-size": 4096,
             "preset": "Midnight Enigma"
         },
-    "models/mistral-7b-instruct-v0.1.Q4_K_S.gguf":
+    "models/mistral-7b-instruct-v0.2.Q4_K_S.gguf":
         {
-            "repeat_penalty": 1.294,
-            "n_gpu_layers": 15,
+            "prompt": "Below is an instruction that describes a task. Write an accurate response that appropriately completes the request.\n\n### Instruction:\n",
+            "reverse-prompt": "### Instruction:\n",
+            "input_suffix": "\n### Response:\n",
+            "n_gpu_layers": 8,
             "ctx-size": 8192,
-            "temp": 0.75,
-            "top_p": 0.75
+            "temp": 0.9
         }
 }

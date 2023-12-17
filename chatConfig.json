@@ -6,5 +6,22 @@
     "height": 800,
     "modelsFolder": "models/",
     "promptsFolder": "prompts/",
+    "style": {
+        "AntiAliasedFill": false,
+        "AntiAliasedLines": false,
+        "AntiAliasedLinesUseTex": false,
+        "CellPadding.x": 3.0,
+        "ChildBorderSize": 2.0,
+        "ChildRounding": 1.5,
+        "FrameBorderSize": 1.0,
+        "FramePadding.x": 3.0,
+        "FrameRounding": 1.5,
+        "GrabRounding": 1.0,
+        "ItemSpacing.x": 2.0,
+        "PopupRounding": 1.5,
+        "TabRounding": 1.5,
+        "WindowPadding.x": 1.0,
+        "WindowRounding": 0.0
+    },
     "width": 600
 }

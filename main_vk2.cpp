@@ -521,15 +521,15 @@ int main(int, char**)
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (UI.show_demo_window) ImGui::ShowDemoWindow(&UI.show_demo_window);
-#if defined(UI_SIMPLE)
-        if (UI.show_settings) UI.settingsWindow();
-        if (UI.show_settings_advanced) UI.settingsWindowAdvanced();
-        if (UI.show_json) UI.configWindow();
-        if (UI.show_templates) UI.templatesWindow();
-        if (UI.show_prompts_db) UI.promptsDbWindow();
-        if (UI.show_tests) UI.testsWindow();
-        if (UI.show_history) UI.historyWindow();
-#endif
+// #if defined(UI_SIMPLE)
+        // if (UI.show_settings) UI.settingsWindow();
+        // if (UI.show_settings_advanced) UI.settingsWindowAdvanced();
+        // if (UI.show_json) UI.configWindow();
+        // if (UI.show_templates) UI.templatesWindow();
+        // if (UI.show_prompts_db) UI.promptsDbWindow();
+        // if (UI.show_tests) UI.testsWindow();
+        // if (UI.show_history) UI.historyWindow();
+// #endif
 
         ImGui::SetNextWindowPos(UI.use_work_area ? viewport->WorkPos : viewport->Pos);
         ImGui::SetNextWindowSize(UI.use_work_area ? viewport->WorkSize : viewport->Size);
