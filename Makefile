@@ -100,6 +100,13 @@ ifndef SDL2
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_vulkan.cpp
 else 
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+EXE = Llama_Chat_gguf_SDL2
+EXE_OB = Llama_Chat_gguf_openblas_SDL2
+EXE_VK = Llama_Chat_gguf_vulkan_SDL2
+EXE_VK2 = Llama_Chat_gguf_vulkan_pre_SDL2
+EXE_CL = Llama_Chat_gguf_clblast_SDL2
+EXE_GGML = Llama_Chat_ggml_SDL2
+EXE_CL_GGML = Llama_Chat_ggml_clblast_SDL2
 endif
 
 SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
@@ -179,6 +186,10 @@ endif
 CXXFLAGS_UI += $(OPT_UI) -std=$(CCPP) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI += -g -Wall -Wformat -pipe
+
+ifdef SDL2
+CXXFLAGS_UI += -DSDL2
+endif
 
 #for general ggml-gguf
 CFLAGS = $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
