@@ -1,9 +1,9 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
-// #include <stdio.h>          // printf, fprintf
-// #include <stdlib.h>         // abort
-// #include <SDL.h>
+#include <stdio.h>          // printf, fprintf
+#include <stdlib.h>         // abort
+#include <SDL.h>
 #include <SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 //#include <vulkan/vulkan_beta.h>

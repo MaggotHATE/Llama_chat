@@ -75,6 +75,7 @@ struct modelThread{
     volatile char isLoading = '_';
     volatile char isPregen = '_';
     volatile char isContinue = '_';
+    volatile char isUnload = '_';
     int loaded = 0;
     int last_tokens = 0;
     //int remain_tokens = 0;
@@ -312,6 +313,7 @@ struct modelThread{
         isContinue = '_';
         isPregen = '_';
         isLoading = '_';
+        isUnload = '_';
     }
     
     void unloadSoft(){
@@ -368,6 +370,12 @@ struct modelThread{
         lastResult = newChat.params.input_suffix;
     }
     
+    void continueGen(){
+        newChat.finished = false;
+        isContinue = 'w';
+        isPregen = 'w';
+    }
+    
     void stop(){
         //newChat.finished = true;
         isContinue = 'i';
@@ -376,9 +384,38 @@ struct modelThread{
         getTimigsBoth();
     }
     
+    void pause(){
+        //newChat.finished = true;
+        isContinue = 'i';
+        //getTimigsSimple();
+        getTimigsBoth();
+    }
+    
     // loading, preloading and generating threads
     
 /// CURRENT
+
+void checkFinished() {
+    if (newChat.finished){
+        //newChat.eraseAntiprompt(lastResult);
+        newChat.eraseAntiprompt(lastResult);
+        newChat.eraseLast(lastResult, newChat.params.input_prefix);
+        
+        resultsStringPairs.push_back(std::pair("AI",lastResult));
+        lastResult = "";
+        isContinue = 'i';
+        
+        getTimigsBoth();
+        newChat.clear_speed();
+    }
+}
+
+void getStats() {
+    last_tokens = newChat.getLastTokens();
+    consumed_tokens = newChat.getConsumedTokens();
+    past_tokens = newChat.getPastTokens();
+}
+
 void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
@@ -415,25 +452,8 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                 
                 //getTimigsSimple();
                 
-                if (newChat.finished){
-                    //newChat.eraseAntiprompt(lastResult);
-                    newChat.eraseAntiprompt(lastResult);
-                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
-                    
-                    resultsStringPairs.push_back(std::pair("AI",lastResult));
-                    isContinue = 'i';
-                    
-                    getTimigsBoth();
-                    newChat.clear_speed();
-                }
-                    
-                
-                //futureTextString.get();
-
-                last_tokens = newChat.getLastTokens();
-                //remain_tokens = newChat.getRemainTokens();
-                consumed_tokens = newChat.getConsumedTokens();
-                past_tokens = newChat.getPastTokens();
+                checkFinished();
+                getStats();
             
             }
             
@@ -469,31 +489,26 @@ void getResultAsyncStringFull3() {
         
 
                 std::string output = newChat.cycleStringsOnly(false);
+                if (isContinue == 'i') {
+                    if (isUnload == 'y') {
+                        unload();
+                    }
+                    return (std::string) "stopped";
+                }
                 lastResult += output;
                 
                 getTimigsGen();
                 
                 //getTimigsSimple();
                 
-                if (newChat.finished){
-                    //newChat.eraseAntiprompt(lastResult);
-                    newChat.eraseAntiprompt(lastResult);
-                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
-                    
-                    resultsStringPairs.push_back(std::pair("AI",lastResult));
-                    isContinue = 'i';
-                    
-                    getTimigsBoth();
-                    newChat.clear_speed();
+                checkFinished();
+                getStats();
+                if (isContinue == 'i') {
+                    if (isUnload == 'y') {
+                        unload();
+                    }
+                    return (std::string) "stopped";
                 }
-                    
-                
-                //futureTextString.get();
-
-                last_tokens = newChat.getLastTokens();
-                //remain_tokens = newChat.getRemainTokens();
-                consumed_tokens = newChat.getConsumedTokens();
-                past_tokens = newChat.getPastTokens();
             
             }
             
@@ -507,66 +522,54 @@ void getResultAsyncStringFull3() {
     void getResultAsyncStringRepeat(bool streaming = false, bool full = false) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
-        removeLastAnswer();
+        //removeLastAnswer();
         
-        newChat.clearLastEmbd();
+        //newChat.clearLastEmbd();
         
         futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
             
             //std::string input = resultsStringPairs.back().second;
                 
             getTimigsPre();
-            //newChat.inputOnly(input);
-            //newChat.inputOnlyNew(input);
             isPregen = 'i';
-            //consumed_tokens = newChat.getConsumedTokens();
-            //past_tokens = newChat.getPastTokens();
-            
-            //getTimigsPre();
             
             
             while (isContinue != 'i'){
         
 
                 std::string output = newChat.cycleStringsOnly(false);
+                if (isContinue == 'i') {
+                    if (isUnload == 'y') {
+                        unload();
+                    }
+                    return (std::string) "stopped";
+                }
+                
                 lastResult += output;
                 
-                if (streaming) {
-                    if (full) {
-                        //getTimigsBoth();
-                        //getTimigsPre();
-                        getTimigsGen();
-                        display();
-                        std::cout << lastResult;
-                    } else std::cout << output;
-                } else {
-                    if (full) {
-                        getTimigsGen();
-                        //getTimigsPre();
-                    }
-                }
+                // if (streaming) {
+                    // if (full) {
+                        // getTimigsGen();
+                        // display();
+                        // std::cout << lastResult;
+                    // } else std::cout << output;
+                // } else {
+                    // if (full) {
+                        // getTimigsGen();
+                    // }
+                // }
+                // there's no repeat/continue in chatTest anyway, UI-only
                 //getTimigsSimple();
+                getTimigsGen();
                 
-                if (newChat.finished){
-                    //newChat.eraseAntiprompt(lastResult);
-                    newChat.eraseAntiprompt(lastResult);
-                    newChat.eraseLast(lastResult, newChat.params.input_prefix);
-                    
-                    resultsStringPairs.push_back(std::pair("AI",lastResult));
-                    isContinue = 'i';
-                    
-                    getTimigsBoth();
-                    newChat.clear_speed();
+                checkFinished();
+                getStats();
+                if (isContinue == 'i') {
+                    if (isUnload == 'y') {
+                        unload();
+                    }
+                    return (std::string) "stopped";
                 }
-                    
-                
-                //futureTextString.get();
-
-                last_tokens = newChat.getLastTokens();
-                //remain_tokens = newChat.getRemainTokens();
-                consumed_tokens = newChat.getConsumedTokens();
-                past_tokens = newChat.getPastTokens();
-            
             }
             
             std::string result = "ready";
@@ -591,7 +594,10 @@ void getResultAsyncStringFull3() {
             std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
             getSparamsList();
-            isContinue = 'i';
+            
+            if (isUnload == 'y') {
+                unload();
+            } else isContinue = 'i';
             
             return loaded;
         });
@@ -613,7 +619,11 @@ void getResultAsyncStringFull3() {
             std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
             getSparamsList();
-            isContinue = 'i';
+            //isContinue = 'i';
+            
+            if (isUnload == 'y') {
+                unload();
+            } else isContinue = 'i';
             
             return loaded;
         });
@@ -786,14 +796,19 @@ struct configurableChat{
             fprintf(stderr, "error: failed to open file '%s'\n", filename);
         } else {
             inputPromptExt.clear();
-            std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(inputPromptExt));
-            if (inputPromptExt.back() == '\n') {
-                inputPromptExt.pop_back();
+            std::string prompt;
+            std::string tail;
+            std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(prompt));
+            inputPromptExt = prompt;
+            
+            while (prompt.back() == '\n') {
+                tail += prompt.back();
+                prompt.pop_back();
             }
             if (!headless){
-                int antiPos = inputPromptExt.rfind('\n');
-                if (antiPos != inputPromptExt.npos) {
-                    inputAntipromptExt = inputPromptExt.substr(antiPos + 1);
+                int antiPos = prompt.rfind('\n');
+                if (antiPos != prompt.npos) {
+                    inputAntipromptExt = prompt.substr(antiPos + 1) + tail;
                 }
             }
         }
@@ -959,16 +974,28 @@ struct configurableChat{
         return true;
     }
     
+    void cancelPromt(){
+        inputPrompt = modelConfig[modelName]["prompt"].get<std::string>();
+    }
+    
     bool checkInputAntiprompt(){
         if (inputAntiprompt != "NULL" && inputAntiprompt != modelConfig[modelName]["reverse-prompt"].get<std::string>()) return false;
         
         return true;
     }
     
+    void cancelAntipromt(){
+        inputAntiprompt = modelConfig[modelName]["reverse-prompt"].get<std::string>();
+    }
+    
     bool checkInputAntiCFG(){
         if (!inputAntiCFG.empty() && inputAntiCFG != modelConfig[modelName]["cfg-negative-prompt"].get<std::string>()) return false;
         
         return true;
+    }
+    
+    void cancelAntiCFG(){
+        inputAntiCFG = modelConfig[modelName]["cfg-negative-prompt"].get<std::string>();
     }
     
     void clearFile(){

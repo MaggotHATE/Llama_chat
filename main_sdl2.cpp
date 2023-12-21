@@ -1,4 +1,5 @@
-// Dear ImGui: standalone example application for SDL2 + Vulkan
+// Dear ImGui: standalone example application for SDL2 + SDL_Renderer
+// (SDL is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan/Metal graphics context creation, etc.)
 
 // Learn about Dear ImGui:
 // - FAQ                  https://dearimgui.com/faq
@@ -6,25 +7,24 @@
 // - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
 // - Introduction, links and more at the top of imgui.cpp
 
-// Important note to the reader who wish to integrate imgui_impl_vulkan.cpp/.h in their own engine/app.
-// - Common ImGui_ImplVulkan_XXX functions and structures are used to interface with imgui_impl_vulkan.cpp/.h.
-//   You will use those if you want to use this rendering backend in your engine/app.
-// - Helper ImGui_ImplVulkanH_XXX functions and structures are only used by this example (main.cpp) and by
-//   the backend itself (imgui_impl_vulkan.cpp), but should PROBABLY NOT be used by your own engine/app code.
-// Read comments in imgui_impl_vulkan.h.
+// Important to understand: SDL_Renderer is an _optional_ component of SDL2.
+// For a multi-platform app consider using e.g. SDL+DirectX on Windows and SDL+OpenGL on Linux/OSX.
+
 #if defined(UI_SIMPLE)
 #include "UI_simple.h"
 #else 
 #include "UI.h"
 #endif
 
+#if !SDL_VERSION_ATLEAST(2,0,17)
+#error This backend requires SDL 2.0.17+ because of SDL_RenderGeometry() function
+#endif
+
 // Main code
 int main(int, char**)
 {
     std::setlocale(LC_CTYPE, ".UTF8");
-    
     chatUI UI;
-    
     UI.readFromConfigJson();
     UI.setLable();
     
@@ -40,31 +40,18 @@ int main(int, char**)
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 #endif
 
-    // Create window with Vulkan graphics context
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    // Create window with SDL_Renderer graphics context
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Window* window = SDL_CreateWindow(UI.windowLable.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, UI.width, UI.height, window_flags);
-
-    ImVector<const char*> extensions;
-    uint32_t extensions_count = 0;
-    SDL_Vulkan_GetInstanceExtensions(window, &extensions_count, nullptr);
-    extensions.resize(extensions_count);
-    SDL_Vulkan_GetInstanceExtensions(window, &extensions_count, extensions.Data);
-    SetupVulkan(extensions);
-
-    // Create Window Surface
-    VkSurfaceKHR surface;
-    VkResult err;
-    if (SDL_Vulkan_CreateSurface(window, g_Instance, &surface) == 0)
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+    if (renderer == nullptr)
     {
-        printf("Failed to create Vulkan surface.\n");
-        return 1;
+        SDL_Log("Error creating SDL_Renderer!");
+        return 0;
     }
-
-    // Create Framebuffers
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
-    SetupVulkanWindow(wd, surface, w, h);
+    //SDL_RendererInfo info;
+    //SDL_GetRendererInfo(renderer, &info);
+    //SDL_Log("Current SDL_Renderer: %s", info.name);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -78,22 +65,8 @@ int main(int, char**)
     //ImGui::StyleColorsLight();
 
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForVulkan(window);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = g_Instance;
-    init_info.PhysicalDevice = g_PhysicalDevice;
-    init_info.Device = g_Device;
-    init_info.QueueFamily = g_QueueFamily;
-    init_info.Queue = g_Queue;
-    init_info.PipelineCache = g_PipelineCache;
-    init_info.DescriptorPool = g_DescriptorPool;
-    init_info.Subpass = 0;
-    init_info.MinImageCount = g_MinImageCount;
-    init_info.ImageCount = wd->ImageCount;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    init_info.Allocator = g_Allocator;
-    init_info.CheckVkResultFn = check_vk_result;
-    ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
+    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer2_Init(renderer);
 
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -113,15 +86,19 @@ int main(int, char**)
     
     static ImWchar ranges[] = { 0x1, 0x1FFFF, 0 };
     ImFont* font = io.Fonts->AddFontFromFileTTF(UI.fontFile.c_str(), UI.fontSize, nullptr, ranges);
+    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", UI.fontSize, nullptr, ranges);
+    
     ImFontConfig cfg;
     cfg.MergeMode = true;
     io.Fonts->AddFontFromFileTTF(UI.fontEmojisFile.c_str(), UI.fontSize, &cfg, ranges);
     io.Fonts->Build();
-    
 
     // Our state
     UI.init();
-    UI.preloadImage();
+    UI.preloadImage(renderer);
+    
+    // applying starting theme and style
+    //retroTheme();
     addStyling();
     UI.readStyleFromConfigJson();
     //starting windows management
@@ -148,27 +125,14 @@ int main(int, char**)
                 done = true;
         }
 
-        // Resize swap chain?
-        if (g_SwapChainRebuild)
-        {
-            int width, height;
-            SDL_GetWindowSize(window, &width, &height);
-            if (width > 0 && height > 0)
-            {
-                ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-                ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
-                g_MainWindowData.FrameIndex = 0;
-                g_SwapChainRebuild = false;
-            }
-        }
-
         // Start the Dear ImGui frame
-        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (UI.show_demo_window) ImGui::ShowDemoWindow(&UI.show_demo_window);
+        if (UI.show_demo_window)
+            ImGui::ShowDemoWindow(&UI.show_demo_window);
 #if defined(UI_SIMPLE)
         if (UI.show_templates) UI.templatesWindow();
         if (UI.show_prompts_db) UI.promptsDbWindow();
@@ -184,31 +148,21 @@ int main(int, char**)
 
         // Rendering
         ImGui::Render();
-        ImDrawData* draw_data = ImGui::GetDrawData();
-        const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-        if (!is_minimized)
-        {
-            wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-            wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-            wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-            wd->ClearValue.color.float32[3] = clear_color.w;
-            FrameRender(wd, draw_data);
-            FramePresent(wd);
-        }
+        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+        SDL_SetRenderDrawColor(renderer, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
+        SDL_RenderClear(renderer);
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        SDL_RenderPresent(renderer);
     }
     // Stop and unload
     UI.stopOnCheck();
-    
+
     // Cleanup
-    err = vkDeviceWaitIdle(g_Device);
-    check_vk_result(err);
-    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    CleanupVulkanWindow();
-    CleanupVulkan();
-
+    SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
 

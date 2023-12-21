@@ -1,11 +1,5 @@
 #pragma once
 
-#include "imgui.h"
-#include "misc/cpp/imgui_stdlib.h"
-#include <stdio.h>          // printf, fprintf
-#include <stdlib.h>         // abort
-#include <SDL.h>
-
 #include "tinyfiledialogs.h"
 #include <thread_chat.h>
 
@@ -20,6 +14,8 @@
 #else 
 #   include "backend_vk.h"
 #endif
+
+#include "misc/cpp/imgui_stdlib.h"
 
 
 ///////////////////////////////////////
@@ -727,7 +723,14 @@ struct chatUI{
     bool show_history = false;
     bool show_profile = false;
     
-    MyTextureData my_texture;
+    
+    
+#if defined(SDL2)
+        SDL_Texture* my_texture;
+        int my_image_width, my_image_height;
+#else 
+        MyTextureData my_texture;
+#endif
     
     ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_EnterReturnsTrue;
     
@@ -1362,7 +1365,7 @@ struct chatUI{
     }
     
     void suffixEdit(char* name) {
-        ImGui::InputTextMultiline(name, &localSettings.params.input_suffix, ImVec2(ImGui::GetContentRegionAvail().x * 0.6, ImGui::GetTextLineHeight() * 4)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
+        ImGui::InputTextMultiline(name, &localSettings.params.input_suffix, ImVec2(ImGui::GetContentRegionAvail().x * 0.6, ImGui::GetTextLineHeightWithSpacing() * 4)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
         if (newChat.isNewSuffix(localSettings.params.input_suffix)){ 
             ImGui::SameLine();
             if (ImGui::Button("Apply")) { newChat.applySuffix(localSettings.params.input_suffix); } 
@@ -1500,7 +1503,17 @@ struct chatUI{
             }
             ImGui::SameLine();
             if (ImGui::Button("Prompts history")) {
-                show_history = !show_history;
+                //show_history = !show_history;
+                ImGui::OpenPopup("History");
+            }
+            if (ImGui::BeginPopup("History"))
+            {
+                ImVec2 work_size = viewport->WorkSize;
+                ImGui::BeginChild("Templates list", ImVec2(  work_size.x * 0.5, work_size.y * 0.7));
+                    historyTab();
+                ImGui::EndChild();
+                ImGui::EndPopup();
+                
             }
         //}
     }
@@ -1557,25 +1570,23 @@ struct chatUI{
     ////////////////////generated
                                     //std::cout << r.second;
                                     //ImGui::TextWrapped(r.second.c_str());
-                                    if (messageNum > 1) ImGui::Image((ImTextureID)my_texture.DS, ImVec2(32, 32));
-                                    ImGui::SameLine();
-                                    if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
-                                    else {
-                                        //if (messageNum > 1) ImGui::SeparatorText("answer");
-                                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
-                                    }
-                                    
-                                    if (messageNum == 1){
-                                        //ImGui::SeparatorText("Context");
-                                        // static std::string contextName = "Context";
-                                        // if (ImGui::CollapsingHeader(contextName.c_str(), ImGuiTreeNodeFlags_None)) {
-                                            // message(r.second, messageNum);
-                                        // }
-                                    } else {
-                                    
+                                    if (messageNum > 1) {
+#if defined(SDL2)
+                                        ImGui::Image((void*)my_texture, ImVec2(32, 32));
+#else 
+                                        ImGui::Image((ImTextureID)my_texture.DS, ImVec2(32, 32));
+#endif
+                                        if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
+                                        else {
+                                            //if (messageNum > 1) ImGui::SeparatorText("answer");
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
+                                        }
+                                        
+                                        
                                         message(r.second, messageNum);
+                                        
+                                        ImGui::PopTextWrapPos();
                                     }
-                                    ImGui::PopTextWrapPos();
                                     // if (messageNum == 1 && chatMode){
                                         // ImGui::SeparatorText("Dialog");
                                     // }
@@ -1614,14 +1625,16 @@ struct chatUI{
                             
 //////////////// streaming dialog token-after-token
                             if (newChat.isContinue == 'w') {
+#if defined(SDL2)
+                                ImGui::Image((void*)my_texture, ImVec2(32, 32));
+#else 
                                 ImGui::Image((ImTextureID)my_texture.DS, ImVec2(32, 32));
-                                ImGui::SameLine();
-                                //ImGui::TextWrapped("...");
+#endif
                                 if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.50f);
                                 else {
                                     //ImGui::SeparatorText("answer");
                                     ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
-                                }    
+                                }
                                 output = newChat.lastResult;
                                 //copiedTimings = false;
                                 //aTiming = newChat.lastTimings;
@@ -1646,7 +1659,7 @@ struct chatUI{
                                     ImGui::Text((msg.c_str()));
                                 }
                                 
-                                ImGui::PopTextWrapPos(); 
+                                ImGui::PopTextWrapPos();
                                 //newChat.getResultAsyncString();
                                 if (autoscroll){
                                     scrolled = false;
@@ -1684,7 +1697,7 @@ struct chatUI{
 
                 sendButtonsHorizontal(viewport);
                 if (ImGui::InputTextMultiline(helpLabel.c_str(), &inputStr, ImVec2(inputWidth, ImGui::GetContentRegionAvail().y), inputFlags) == true){
-                    sendPrompt();
+                    if (newChat.isContinue != 'w') sendPrompt();
                 }
                 if (newChat.isContinue != 'w') {
                     ImGui::SameLine();
@@ -2662,14 +2675,11 @@ struct chatUI{
         }
     }
     
-    void preloadImage() {
 #if defined(SDL2)
-        int my_image_width = 0;
-        int my_image_height = 0;
-        GLuint my_image_texture = 0;
-        bool ret = LoadTextureFromFile("default.png", &my_image_texture, &my_image_width, &my_image_height);
-        IM_ASSERT(ret);
-#else 
+    void preloadImage(SDL_Renderer* renderer) {
+        bool ret = LoadTextureFromFile("default.png", &my_texture, my_image_width, my_image_height, renderer);
+#else
+    void preloadImage() {
         bool ret = LoadTextureFromFile("default.png", &my_texture);
         IM_ASSERT(ret);
 #endif
@@ -2700,8 +2710,10 @@ struct chatUI{
         if (ImGui::BeginChild("Dialog tab")){
             settingsHeader();
             ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
             buttonsHeader();
-            ImGui::Separator();
+            ImGui::PopStyleColor();
+            //ImGui::Separator();
             // if (show_immediate_settings) {
                 // immediateSettings();
             // }
@@ -2718,10 +2730,22 @@ struct chatUI{
                     // ImGui::EndTooltip();
                 // }
                 
-                ImVec2 image_size = ImVec2(my_texture.Width * 0.75, my_texture.Height * 0.75);
-                ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - my_texture.Width * 0.75, my_texture.Height * 0.75);
-                
-                if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, image_size)) {
+                // users may load images of different dimentions, better use fixed sizes
+                auto imageSide = ImGui::GetTextLineHeight() * 4 + (ImGui::GetTextLineHeightWithSpacing() - ImGui::GetTextLineHeight())*2;
+                auto textHeight = ImGui::GetTextLineHeightWithSpacing() * 4;
+                //ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+#if defined(SDL2)
+                // ImVec2 image_size = ImVec2(my_image_width * 0.75, my_image_height * 0.75);
+                // ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - my_image_width * 0.75, my_image_height * 0.75);
+                ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - imageSide, textHeight);
+                if (ImGui::ImageButton("", (void*)my_texture, ImVec2(imageSide, imageSide))) {
+#else 
+                // ImVec2 image_size = ImVec2(my_texture.Width * 0.75, my_texture.Height * 0.75);
+                // ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - my_texture.Width * 0.75, my_texture.Height * 0.75);
+                ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - imageSide, textHeight);
+                if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(imageSide, imageSide))) {
+#endif
+                //ImGui::PopStyleColor();
                     //ImGui::OpenPopup("profile_popup");
                     show_profile = !show_profile;
                 }
@@ -2735,11 +2759,13 @@ struct chatUI{
                     // ImGui::EndPopup();
                     // }
                     ImGui::PopStyleColor();
+                    ImGui::Separator();
                 }
                 // if (ImGui::CollapsingHeader("Context", ImGuiTreeNodeFlags_None)) {
                     
                 // }
-                if (chatMode) ImGui::SeparatorText("Dialog");
+                //if (chatMode) ImGui::SeparatorText("Dialog");
+                
             }
             
             dialogTab(viewport);
@@ -2811,7 +2837,7 @@ struct chatUI{
             }
         }
         
-        preloadImage();
+        
         //loadModel();
     }
     
