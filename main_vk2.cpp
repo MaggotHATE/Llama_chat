@@ -173,7 +173,7 @@ int main(int, char**)
         if (UI.show_templates) UI.templatesWindow();
         if (UI.show_prompts_db) UI.promptsDbWindow();
         if (UI.show_tests) UI.testsWindow();
-        if (UI.show_history) UI.historyWindow();
+        //if (UI.show_profile) UI.profileHeaderWindow();
 #endif
 
         ImGui::SetNextWindowPos(UI.use_work_area ? viewport->WorkPos : viewport->Pos);

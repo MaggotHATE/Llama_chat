@@ -48,6 +48,31 @@ static void processInstructFile(std::string filename, gpt_params& params, bool h
     }
 }
 
+static std::string getInlineFileText(std::string filename){
+    std::string result = "";
+    std::ifstream file(filename);
+    if (!file) {
+        fprintf(stderr, "error: failed to open file '%s'\n", filename.c_str());
+    } else {
+        std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(result));
+    }
+    
+    return result;
+}
+
+static void processPrompt(std::string& prompt){
+    int fileClose = prompt.rfind('>');
+    int fileOpen = prompt.rfind('<');
+    int len = fileClose - fileOpen;
+    fprintf(stderr, "Between %d and %d, len %d\n", fileOpen, fileClose, len);
+    if(fileClose != prompt.npos && fileOpen != prompt.npos && len > 1){
+        std::string filename = prompt.substr(fileOpen+1,len-1);
+        fprintf(stderr, "Opening file '%s'\n", filename.c_str());
+        std::string result = getInlineFileText(filename);
+        if (!result.empty()) prompt.replace(fileOpen,len+1,result);
+    }
+}
+
 static bool checkJString(nlohmann::json& config, std::string name){
     if(config.contains(name)){
         if(config[name].is_string()) return true;
@@ -91,12 +116,39 @@ static std::string getText(std::string filename){
     return result;
 }
 
+static std::string formatPrompt(nlohmann::json& config) {
+    std::string format = "";
+    if (checkJString(config, "format")) {
+        format = config["format"];
+        size_t systemPos = format.find("system_message");
+        if (systemPos != format.npos && checkJString(config, "system_message")){
+            std::string system_message = config["system_message"];
+            processPrompt(system_message);
+            format.replace(systemPos,14,system_message);
+        }
+        
+        // size_t promptPos = format.find("prompt");
+        // if (promptPos != format.npos && checkJString(config, "prompt")){
+            // std::string prompt = config["prompt"];
+            // format.replace(promptPos,6,prompt);
+        // }
+    }
+    
+    return format;
+}
+
 static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
+        processPrompt(params.prompt);
     } else if (!hasFile) {
-        if (checkJString(config, "prompt")) params.prompt = config["prompt"];
+        if (checkJString(config, "format")) {
+            params.prompt = formatPrompt(config);
+        } else if (checkJString(config, "prompt")) {
+            params.prompt = config["prompt"];
+            processPrompt(params.prompt);
+        }
         
         if (checkJString(config, "reverse-prompt")){
             if(!params.antiprompt.size()) 
@@ -111,7 +163,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "cfg-scale")) params.sparams.cfg_scale = config["cfg-scale"];
     //if (config["cfg-smooth-factor"].is_number()) params.cfg_smooth_factor = config["cfg-smooth-factor", false);
     if (checkJString(config, "lora")) {
-        params.lora_adapter = config["lora"];
+        params.lora_adapter.push_back(std::tuple<std::string, float>(config["lora"], 1.0));
         params.use_mmap = false;
     }
     if (checkJString(config, "input_prefix")) params.input_prefix = config["input_prefix"];

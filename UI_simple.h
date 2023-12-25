@@ -713,6 +713,11 @@ struct chatUI{
     char* arrow = "<";
     char* vert_arrow = "v";
     
+    bool use_menu_left = true;
+    bool show_menu_left = false;
+    char* menu = "=";
+    char* menu_vert = "||";
+    
     
     bool show_settings = false;
     bool show_settings_advanced = false;
@@ -722,7 +727,13 @@ struct chatUI{
     bool show_tests = false;
     bool show_history = false;
     bool show_profile = false;
+    // separate switchers for parts of UI
+    bool use_menu_bar = false;
     
+    bool use_models_list_left = false;
+    bool use_models_list_right = true;
+    bool use_settings_window = false;
+    bool show_settings_window = false;
     
     
 #if defined(SDL2)
@@ -734,7 +745,13 @@ struct chatUI{
     
     ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_EnterReturnsTrue;
     
-    ImGuiWindowFlags chat_window_flags = ImGuiWindowFlags_MenuBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus;
+    ImGuiWindowFlags chat_window_flags = ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus|ImGuiWindowFlags_NoSavedSettings;
+    
+    ImGuiWindowFlags overlay_window_flags = ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoSavedSettings;
+    
+    ImGuiWindowFlags popup_window_flags;// = ImGuiWindowFlags_NoMove;
+    
+    ImGuiWindowFlags sub_window_flags;// = ImGuiWindowFlags_NoCollapse;
     
     void setLable(){
 #if GGML_OLD_FORMAT
@@ -980,17 +997,17 @@ struct chatUI{
     
     void templatesWindow() {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 38);
+        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.4f, ImGui::GetTextLineHeightWithSpacing() * 38);
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-        if (!ImGui::Begin("Templates window", &show_templates, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
+        if (!ImGui::Begin("Templates window", &show_templates, ImGuiWindowFlags_NoSavedSettings))
         {
             ImGui::End();
             return;
         }
         
         
-        ImGui::BeginChildFrame(ImGui::GetID("Templates frame"), child_size, ImGuiWindowFlags_NoMove);
+        ImGui::BeginChildFrame(ImGui::GetID("Templates frame"), child_size, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
         
         templatesTab();
         
@@ -1001,17 +1018,17 @@ struct chatUI{
     
     void promptsDbWindow() {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 38);
+        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.4f, ImGui::GetTextLineHeightWithSpacing() * 38);
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-        if (!ImGui::Begin("Prompts database window", &show_prompts_db, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
+        if (!ImGui::Begin("Prompts database window", &show_prompts_db, ImGuiWindowFlags_NoSavedSettings))
         {
             ImGui::End();
             return;
         }
         
         
-        ImGui::BeginChildFrame(ImGui::GetID("Prompts database frame"), child_size, ImGuiWindowFlags_NoMove);
+        ImGui::BeginChildFrame(ImGui::GetID("Prompts database frame"), child_size, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
         
         promptFilesTab(ImGui::GetMainViewport());
         
@@ -1022,40 +1039,19 @@ struct chatUI{
     
     void testsWindow() {
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 38);
+        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.4f, ImGui::GetTextLineHeightWithSpacing() * 38);
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-        if (!ImGui::Begin("Tests window", &show_tests, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
+        if (!ImGui::Begin("Tests window", &show_tests, ImGuiWindowFlags_NoSavedSettings))
         {
             ImGui::End();
             return;
         }
         
         
-        ImGui::BeginChildFrame(ImGui::GetID("Tests frame"), child_size, ImGuiWindowFlags_NoMove);
+        ImGui::BeginChildFrame(ImGui::GetID("Tests frame"), child_size, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
         
         testsTab();
-        
-        ImGui::EndChildFrame();
-        
-        ImGui::End();
-    }
-    
-    void historyWindow() {
-        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImVec2 child_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 38);
-        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-
-        if (!ImGui::Begin("History window", &show_history, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
-        {
-            ImGui::End();
-            return;
-        }
-        
-        
-        ImGui::BeginChildFrame(ImGui::GetID("History frame"), child_size, ImGuiWindowFlags_NoMove);
-        
-        historyTab();
         
         ImGui::EndChildFrame();
         
@@ -1384,20 +1380,22 @@ struct chatUI{
         //}
     }
     
-    void profileBar(ImVec2 size) {
-        if (ImGui::BeginChild("ProfileBar", size)){
-            if (ImGui::BeginChild("Profile", ImVec2( ImGui::GetContentRegionAvail().x * 0.25, ImGui::GetContentRegionAvail().y))){
+    void profileBar(ImVec2& size) {
+        if (ImGui::BeginChild("ProfileBar", ImVec2(size.x, size.y - ImGui::GetTextLineHeight()))){
+            
+            if (ImGui::BeginChild("Profile suffix", ImVec2( ImGui::GetContentRegionAvail().x * 0.2, ImGui::GetContentRegionAvail().y))){
                 suffixEdit("##Character");
             ImGui::EndChild();
             }
             ImGui::SameLine();
-            if (ImGui::BeginChild("Context")){
+            if (ImGui::BeginChild("Profile context")){
                 static std::string profileName = "Profile";
                 //contextInstruct(profileName);
                 static int idx = 0;
                 messageAuto(localResultPairs[0].second, idx);
             ImGui::EndChild();
             }
+            
         ImGui::EndChild();
         }
     }
@@ -1409,7 +1407,7 @@ struct chatUI{
                 ImGui::OpenPopup("Templates");
             }
             
-            if (ImGui::BeginPopup("Templates"))
+            if (ImGui::BeginPopup("Templates", ImGuiWindowFlags_NoSavedSettings))
             {
                 ImVec2 work_size = viewport->WorkSize;
                 ImGui::BeginChild("Templates list", ImVec2(  work_size.x * 0.5, work_size.y * 0.7));
@@ -1464,7 +1462,7 @@ struct chatUI{
                 ImGui::OpenPopup("Templates");
             }
             ImGui::SameLine();
-            if (ImGui::BeginPopup("Templates"))
+            if (ImGui::BeginPopup("Templates", ImGuiWindowFlags_NoSavedSettings))
             {
                 ImVec2 work_size = viewport->WorkSize;
                 ImGui::BeginChild("Templates list", ImVec2(  work_size.x * 0.5, work_size.y * 0.7));
@@ -1506,7 +1504,7 @@ struct chatUI{
                 //show_history = !show_history;
                 ImGui::OpenPopup("History");
             }
-            if (ImGui::BeginPopup("History"))
+            if (ImGui::BeginPopup("History", ImGuiWindowFlags_NoSavedSettings))
             {
                 ImVec2 work_size = viewport->WorkSize;
                 ImGui::BeginChild("Templates list", ImVec2(  work_size.x * 0.5, work_size.y * 0.7));
@@ -1547,7 +1545,7 @@ struct chatUI{
 
                 {
 /////// rendering dialogs ////////////////////////////////////////////////////////////////////////
-                    if (ImGui::BeginChild("Dialog", ImVec2( messageWidth * 0.99f, ImGui::GetContentRegionAvail().y*0.75f), false)) {
+                    if (ImGui::BeginChild("Dialog", ImVec2( messageWidth * 0.99f, ImGui::GetContentRegionAvail().y*0.75f))) {
                         ImGui::Indent();
                             // to avoid mutexes we only use a copy of dialog DB for UI
                             if (newChat.isContinue == 'i') {
@@ -1734,30 +1732,52 @@ struct chatUI{
         }
     }
     
+    void modelToConfig(std::string& modelName) {
+        if (newChat.isContinue == '_') {
+            localSettings.modelName = modelName;
+            localSettings.updateSettings();
+            localSettings.fillLocalJson();
+            localSettings.updateDump();
+            n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
+           
+            if (newChat.isContinue != 'w' && newChat.loaded == 9) {
+               newChat.loaded = 0;
+               copiedDialog = false;
+               copiedSettings = false;
+               copiedTimings = false;
+
+               hasModel = false;
+               newChat.unload();
+            }
+        }
+    }
+    
     void modelsListSelectables(){
         ImVec2 size_selectable_chat(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 1.001f);
         for (int n = 0; n < localSettings.modelsFromConfig.size(); n++) {
             if (ImGui::Selectable(localSettings.modelsFromConfig[n].second.c_str(), localSettings.modelsFromConfig[n].first == localSettings.modelName, 0, size_selectable_chat)){
                 
-                if (newChat.isContinue == '_') {
-                    localSettings.modelName = localSettings.modelsFromConfig[n].first;
-                    localSettings.updateSettings();
-                    localSettings.fillLocalJson();
-                    localSettings.updateDump();
-                    n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
-                   
-                    if (newChat.isContinue != 'w' && newChat.loaded == 9) {
-                       newChat.loaded = 0;
-                       copiedDialog = false;
-                       copiedSettings = false;
-                       copiedTimings = false;
-
-                       hasModel = false;
-                       newChat.unload();
-                    }
-                } 
+                modelToConfig(localSettings.modelsFromConfig[n].first);
             }
             HelpTooltip(localSettings.modelsFromConfig[n].second.c_str());
+        }
+    }
+    
+    void modelsBigListSelectables(){
+        ImVec2 size_selectable_chat(ImGui::GetContentRegionAvail().x * 0.9, ImGui::GetTextLineHeightWithSpacing() * 3.001f);
+        for (int n = 0; n < localSettings.modelsFromConfig.size(); n++) {
+            std::string modelData = localSettings.localConfig[localSettings.modelsFromConfig[n].first]["prompt"];
+            //std::string modelCard = localSettings.modelsFromConfig[n].second + ": " + modelData;
+            
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.05);
+            
+            //if (ImGui::Selectable(modelCard.c_str(), localSettings.modelsFromConfig[n].first == localSettings.modelName, 0, size_selectable_chat)){
+            if (ImGui::Selectable(localSettings.modelsFromConfig[n].second.c_str(), localSettings.modelsFromConfig[n].first == localSettings.modelName, 0, size_selectable_chat)){
+                
+                modelToConfig(localSettings.modelsFromConfig[n].first);
+            }
+            
+            HelpTooltip(modelData.c_str());
         }
     }
     
@@ -1765,7 +1785,9 @@ struct chatUI{
         if (std::filesystem::exists(localSettings.modelName)){
             if (ImGui::Button(("Load " + localSettings.modelName).c_str())) {
                 show_models_list = false;
+                show_menu_left = false;
                 arrow = ">";
+                menu = "=";
                 loadModel();
             }
             ImGui::SameLine();
@@ -1792,12 +1814,18 @@ struct chatUI{
         } else ImGui::TextWrapped((localSettings.modelName + " doesn't exist!").c_str());
 
         
-        if (ImGui::BeginChild("Parameters from json file")) {
+        // if (ImGui::BeginChild("Parameters from json file")) {
     
-            ImGui::TextWrapped(localSettings.localJsonDump.c_str());
+            // ImGui::TextWrapped(localSettings.localJsonDump.c_str());
             
+        // ImGui::EndChild();
+        // }
+        ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        if (ImGui::BeginChild("Models list (big)")) {
+            modelsBigListSelectables();
         ImGui::EndChild();
         }
+        ImGui::PopStyleColor();
     }
     
     void firstSettings(const float& baseWidth){
@@ -1892,7 +1920,7 @@ struct chatUI{
                     }
                 }
                 
-                if (ImGui::BeginPopup("No Model")) {
+                if (ImGui::BeginPopup("No Model", ImGuiWindowFlags_NoSavedSettings)) {
                     ImVec2 work_size = ImGui::GetMainViewport()->WorkSize;
                     if (ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.5, work_size.y * 0.1))) {
                         std::string noModelMsg = localSettings.modelConfig["model"].get<std::string>() + " doesn't exist!";
@@ -1943,7 +1971,7 @@ struct chatUI{
                     }
                     
                     
-                    if (ImGui::BeginPopup("Prompts"))
+                    if (ImGui::BeginPopup("Prompts", ImGuiWindowFlags_NoSavedSettings))
                     {
                         ImVec2 work_size = ImGui::GetMainViewport()->WorkSize;
                         if (ImGui::BeginChild("Prompts list", ImVec2(  work_size.x * 0.3, work_size.y * 0.5))) {
@@ -2138,14 +2166,26 @@ struct chatUI{
     }
     
     void settingsHeader(){
-        if (ImGui::BeginChild("Header", ImVec2( ImGui::GetContentRegionAvail().x * 0.67f, fontSize + 6.0f))){
+        if (ImGui::BeginChild("Header", ImVec2( ImGui::GetContentRegionAvail().x * 0.67f, fontSize + 7.0f))){
             
-            if (ImGui::Button(arrow)) {
-                show_models_list = !show_models_list;
-                if (show_models_list == true) arrow = "<";
-                else arrow = ">";
+            if (use_models_list_left) {
+                if (ImGui::Button(arrow, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
+                    show_models_list = !show_models_list;
+                    if (show_models_list == true) arrow = "<";
+                    else arrow = ">";
+                }
+                ImGui::SameLine();
             }
-            ImGui::SameLine();
+            
+            if (use_menu_left) {
+                if (ImGui::Button(menu, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
+                    show_menu_left = !show_menu_left;
+                    if (show_menu_left == true) menu = "||";
+                    else menu = "=";
+                }
+                ImGui::SameLine();
+            }
+            
             ImGui::Checkbox("Chat mode", &chatMode); 
             
             ImGui::SameLine();
@@ -2205,9 +2245,9 @@ struct chatUI{
             
             
             ImVec2 settings_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
-            if (ImGui::BeginPopup("Basic settings")) {
+            if (ImGui::BeginPopup("Basic settings", ImGuiWindowFlags_NoSavedSettings)) {
                 
-                if (ImGui::BeginChild(ImGui::GetID("Settings frame"), settings_size, ImGuiWindowFlags_NoMove)){
+                if (ImGui::BeginChild("Settings frame", settings_size, ImGuiWindowFlags_NoSavedSettings)){
         
                     firstSettings(settings_size.x);
                 
@@ -2217,9 +2257,9 @@ struct chatUI{
             }
             
             ImVec2 advanced_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
-            if (ImGui::BeginPopup("Sampling settings")) {
+            if (ImGui::BeginPopup("Sampling settings", ImGuiWindowFlags_NoSavedSettings)) {
                 
-                if (ImGui::BeginChild(ImGui::GetID("Sampling settings frame"), advanced_size, ImGuiWindowFlags_NoMove)){
+                if (ImGui::BeginChild("Sampling settings frame", advanced_size, ImGuiWindowFlags_NoSavedSettings)){
         
                     settingsTab();
                 
@@ -2229,9 +2269,9 @@ struct chatUI{
             }
             
             ImVec2 json_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 20);
-            if (ImGui::BeginPopup("Json config")) {
+            if (ImGui::BeginPopup("Json config", ImGuiWindowFlags_NoSavedSettings)) {
                 
-                if (ImGui::BeginChild(ImGui::GetID("Json frame"), json_size, ImGuiWindowFlags_NoMove)){
+                if (ImGui::BeginChild("Json frame", json_size, ImGuiWindowFlags_NoSavedSettings)){
         
                     jsonTab();
                 
@@ -2675,6 +2715,287 @@ struct chatUI{
         }
     }
     
+    void menuSide(SDL_Window* window) {
+        if (ImGui::BeginChild("Menu", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y)))
+        {
+            if (newChat.loaded == 9){
+                if (ImGui::BeginChild("Profile shift", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetTextLineHeightWithSpacing() * 5))) {
+                    
+                    ImGui::EndChild();
+                }
+            }
+            
+            if (ImGui::CollapsingHeader("File..."))
+            {
+                if (ImGui::Button("Open a model")) {
+                    if (modelsFolderName == "NULL"){
+#if GGML_OLD_FORMAT
+                        auto getModelName = tinyfd_openFileDialog("Select a model...", NULL,1, modelFilterPatterns, NULL,0);
+#else 
+                        auto getModelName = tinyfd_openFileDialog("Select a model...", NULL,2, modelFilterPatterns, NULL,0);
+#endif
+                        //auto getModelName = openFile(modelFilterPatterns);
+                        if (getModelName) {
+                        //if (getModelName != "NULL") {
+                            std::string getModelNameStr = getModelName;
+                            //sanitizePath(getModelNameStr);
+                            localSettings.modelName = getModelNameStr;
+                            localSettings.updateSettings();
+                            localSettings.fillLocalJson();
+                            //localJsonDump = localSettings.modelConfig.dump(3);
+                            localSettings.updateDump();
+                            n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
+                            // if (!localSettings.noConfig) {
+                                // localSettings.fillLocalJson();
+                            // }
+                            if (newChat.loaded == 9) {
+                                newChat.loaded = 0;
+                                copiedDialog = false;
+                                copiedSettings = false;
+                                copiedTimings = false;
+                                newChat.unload();
+                            }
+                        }
+                    } else {
+                        //auto getModelName = tinyfd_openFileDialog("Select a model...", modelsFolderName.c_str(),1, modelFilterPatterns, NULL,0);
+#if GGML_OLD_FORMAT
+                        auto getModelName = tinyfd_openFileDialog("Select a model...", modelsFolderName.c_str(),1, modelFilterPatterns, NULL,0);
+#else 
+                        auto getModelName = tinyfd_openFileDialog("Select a model...", modelsFolderName.c_str(),2, modelFilterPatterns, NULL,0);
+#endif
+                        
+                        if (getModelName) {
+                            std::string getModelNameStr = getModelName;
+                            //sanitizePath(getModelNameStr);
+                            
+                            localSettings.modelName = getModelNameStr;
+                            sanitizePath(localSettings.modelName);
+                            
+                            localSettings.updateSettings();
+                            localSettings.fillLocalJson();
+                            //localJsonDump = localSettings.modelConfig.dump(3);
+                            localSettings.updateDump();
+                            
+                            if (newChat.loaded == 9) {
+                                newChat.loaded = 0;
+                                copiedDialog = false;
+                                copiedSettings = false;
+                                copiedTimings = false;
+                                newChat.unload();
+                            }
+                        }
+                    }
+                }
+                if (ImGui::Button("Select models folder"))   {
+                     auto getModelFolderName = tinyfd_selectFolderDialog("Select a model...", currPath.c_str());
+                     if (getModelFolderName) {
+                         modelsFolderName = getModelFolderName;
+                         modelsFolderName += "\\";
+                     }
+                }
+                
+                if (ImGui::Button("Select prompts folder"))   { 
+                     auto getPromptsFolderName = tinyfd_selectFolderDialog("Select a model...", currPath.c_str());
+                     if (getPromptsFolderName) {
+                         localSettings.promptFilesFolder = getPromptsFolderName;
+                         localSettings.promptFilesFolder += "\\";
+                         localSettings.getFilesList();
+                     }
+                }
+                
+                ImGui::Checkbox("Demo Window", &show_demo_window); 
+                
+            }
+            
+            if (ImGui::CollapsingHeader("Save..."))
+            {
+                if (ImGui::Button("Save settings config")) {
+                    nlohmann::json settingsJson;
+                    SDL_GL_GetDrawableSize(window, &width, &height);
+                    
+                    settingsJson["width"] = width;
+                    settingsJson["height"] = height;
+                    settingsJson["font"] = fontFile;
+                    settingsJson["fontEmojis"] = fontEmojisFile;
+                    settingsJson["fontSize"] = fontSize;
+                    if(modelsFolderName != "NULL") settingsJson["modelsFolder"] = modelsFolderName;
+                    settingsJson["promptsFolder"] = localSettings.promptFilesFolder;
+                    settingsJson["theme"] = themeIdx;
+                    
+                    ImGuiStyle& style = ImGui::GetStyle();
+                    
+                    
+                    
+                    settingsJson["style"]["AntiAliasedLines"] = style.AntiAliasedLines;
+                    settingsJson["style"]["AntiAliasedLinesUseTex"] = style.AntiAliasedLinesUseTex;
+                    settingsJson["style"]["AntiAliasedFill"] =  style.AntiAliasedFill;
+                   
+                    settingsJson["style"]["FrameBorderSize"] =  style.FrameBorderSize;
+                    settingsJson["style"]["ChildBorderSize"] =  style.ChildBorderSize;
+                    settingsJson["style"]["WindowPadding.x"] =  style.WindowPadding.x;
+                    settingsJson["style"]["CellPadding.x"] = style.CellPadding.x;
+                    settingsJson["style"]["ItemSpacing.x"] = style.ItemSpacing.x;
+                    settingsJson["style"]["ChildRounding"] = style.ChildRounding;
+                    settingsJson["style"]["FrameRounding"] = style.FrameRounding;
+                    settingsJson["style"]["PopupRounding"] = style.PopupRounding;
+                    settingsJson["style"]["TabRounding"] = style.TabRounding;
+                    settingsJson["style"]["GrabRounding"] = style.GrabRounding;
+                    settingsJson["style"]["WindowRounding"] = style.WindowRounding;
+                    settingsJson["style"]["FramePadding.x"] = style.FramePadding.x;
+                    
+                    writeJson(settingsJson, "chatConfig.json");
+
+                }
+                if (ImGui::Button("Save model config"))   { 
+
+                    localSettings.pushToMainConfig();
+                    writeJson(localSettings.localConfig, "config.json");
+                     
+                }
+            }
+            
+            if (ImGui::CollapsingHeader("Themes..."))
+            {
+                
+                if (ImGui::Button("Dark theme")) {
+                   ImGui::StyleColorsDark();
+                }
+                if (ImGui::Button("Light theme")) {
+                   ImGui::StyleColorsLight();
+                }
+                if (ImGui::Button("Classic theme")) {
+                   ImGui::StyleColorsClassic();
+                }
+                if (ImGui::Button("Retro theme")) {
+                   retroTheme();
+                }
+            }
+            
+            if (ImGui::CollapsingHeader("Utilities..."))
+            {
+                if (ImGui::Button("Templates")) {
+                    show_templates = !show_templates;
+                }
+                
+                if (ImGui::Button("Prompts database")) {
+                    show_prompts_db = !show_prompts_db;
+                }
+                
+                if (ImGui::Button("Cyclic tests")) {
+                    show_tests = !show_tests;
+                }
+                
+                // if (ImGui::MenuItem("Prompts history")) {
+                    // show_history = !show_history;
+                // }
+                
+                if (ImGui::Button("Open a font file")) {
+                    std::string fontFileOpened = openFile(fontFilterPatterns);
+                    if (fontFileOpened != "NULL") {
+                        sanitizePath(fontFileOpened);
+                        //fontFile = fontFileOpened;
+                        configJson = getJson("chatConfig.json");
+                        configJson["font"] = fontFileOpened;
+                        
+                        writeJson(configJson, "chatConfig.json");
+                        //font = io.Fonts->AddFontFromFileTTF(fontFile.c_str(), fontSize, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+                        
+                        
+                        //io.FontDefault = fontX;
+                        //io.Fonts->Build();
+                    }
+                }
+            }
+            
+            if (ImGui::CollapsingHeader("Settings..."))
+            {
+                
+                ImGui::CheckboxFlags("Send by Enter", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);
+                
+            }
+            
+            ImGui::EndChild();
+        }
+    }
+    
+    
+    // void profileHeaderWindow(float& imageSide, ImVec2& pose) {
+        // ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x, imageSide + ImGui::GetStyle().ItemSpacing.y * 4);
+        
+        // ImGui::SetNextWindowPos(ImVec2(pose.x + imageSide + ImGui::GetStyle().ItemSpacing.x, pose.y), ImGuiCond_Appearing, ImVec2(0.0f, 0.0f));
+        // if (!ImGui::Begin("profileHeader window", &show_profile, overlay_window_flags))
+        // {
+            // ImGui::End();
+            // return;
+        // }
+        
+        
+        // ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        // ImGui::BeginChildFrame(ImGui::GetID("profileHeader frame"), profile_size, ImGuiWindowFlags_NoSavedSettings);
+        // profileBar(profile_size);
+        // ImGui::EndChildFrame();
+        // ImGui::PopStyleColor();
+        
+        // ImGui::End();
+    // }
+    
+    void profileHeader() {
+        
+        bool showPicture = newChat.loaded == 9;
+        auto imageSide = ImGui::GetTextLineHeightWithSpacing() * 4;
+        ImVec2 pose = ImVec2(0, fontSize + ImGui::GetTextLineHeightWithSpacing() / 2);
+        ImVec2 size;
+        // suffix text field is (ImGui::GetTextLineHeightWithSpacing() * 4) high, like imageSide
+        // need to accomodate that with spacing
+        size.y = imageSide + ImGui::GetStyle().ItemSpacing.y * 5;
+            
+        if (show_profile) size.x = ImGui::GetContentRegionAvail().x;
+        else size.x = imageSide + ImGui::GetStyle().ItemSpacing.x * 5;
+        ImGui::SetNextWindowPos(pose, ImGuiCond_Appearing, ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(size);
+        if (!ImGui::Begin("profilePicture window", &showPicture, overlay_window_flags))
+        {
+            ImGui::End();
+            return;
+        }
+        
+        // ImGui::BeginChildFrame(ImGui::GetID("profilePicture frame"), size, ImGuiWindowFlags_NoSavedSettings);
+#if defined(SDL2)
+        if (ImGui::ImageButton("", (void*)my_texture, ImVec2(imageSide * 0.95, imageSide * 0.95))) {
+#else 
+        if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(imageSide * 0.95, imageSide * 0.95))) {
+#endif
+            show_profile = !show_profile;
+        }
+        if (show_profile && !localResultPairs.empty()) {
+            ImGui::SameLine();
+            // suffixEdit("##Character");
+            // static std::string profileName = "Profile instruct";
+            // ImGui::SameLine();
+            // contextInstruct(profileName);
+            //profileBar(size);
+            if (ImGui::BeginChild("ProfileBar", ImVec2(size.x - imageSide, size.y * 0.85))){
+            
+                if (ImGui::BeginChild("Profile suffix", ImVec2( ImGui::GetContentRegionAvail().x * 0.25, ImGui::GetContentRegionAvail().y))){
+                    suffixEdit("##Character");
+                ImGui::EndChild();
+                }
+                static std::string profileName = "Profile";
+                //contextInstruct(profileName);
+                //static int idx = 0;
+                ImGui::SameLine();
+                //messageAuto(localResultPairs[0].second, idx);
+                contextInstruct(profileName);
+                
+            ImGui::EndChild();
+            }
+        }
+        
+        //profileBar(size);
+        // ImGui::EndChildFrame();
+        ImGui::End();
+    }
+    
 #if defined(SDL2)
     void preloadImage(SDL_Renderer* renderer) {
         bool ret = LoadTextureFromFile("default.png", &my_texture, my_image_width, my_image_height, renderer);
@@ -2688,90 +3009,80 @@ struct chatUI{
     void mainUI(const ImGuiViewport* viewport, SDL_Window* window){
         ImGui::Begin("Chat", NULL, chat_window_flags); 
         
-        localSettings.checkLocalConfig();
         
-        menuBar(window);
-
-        if (show_models_list) {
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-            if (ImGui::BeginChild("Chats list", ImVec2( ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y))) {
-                
-                
-                modelsListSelectables();
-                
-                
-                ImGui::EndChild();
-            }
-            ImGui::PopStyleColor();
-            
-            ImGui::SameLine();
+        
+        if (use_menu_bar) {
+            chat_window_flags |= ImGuiWindowFlags_MenuBar;
+            menuBar(window);
         }
         
-        if (ImGui::BeginChild("Dialog tab")){
-            settingsHeader();
-            ImGui::SameLine();
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-            buttonsHeader();
-            ImGui::PopStyleColor();
-            //ImGui::Separator();
-            // if (show_immediate_settings) {
-                // immediateSettings();
-            // }
-            if (newChat.loaded == 9) {
-                
-                //ImVec2 profile_size = ImVec2(ImGui::GetWindowWidth() * 0.9f, ImGui::GetTextLineHeightWithSpacing() * 10);
-                
-                // ImGui::Image((ImTextureID)my_texture.DS, ImVec2(my_texture.Width, my_texture.Height));
-                // if (ImGui::BeginItemTooltip())
-                // {
-                    // ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-                    // profileBar(profile_size);
-                    // ImGui::PopTextWrapPos();
-                    // ImGui::EndTooltip();
-                // }
-                
-                // users may load images of different dimentions, better use fixed sizes
-                auto imageSide = ImGui::GetTextLineHeight() * 4 + (ImGui::GetTextLineHeightWithSpacing() - ImGui::GetTextLineHeight())*2;
-                auto textHeight = ImGui::GetTextLineHeightWithSpacing() * 4;
-                //ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-#if defined(SDL2)
-                // ImVec2 image_size = ImVec2(my_image_width * 0.75, my_image_height * 0.75);
-                // ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - my_image_width * 0.75, my_image_height * 0.75);
-                ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - imageSide, textHeight);
-                if (ImGui::ImageButton("", (void*)my_texture, ImVec2(imageSide, imageSide))) {
-#else 
-                // ImVec2 image_size = ImVec2(my_texture.Width * 0.75, my_texture.Height * 0.75);
-                // ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - my_texture.Width * 0.75, my_texture.Height * 0.75);
-                ImVec2 profile_size = ImVec2(ImGui::GetContentRegionAvail().x - imageSide, textHeight);
-                if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(imageSide, imageSide))) {
-#endif
-                //ImGui::PopStyleColor();
-                    //ImGui::OpenPopup("profile_popup");
-                    show_profile = !show_profile;
-                }
-                
-                if (show_profile) {
-                    ImGui::SameLine();
-                    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-                    // if (ImGui::BeginPopup("profile_popup")) {
-                        
-                        profileBar(profile_size);
-                    // ImGui::EndPopup();
-                    // }
-                    ImGui::PopStyleColor();
-                    ImGui::Separator();
-                }
-                // if (ImGui::CollapsingHeader("Context", ImGuiTreeNodeFlags_None)) {
-                    
-                // }
-                //if (chatMode) ImGui::SeparatorText("Dialog");
-                
-            }
+        
+        // top headers
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        settingsHeader();
+        ImGui::SameLine();
+        buttonsHeader();
+        // if (newChat.loaded == 9) {
             
+        // }
+        ImGui::PopStyleColor();
+        
+        // profile header
+        if (newChat.loaded == 9) {
+            profileHeader();
+        }
+        
+        //models of the left
+        if (use_models_list_left) {
+            if (show_models_list) {
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+                ImGui::SetNextItemAllowOverlap();
+                if (ImGui::BeginChild("Chats list", ImVec2( ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y))) {
+                    
+                    
+                    modelsListSelectables();
+                    
+                    
+                    ImGui::EndChild();
+                }
+                ImGui::PopStyleColor();
+                
+                ImGui::SameLine();
+            }
+        }
+        //menu of the left
+        if (use_menu_left) {
+            if (show_menu_left){
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+                menuSide(window);
+                ImGui::PopStyleColor();
+                ImGui::SameLine();
+            }
+        }
+        // main dialog
+        if (ImGui::BeginChild("Dialog tab")){
             dialogTab(viewport);
             
             ImGui::EndChild();
         }
+        
+        // if (use_models_list_right) {
+            // if (show_models_list) {
+                // ImGui::SameLine();
+                // ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+                // if (ImGui::BeginChild("Chats list", ImVec2( ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y))) {
+                    
+                    
+                    // modelsListSelectables();
+                    
+                    
+                    // ImGui::EndChild();
+                // }
+                // ImGui::PopStyleColor();
+                
+                
+            // }
+        // }
         
         ImGui::End();
         
@@ -2837,7 +3148,7 @@ struct chatUI{
             }
         }
         
-        
+        localSettings.checkLocalConfig();
         //loadModel();
     }
     

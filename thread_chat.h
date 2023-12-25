@@ -1032,6 +1032,7 @@ struct configurableChat{
         
         if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) modelConfig[model]["penalize_nl"] = params.sparams.penalize_nl;
         if (params.use_mmap != paramsDefault.use_mmap) modelConfig[model]["use_mmap"] = params.use_mmap;
+        if (!params.lora_adapter.empty()) modelConfig[model]["lora"] = std::get<0>(params.lora_adapter[0]);
         
         
         if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
@@ -1109,6 +1110,7 @@ struct configurableChat{
         
         if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) newCard["penalize_nl"] = params.sparams.penalize_nl;
         if (params.use_mmap != paramsDefault.use_mmap) newCard["use_mmap"] = params.use_mmap;
+        if (!params.lora_adapter.empty()) newCard["lora"] = std::get<0>(params.lora_adapter[0]);
         
         
         if (params.sparams.temp != paramsDefault.sparams.temp) newCard["temp"] = params.sparams.temp;
@@ -1429,7 +1431,7 @@ struct wildcardGen{
         }
         
         if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
-        else {
+        else if (promptsDB.empty()) {
             std::string input2;
             std::getline(std::cin, input2);
             
