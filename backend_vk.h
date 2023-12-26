@@ -30,6 +30,8 @@ static ImGui_ImplVulkanH_Window g_MainWindowData;
 static uint32_t                 g_MinImageCount = 2;
 static bool                     g_SwapChainRebuild = false;
 
+static uint32_t                 g_maxSets = 1024;
+
 static void check_vk_result(VkResult err)
 {
     if (err == 0)
@@ -202,12 +204,12 @@ static void SetupVulkan(ImVector<const char*> instance_extensions)
     {
         VkDescriptorPoolSize pool_sizes[] =
         {
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, g_maxSets },
         };
         VkDescriptorPoolCreateInfo pool_info = {};
         pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        pool_info.maxSets = 10;
+        pool_info.maxSets = g_maxSets;
         pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
         pool_info.pPoolSizes = pool_sizes;
         err = vkCreateDescriptorPool(g_Device, &pool_info, g_Allocator, &g_DescriptorPool);

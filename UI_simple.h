@@ -1526,9 +1526,6 @@ struct chatUI{
             }
             
             if (newChat.loaded == 9) {
-                
-                shortModelName = newChat.shortModelName;
-                
                 if (!initTokens){
                     tokens_this_session = newChat.last_tokens;
                     consumed_this_session = newChat.consumed_tokens;
@@ -1540,6 +1537,7 @@ struct chatUI{
                 if (!copiedSettings){
                     localSettings.getSettings(newChat.newChat);
                     helpLabel = localSettings.params.antiprompt[0];
+                    shortModelName = newChat.shortModelName;
                     copiedSettings = true;
                 }
 
@@ -2165,125 +2163,110 @@ struct chatUI{
         //ImGui::SetNextItemAllowOverlap();
     }
     
+    void buttonsForSide() {
+        if (use_models_list_left) {
+            if (ImGui::Button(arrow, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
+                show_models_list = !show_models_list;
+                if (show_models_list == true) arrow = "<";
+                else arrow = ">";
+            }
+            //ImGui::SameLine();
+        }
+        
+        if (use_menu_left) {
+            if (ImGui::Button(menu, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
+                show_menu_left = !show_menu_left;
+                if (show_menu_left == true) menu = "||";
+                else menu = "=";
+            }
+            //ImGui::SameLine();
+        }
+    }
+    
+    void settingsHeaderButtons() {
+        if (ImGui::Button("Current json")) {
+            //show_json = !show_json;
+            ImGui::OpenPopup("Json config");
+        }
+        //}
+            
+        ImGui::SameLine();
+        //if (!tall) ImGui::SameLine();
+        
+        if (ImGui::Button("Settings")) {
+            //show_settings = !show_settings;
+            ImGui::OpenPopup("Basic settings");
+        }
+            
+            //ImGui::SameLine();
+        ImGui::SameLine();
+        if (ImGui::Button("Advanced")) {
+            //show_settings_advanced = !show_settings_advanced;
+            ImGui::OpenPopup("Sampling settings");
+        }
+            
+        if (newChat.isContinue == 'i') {
+            ImGui::SameLine();
+            if (ImGui::Button("Save all")) {
+                auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+
+                if (saveAnswer){
+                    newChat.writeTextFileSimple(saveAnswer);
+                }
+            }
+        }
+        
+        
+        ImVec2 settings_size = ImVec2(ImGui::GetWindowWidth() * 0.9f, ImGui::GetTextLineHeightWithSpacing() * 37);
+        if (ImGui::BeginPopup("Basic settings", ImGuiWindowFlags_NoSavedSettings)) {
+            
+            if (ImGui::BeginChild("Settings frame", settings_size, ImGuiWindowFlags_NoSavedSettings)){
+    
+                firstSettings(settings_size.x);
+            
+            ImGui::EndChild();
+            }    
+        ImGui::EndPopup();
+        }
+        
+        ImVec2 advanced_size = ImVec2(ImGui::GetWindowWidth() * 0.9f, ImGui::GetTextLineHeightWithSpacing() * 37);
+        if (ImGui::BeginPopup("Sampling settings", ImGuiWindowFlags_NoSavedSettings)) {
+            
+            if (ImGui::BeginChild("Sampling settings frame", advanced_size, ImGuiWindowFlags_NoSavedSettings)){
+    
+                settingsTab();
+            
+            ImGui::EndChild();
+            }    
+        ImGui::EndPopup();
+        }
+        
+        ImVec2 json_size = ImVec2(ImGui::GetWindowWidth() * 0.9f, ImGui::GetTextLineHeightWithSpacing() * 20);
+        if (ImGui::BeginPopup("Json config", ImGuiWindowFlags_NoSavedSettings)) {
+            
+            if (ImGui::BeginChild("Json frame", json_size, ImGuiWindowFlags_NoSavedSettings)){
+    
+                jsonTab();
+            
+            ImGui::EndChild();
+            }    
+        ImGui::EndPopup();
+        }
+    }
+    
     void settingsHeader(){
-        if (ImGui::BeginChild("Header", ImVec2( ImGui::GetContentRegionAvail().x * 0.67f, fontSize + 7.0f))){
+        //if (ImGui::BeginChild("Header", ImVec2( ImGui::GetContentRegionAvail().x * 0.67f, fontSize + 7.0f))) {
             
-            if (use_models_list_left) {
-                if (ImGui::Button(arrow, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
-                    show_models_list = !show_models_list;
-                    if (show_models_list == true) arrow = "<";
-                    else arrow = ">";
-                }
-                ImGui::SameLine();
-            }
             
-            if (use_menu_left) {
-                if (ImGui::Button(menu, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
-                    show_menu_left = !show_menu_left;
-                    if (show_menu_left == true) menu = "||";
-                    else menu = "=";
-                }
-                ImGui::SameLine();
-            }
             
             ImGui::Checkbox("Chat mode", &chatMode); 
             
             ImGui::SameLine();
             
             ImGui::Checkbox("Autoscroll", &autoscroll);
-            ImGui::SameLine();
-
-            //if (ImGui::Button("Config")) {
-            //    ImGui::OpenPopup("configs");
-            //}
             
-            /* if (newChat.isContinue != '_'){
-                ImGui::SameLine();
-                if (ImGui::Button("Params")) {
-                    // show_immediate_settings = !show_immediate_settings;
-                    // if (show_immediate_settings == true) vert_arrow = "^";
-                    // else vert_arrow = "v";
-                    ImGui::OpenPopup("immediate settings");
-                }
-            } */
-            
-            
-            //if (ImGui::BeginPopup("configs")) {
-                
-            if (newChat.isContinue != '_') {
-                ImGui::SameLine();
-                if (ImGui::Button("Current json")) {
-                    //show_json = !show_json;
-                    ImGui::OpenPopup("Json config");
-                }
-            }
-                
-            //ImGui::SameLine();
-            ImGui::SameLine();
-            if (ImGui::Button("Settings")) {
-                //show_settings = !show_settings;
-                ImGui::OpenPopup("Basic settings");
-            }
-                
-                //ImGui::SameLine();
-            ImGui::SameLine();
-            if (ImGui::Button("Advanced")) {
-                //show_settings_advanced = !show_settings_advanced;
-                ImGui::OpenPopup("Sampling settings");
-            }
-                
-            if (newChat.isContinue == 'i') {
-                ImGui::SameLine();
-                if (ImGui::Button("Save all")) {
-                    auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
-
-                    if (saveAnswer){
-                        newChat.writeTextFileSimple(saveAnswer);
-                    }
-                }
-            }
-            
-            
-            ImVec2 settings_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
-            if (ImGui::BeginPopup("Basic settings", ImGuiWindowFlags_NoSavedSettings)) {
-                
-                if (ImGui::BeginChild("Settings frame", settings_size, ImGuiWindowFlags_NoSavedSettings)){
-        
-                    firstSettings(settings_size.x);
-                
-                ImGui::EndChild();
-                }    
-            ImGui::EndPopup();
-            }
-            
-            ImVec2 advanced_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 37);
-            if (ImGui::BeginPopup("Sampling settings", ImGuiWindowFlags_NoSavedSettings)) {
-                
-                if (ImGui::BeginChild("Sampling settings frame", advanced_size, ImGuiWindowFlags_NoSavedSettings)){
-        
-                    settingsTab();
-                
-                ImGui::EndChild();
-                }    
-            ImGui::EndPopup();
-            }
-            
-            ImVec2 json_size = ImVec2(ImGui::GetWindowWidth() * 1.2f, ImGui::GetTextLineHeightWithSpacing() * 20);
-            if (ImGui::BeginPopup("Json config", ImGuiWindowFlags_NoSavedSettings)) {
-                
-                if (ImGui::BeginChild("Json frame", json_size, ImGuiWindowFlags_NoSavedSettings)){
-        
-                    jsonTab();
-                
-                ImGui::EndChild();
-                }    
-            ImGui::EndPopup();
-            }
-                
-                
-            
-            ImGui::EndChild();
-        }
+            // ImGui::EndChild();
+        // }
     }
     
     void pause() {
@@ -2324,7 +2307,7 @@ struct chatUI{
     }
     
     void buttonsHeader(){
-        if (ImGui::BeginChild("Buttons", ImVec2( ImGui::GetContentRegionAvail().x, fontSize + 6.0f))){
+        if (ImGui::BeginChild("Buttons", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 1.2f))){
             if (newChat.loaded == 9){
                 static float values[90] = {};
                 static int values_offset = 0;
@@ -2718,8 +2701,8 @@ struct chatUI{
     void menuSide(SDL_Window* window) {
         if (ImGui::BeginChild("Menu", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y)))
         {
-            if (newChat.loaded == 9){
-                if (ImGui::BeginChild("Profile shift", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetTextLineHeightWithSpacing() * 5))) {
+            if (newChat.loaded == 9 && show_profile){
+                if (ImGui::BeginChild("Profile shift", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetTextLineHeightWithSpacing() * 4.8f))) {
                     
                     ImGui::EndChild();
                 }
@@ -2943,7 +2926,7 @@ struct chatUI{
         
         bool showPicture = newChat.loaded == 9;
         auto imageSide = ImGui::GetTextLineHeightWithSpacing() * 4;
-        ImVec2 pose = ImVec2(0, fontSize + ImGui::GetTextLineHeightWithSpacing() / 2);
+        ImVec2 pose = ImVec2(ImGui::GetStyle().ItemSpacing.x, ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 4);
         ImVec2 size;
         // suffix text field is (ImGui::GetTextLineHeightWithSpacing() * 4) high, like imageSide
         // need to accomodate that with spacing
@@ -2960,10 +2943,11 @@ struct chatUI{
         }
         
         // ImGui::BeginChildFrame(ImGui::GetID("profilePicture frame"), size, ImGuiWindowFlags_NoSavedSettings);
+        float realImgSide = imageSide * 0.95;
 #if defined(SDL2)
-        if (ImGui::ImageButton("", (void*)my_texture, ImVec2(imageSide * 0.95, imageSide * 0.95))) {
-#else 
-        if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(imageSide * 0.95, imageSide * 0.95))) {
+        if (ImGui::ImageButton("", (void*)my_texture, ImVec2(realImgSide, realImgSide))) {
+#else
+        if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(realImgSide, realImgSide))) {
 #endif
             show_profile = !show_profile;
         }
@@ -2996,6 +2980,76 @@ struct chatUI{
         ImGui::End();
     }
     
+    void profileImage() {
+        float realImgSide = ImGui::GetTextLineHeightWithSpacing() * 2.2;
+#if defined(SDL2)
+        if (ImGui::ImageButton("", (void*)my_texture, ImVec2(realImgSide, realImgSide))) {
+#else
+        if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(realImgSide, realImgSide))) {
+#endif
+            show_profile = !show_profile;
+        }
+    }
+    
+    void profileHeaderImageless() {
+        
+        auto imageSide = ImGui::GetTextLineHeightWithSpacing() * 4;
+        ImVec2 pose = ImVec2(ImGui::GetStyle().ItemSpacing.x, ImGui::GetTextLineHeightWithSpacing() * 2.8f);
+        ImVec2 size;
+        size.y = imageSide + ImGui::GetStyle().ItemSpacing.y * 5;
+        size.x = ImGui::GetContentRegionAvail().x;
+        ImGui::SetNextWindowPos(pose, ImGuiCond_Appearing, ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(size);
+        if (!ImGui::Begin("profilePicture window", &show_profile, overlay_window_flags))
+        {
+            ImGui::End();
+            return;
+        }
+        
+        // ImGui::BeginChildFrame(ImGui::GetID("profilePicture frame"), size, ImGuiWindowFlags_NoSavedSettings);
+        if (!localResultPairs.empty()) {
+
+            if (ImGui::BeginChild("ProfileBar", ImVec2(size.x - imageSide, size.y * 0.85))){
+            
+                if (ImGui::BeginChild("Profile suffix", ImVec2( ImGui::GetContentRegionAvail().x * 0.25, ImGui::GetContentRegionAvail().y))){
+                    suffixEdit("##Character");
+                ImGui::EndChild();
+                }
+                static std::string profileName = "Profile";
+                //contextInstruct(profileName);
+                //static int idx = 0;
+                ImGui::SameLine();
+                //messageAuto(localResultPairs[0].second, idx);
+                contextInstruct(profileName);
+                
+            ImGui::EndChild();
+            }
+        }
+        ImGui::End();
+    }
+    
+    void headerPlus() {
+        buttonsForSide();
+        ImGui::SameLine();
+        if (newChat.loaded == 9) {
+            if (ImGui::BeginChild("profile picture", ImVec2(ImGui::GetTextLineHeightWithSpacing() * 2.5f, ImGui::GetTextLineHeightWithSpacing() * 2.5f))){
+                profileImage();
+            ImGui::EndChild();
+            }
+            ImGui::SameLine();
+        }
+        if (ImGui::BeginChild("HeaderTaller", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 2.5f))){
+            settingsHeader();
+            if (newChat.loaded == 9) {
+                ImGui::SameLine();
+                buttonsHeader();
+            }
+            settingsHeaderButtons();
+            //buttonsHeader();
+        ImGui::EndChild();
+        }
+    }
+    
 #if defined(SDL2)
     void preloadImage(SDL_Renderer* renderer) {
         bool ret = LoadTextureFromFile("default.png", &my_texture, my_image_width, my_image_height, renderer);
@@ -3008,9 +3062,6 @@ struct chatUI{
     
     void mainUI(const ImGuiViewport* viewport, SDL_Window* window){
         ImGui::Begin("Chat", NULL, chat_window_flags); 
-        
-        
-        
         if (use_menu_bar) {
             chat_window_flags |= ImGuiWindowFlags_MenuBar;
             menuBar(window);
@@ -3019,9 +3070,10 @@ struct chatUI{
         
         // top headers
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-        settingsHeader();
-        ImGui::SameLine();
-        buttonsHeader();
+        headerPlus();
+        // settingsHeader();
+        // ImGui::SameLine();
+        // buttonsHeader();
         // if (newChat.loaded == 9) {
             
         // }
@@ -3029,7 +3081,8 @@ struct chatUI{
         
         // profile header
         if (newChat.loaded == 9) {
-            profileHeader();
+            //profileHeader();
+            if (show_profile) profileHeaderImageless();
         }
         
         //models of the left
@@ -3061,8 +3114,9 @@ struct chatUI{
         }
         // main dialog
         if (ImGui::BeginChild("Dialog tab")){
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_PopupBg));
             dialogTab(viewport);
-            
+            ImGui::PopStyleColor();
             ImGui::EndChild();
         }
         
