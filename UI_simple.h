@@ -1371,12 +1371,12 @@ struct chatUI{
     void contextInstruct(std::string& contextName) {
         static int idx = 0;
         //if (ImGui::CollapsingHeader(contextName.c_str(), ImGuiTreeNodeFlags_None)) {
-            //if (ImGui::BeginChild("ContextMsg")) {
+            if (ImGui::BeginChild("ContextMsg")) {
                 //ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
                 messageAuto(localResultPairs[0].second, idx);
                 //ImGui::PopTextWrapPos();
-            //ImGui::EndChild();
-            //}
+            ImGui::EndChild();
+            }
         //}
     }
     
@@ -3009,7 +3009,7 @@ struct chatUI{
         // ImGui::BeginChildFrame(ImGui::GetID("profilePicture frame"), size, ImGuiWindowFlags_NoSavedSettings);
         if (!localResultPairs.empty()) {
 
-            if (ImGui::BeginChild("ProfileBar", ImVec2(size.x - imageSide, size.y * 0.85))){
+            if (ImGui::BeginChild("ProfileBar", ImVec2(size.x - imageSide, size.y))){
             
                 if (ImGui::BeginChild("Profile suffix", ImVec2( ImGui::GetContentRegionAvail().x * 0.25, ImGui::GetContentRegionAvail().y))){
                     suffixEdit("##Character");
