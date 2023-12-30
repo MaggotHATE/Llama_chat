@@ -178,6 +178,7 @@ struct modelThread{
     void display(){
         Clear();
         
+        std::cout << "--------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
@@ -192,6 +193,7 @@ struct modelThread{
         //#endif
         //std::cout << lastTimings << std::endl;
         std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
+        std::cout << "--------------------\n"<< std::endl;
         
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
@@ -206,7 +208,7 @@ struct modelThread{
             
             if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
-        
+        if (isContinue == 'w') std::cout << lastResult;
         //if (last_tokens > 0) std::cout << "Generated: " << last_tokens << std::endl;
         //std::cout<< DELIMINER;
     }
@@ -441,20 +443,22 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
 
                 std::string output = newChat.cycleStringsOnly(false);
                 lastResult += output;
+                if (streaming == true) display();
+                getTimigsGen();
                 
-                if (full == true) {
-                    if (streaming == true) {
-                        getTimigsGen();
-                        display();
-                        std::cout << lastResult;
-                    } else getTimigsGen();
-                } else if (streaming == true) std::cout << output;
+                // if (full == true) {
+                    // if (streaming == true) {
+                        // getTimigsGen();
+                        // display();
+                        // std::cout << lastResult;
+                    // } else getTimigsGen();
+                // } else if (streaming == true) std::cout << output;
                 
                 //getTimigsSimple();
                 
                 checkFinished();
                 getStats();
-            
+                
             }
             
             std::string result = "ready";
@@ -1336,9 +1340,12 @@ struct presetTest{
         
         while(cycle != presetsNames.size()){
             if (threadedChat.isContinue != 'i') {
-                if (waiting) std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+                if (waiting) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+                    //if (threadedChat.loaded == 9 && streaming) threadedChat.display();
+                }
             } else {
-                if (streaming) threadedChat.display();
+                //if (streaming) threadedChat.display();
                 std::cout << "Test cycle " << std::to_string(cycle) << std::endl;
                 if(cycling == 1){
                     threadedChat.writeTextFileFull(saveFolder + '/', writeName());
@@ -1358,9 +1365,10 @@ struct presetTest{
                     }
                 } else {
                     threadedChat.appendQuestion(prompt);
-                    if (streaming) threadedChat.display();
+                    //if (streaming) threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(streaming, true);
+                    //threadedChat.getResultAsyncStringFull3();
                     cycling = 1;
                 }
             }
@@ -1502,7 +1510,10 @@ struct wildcardGen{
         
         while(cycles >= 0){
             if (threadedChat.isContinue != 'i') {
-                if (waiting) std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+                if (waiting) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+                    //if (threadedChat.loaded == 9 && streaming) threadedChat.display();
+                }
             } else {
                 if(cycling == 1){
                     threadedChat.writeTextFileFull(saveFolder + '/', subname + "-" + std::to_string(cycles) + "-"+ std::to_string(threadedChat.newChat.params.seed));
@@ -1522,10 +1533,12 @@ struct wildcardGen{
                     if (writeExternal) threadedChat.externalData = "-Preset: " + preset + "\n-Cycles left: " + std::to_string(cycles) + "\n-File subname: " + subname + "-" + std::to_string(cycles) + "-"+ std::to_string(threadedChat.newChat.params.seed) + "\n";
                     getPrompt();
                     //input = Card.prompt;
+                    processPrompt(prompt);
                     threadedChat.appendQuestion(prompt);
-                    if (streaming) threadedChat.display();
+                    //if (streaming) threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(streaming, true);
+                    //threadedChat.getResultAsyncStringFull3();
                     cycling = 1;
                 }
             }

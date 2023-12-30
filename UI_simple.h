@@ -101,6 +101,63 @@ void retroTheme(){
     style.IndentSpacing = 12.0f;
 }
 
+void StyleColorsLightNew()
+{
+    ImGui::StyleColorsLight();
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* colors = style.Colors;
+
+    colors[ImGuiCol_Text]                   = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+    colors[ImGuiCol_TextDisabled]           = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+    colors[ImGuiCol_WindowBg]               = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
+    colors[ImGuiCol_ChildBg]                = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_PopupBg]                = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
+    colors[ImGuiCol_Border]                 = ImVec4(0.00f, 0.00f, 0.00f, 0.30f);
+    colors[ImGuiCol_BorderShadow]           = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_FrameBg]                = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.26f, 0.59f, 0.98f, 0.40f);
+    colors[ImGuiCol_FrameBgActive]          = ImVec4(0.26f, 0.59f, 0.98f, 0.67f);
+    colors[ImGuiCol_TitleBg]                = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
+    colors[ImGuiCol_TitleBgActive]          = ImVec4(0.82f, 0.82f, 0.82f, 1.00f);
+    colors[ImGuiCol_TitleBgCollapsed]       = ImVec4(1.00f, 1.00f, 1.00f, 0.51f);
+    colors[ImGuiCol_MenuBarBg]              = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
+    colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.98f, 0.98f, 0.98f, 0.53f);
+    colors[ImGuiCol_ScrollbarGrab]          = ImVec4(0.69f, 0.69f, 0.69f, 0.80f);
+    colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.49f, 0.49f, 0.49f, 0.80f);
+    colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.49f, 0.49f, 0.49f, 1.00f);
+    colors[ImGuiCol_CheckMark]              = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_SliderGrab]             = ImVec4(0.26f, 0.59f, 0.98f, 0.78f);
+    colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.46f, 0.54f, 0.80f, 0.60f);
+    colors[ImGuiCol_Button]                 = ImVec4(0.26f, 0.59f, 0.98f, 0.40f);
+    colors[ImGuiCol_ButtonHovered]          = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_ButtonActive]           = ImVec4(0.06f, 0.53f, 0.98f, 1.00f);
+    colors[ImGuiCol_Header]                 = ImVec4(0.26f, 0.59f, 0.98f, 0.31f);
+    colors[ImGuiCol_HeaderHovered]          = ImVec4(0.26f, 0.59f, 0.98f, 0.80f);
+    colors[ImGuiCol_HeaderActive]           = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_Separator]              = ImVec4(0.39f, 0.39f, 0.39f, 0.62f);
+    colors[ImGuiCol_SeparatorHovered]       = ImVec4(0.14f, 0.44f, 0.80f, 0.78f);
+    colors[ImGuiCol_SeparatorActive]        = ImVec4(0.14f, 0.44f, 0.80f, 1.00f);
+    colors[ImGuiCol_ResizeGrip]             = ImVec4(0.35f, 0.35f, 0.35f, 0.17f);
+    colors[ImGuiCol_ResizeGripHovered]      = ImVec4(0.26f, 0.59f, 0.98f, 0.67f);
+    colors[ImGuiCol_ResizeGripActive]       = ImVec4(0.26f, 0.59f, 0.98f, 0.95f);
+    colors[ImGuiCol_TabHovered]             = colors[ImGuiCol_HeaderHovered];
+    colors[ImGuiCol_PlotLines]              = ImVec4(0.39f, 0.39f, 0.39f, 1.00f);
+    colors[ImGuiCol_PlotLinesHovered]       = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
+    colors[ImGuiCol_PlotHistogram]          = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
+    colors[ImGuiCol_PlotHistogramHovered]   = ImVec4(1.00f, 0.45f, 0.00f, 1.00f);
+    colors[ImGuiCol_TableHeaderBg]          = ImVec4(0.78f, 0.87f, 0.98f, 1.00f);
+    colors[ImGuiCol_TableBorderStrong]      = ImVec4(0.57f, 0.57f, 0.64f, 1.00f);   // Prefer using Alpha=1.0 here
+    colors[ImGuiCol_TableBorderLight]       = ImVec4(0.68f, 0.68f, 0.74f, 1.00f);   // Prefer using Alpha=1.0 here
+    colors[ImGuiCol_TableRowBg]             = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_TableRowBgAlt]          = ImVec4(0.30f, 0.30f, 0.30f, 0.09f);
+    colors[ImGuiCol_TextSelectedBg]         = ImVec4(0.26f, 0.59f, 0.98f, 0.35f);
+    colors[ImGuiCol_DragDropTarget]         = ImVec4(0.26f, 0.59f, 0.98f, 0.95f);
+    colors[ImGuiCol_NavHighlight]           = colors[ImGuiCol_HeaderHovered];
+    colors[ImGuiCol_NavWindowingHighlight]  = ImVec4(0.70f, 0.70f, 0.70f, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg]      = ImVec4(0.20f, 0.20f, 0.20f, 0.20f);
+    colors[ImGuiCol_ModalWindowDimBg]       = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);
+}
+
 // utils for configs
 
 static void sanitizePath(std::string& path){
@@ -1575,6 +1632,8 @@ struct chatUI{
                                         if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
                                         else {
                                             //if (messageNum > 1) ImGui::SeparatorText("answer");
+                                            ImGui::SameLine();
+                                            ImGui::Separator();
                                             ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
                                         }
                                         
@@ -1589,14 +1648,30 @@ struct chatUI{
                                 } else {
     ////////////////////////prompts
 
-                                    if (chatMode) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
-                                    else ImGui::SeparatorText("prompt");
+                                    if (chatMode) {
+                                        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - r.first.length()*ImGui::GetFontSize());
+                                        ImGui::Text((r.first).c_str());
+                                    } else ImGui::SeparatorText(r.first.c_str());
                                     
                                     //ImGui::BeginChild(std::to_string(messageNum).c_str());
                                     //ImGui::TextWrapped((r.first + r.second).c_str());
-                                    std::string msg = r.first+r.second;
-                                    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
-                                    message(msg, messageNum);
+                                    auto msgLen = r.second.length()*ImGui::GetFontSize();
+                                    
+                                    if (chatMode) { 
+                                        if (msgLen < messageWidth) {
+                                            
+                                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + msgLen * 0.45f);
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + msgLen * 0.5f);
+                                        } else {
+                                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.45f);
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + messageWidth* 0.5f);
+                                        }
+                                        //else ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
+                                    } else ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+                                    
+                                    
+                                    
+                                    message(r.second, messageNum);
                                     ImGui::PopTextWrapPos();
                                     //ImGui::EndChild();
                                 //ImGui::Separator();
@@ -1762,24 +1837,26 @@ struct chatUI{
     }
     
     void modelsBigListSelectables(){
-        ImVec2 size_selectable_chat(ImGui::GetContentRegionAvail().x * 0.9, ImGui::GetTextLineHeightWithSpacing() * 3.001f);
+        ImVec2 size_selectable_chat(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 1.9f);
         for (int n = 0; n < localSettings.modelsFromConfig.size(); n++) {
             std::string modelData = localSettings.localConfig[localSettings.modelsFromConfig[n].first]["prompt"];
             //std::string modelCard = localSettings.modelsFromConfig[n].second + ": " + modelData;
             
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.05);
-            
+            //ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.45);
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
             //if (ImGui::Selectable(modelCard.c_str(), localSettings.modelsFromConfig[n].first == localSettings.modelName, 0, size_selectable_chat)){
             if (ImGui::Selectable(localSettings.modelsFromConfig[n].second.c_str(), localSettings.modelsFromConfig[n].first == localSettings.modelName, 0, size_selectable_chat)){
                 
                 modelToConfig(localSettings.modelsFromConfig[n].first);
             }
+            ImGui::PopStyleColor();
             
             HelpTooltip(modelData.c_str());
         }
     }
     
     void simpleStartScreen(){
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
         if (std::filesystem::exists(localSettings.modelName)){
             if (ImGui::Button(("Load " + localSettings.modelName).c_str())) {
                 show_models_list = false;
@@ -1818,7 +1895,15 @@ struct chatUI{
             
         // ImGui::EndChild();
         // }
-        ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        //ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        if (ImGui::BeginChild("Prompt for model", ImVec2( ImGui::GetContentRegionAvail().x * 0.55, ImGui::GetContentRegionAvail().y))) {
+        ImGui::TextWrapped(localSettings.localConfig[localSettings.modelName]["prompt"].get<std::string>().c_str());
+        ImGui::EndChild();
+        }
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
         if (ImGui::BeginChild("Models list (big)")) {
             modelsBigListSelectables();
         ImGui::EndChild();
@@ -3009,7 +3094,7 @@ struct chatUI{
         // ImGui::BeginChildFrame(ImGui::GetID("profilePicture frame"), size, ImGuiWindowFlags_NoSavedSettings);
         if (!localResultPairs.empty()) {
 
-            if (ImGui::BeginChild("ProfileBar", ImVec2(size.x - imageSide, size.y))){
+            if (ImGui::BeginChild("ProfileBar", ImVec2(size.x, size.y * 0.85))){
             
                 if (ImGui::BeginChild("Profile suffix", ImVec2( ImGui::GetContentRegionAvail().x * 0.25, ImGui::GetContentRegionAvail().y))){
                     suffixEdit("##Character");

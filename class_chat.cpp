@@ -132,8 +132,8 @@ int main(int argc, char ** argv) {
         if (threadedChat.isContinue != 'i') {
             //if (threadedChat.isContinue == 'w') threadedChat.getResultAsyncString(true);
             //else 
-                
             std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+            //if (threadedChat.loaded == 9) threadedChat.display();
         } else {
             
             
@@ -260,6 +260,7 @@ int main(int argc, char ** argv) {
                     threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(true, true);
+                    //threadedChat.getResultAsyncStringFull3();
 
                     
                     
