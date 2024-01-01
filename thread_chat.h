@@ -178,7 +178,7 @@ struct modelThread{
     void display(){
         Clear();
         
-        std::cout << "--------------------"<< std::endl;
+        std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
@@ -193,7 +193,7 @@ struct modelThread{
         //#endif
         //std::cout << lastTimings << std::endl;
         std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
-        std::cout << "--------------------\n"<< std::endl;
+        std::cout << "----------------------------------------\n"<< std::endl;
         
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){

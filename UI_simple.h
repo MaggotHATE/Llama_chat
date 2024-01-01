@@ -160,13 +160,13 @@ void StyleColorsLightNew()
 
 // utils for configs
 
-static void sanitizePath(std::string& path){
-    int slashes = path.rfind("\\");
-    while (slashes != path.npos){
-        path.replace(slashes,1,"/");
-        slashes = path.rfind("\\");
-    }
-}
+// static void sanitizePath(std::string& path){
+    // int slashes = path.rfind("\\");
+    // while (slashes != path.npos){
+        // path.replace(slashes,1,"/");
+        // slashes = path.rfind("\\");
+    // }
+// }
 
 std::string getStringFromJson(std::string fimeName, std::string stringName){
     nlohmann::json config;
@@ -770,7 +770,7 @@ struct chatUI{
     char* arrow = "<";
     char* vert_arrow = "v";
     
-    bool use_menu_left = true;
+    bool use_menu_left = false;
     bool show_menu_left = false;
     char* menu = "=";
     char* menu_vert = "||";
@@ -785,7 +785,7 @@ struct chatUI{
     bool show_history = false;
     bool show_profile = false;
     // separate switchers for parts of UI
-    bool use_menu_bar = false;
+    bool use_menu_bar = true;
     
     bool use_models_list_left = false;
     bool use_models_list_right = true;
@@ -1649,7 +1649,7 @@ struct chatUI{
     ////////////////////////prompts
 
                                     if (chatMode) {
-                                        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - r.first.length()*ImGui::GetFontSize());
+                                        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - r.first.length()*ImGui::GetFontSize()* 0.45f);
                                         ImGui::Text((r.first).c_str());
                                     } else ImGui::SeparatorText(r.first.c_str());
                                     
@@ -1660,7 +1660,7 @@ struct chatUI{
                                     if (chatMode) { 
                                         if (msgLen < messageWidth) {
                                             
-                                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + msgLen * 0.45f);
+                                            ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - msgLen * 0.45f);
                                             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + msgLen * 0.5f);
                                         } else {
                                             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.45f);
@@ -1856,51 +1856,47 @@ struct chatUI{
     }
     
     void simpleStartScreen(){
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
-        if (std::filesystem::exists(localSettings.modelName)){
-            if (ImGui::Button(("Load " + localSettings.modelName).c_str())) {
-                show_models_list = false;
-                show_menu_left = false;
-                arrow = ">";
-                menu = "=";
-                loadModel();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Open settings json")) {
-                auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
-                
-                if (jsonConfigFilePath) {
-                    nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
-                    if (jsonConfigFile.contains("model")){
-                         localSettings.modelName = jsonConfigFile["model"];
-                    }
-                    localSettings.getSettingsFromJson(jsonConfigFile);
-                    //localSettings.getSettingsFull();
-                    localSettings.fillLocalJson();
-                    localSettings.updateDump();
-                    localSettings.syncInputs();
-                    
-                    localSettings.inputPrompt = localSettings.params.prompt;
-                    if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
-                    // we probably don't want presets to be instantly applied
-                    //localSettings.fillLocalJson();
-                }
-            }
-        } else ImGui::TextWrapped((localSettings.modelName + " doesn't exist!").c_str());
-
-        
-        // if (ImGui::BeginChild("Parameters from json file")) {
-    
-            // ImGui::TextWrapped(localSettings.localJsonDump.c_str());
-            
-        // ImGui::EndChild();
-        // }
-        //ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 13);
         if (ImGui::BeginChild("Prompt for model", ImVec2( ImGui::GetContentRegionAvail().x * 0.55, ImGui::GetContentRegionAvail().y))) {
-        ImGui::TextWrapped(localSettings.localConfig[localSettings.modelName]["prompt"].get<std::string>().c_str());
+            
+            if (std::filesystem::exists(localSettings.modelName)){
+                if (ImGui::Button(("Load " + localSettings.modelName).c_str())) {
+                    show_models_list = false;
+                    show_menu_left = false;
+                    arrow = ">";
+                    menu = "=";
+                    loadModel();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Open settings json")) {
+                    auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
+                    
+                    if (jsonConfigFilePath) {
+                        nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
+                        if (jsonConfigFile.contains("model")){
+                             localSettings.modelName = jsonConfigFile["model"];
+                        }
+                        localSettings.getSettingsFromJson(jsonConfigFile);
+                        //localSettings.getSettingsFull();
+                        localSettings.fillLocalJson();
+                        localSettings.updateDump();
+                        localSettings.syncInputs();
+                        
+                        localSettings.inputPrompt = localSettings.params.prompt;
+                        if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
+                        // we probably don't want presets to be instantly applied
+                        //localSettings.fillLocalJson();
+                    }
+                }
+            } else ImGui::TextWrapped((localSettings.modelName + " doesn't exist!").c_str());
+
+            ImGui::SeparatorText(("Instruct for " + localSettings.modelName).c_str());
+            
+            ImGui::TextWrapped(localSettings.localConfig[localSettings.modelName]["prompt"].get<std::string>().c_str());
+            ImGui::Separator();
         ImGui::EndChild();
         }
-        ImGui::PopStyleColor();
+        //ImGui::PopStyleColor();
         ImGui::SameLine();
         
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
@@ -1925,29 +1921,29 @@ struct chatUI{
             ImGui::Indent();
 
             
-            if (!localSettings.checkInputPrompt()) {
-                ImGui::TextWrapped( ("Set prompt to: " + localSettings.inputPrompt).c_str() );
-                if (ImGui::Button("cancel##prompt")) {
-                    localSettings.cancelPromt();
-                }
-                ImGui::Separator();
-            }
+            // if (!localSettings.checkInputPrompt()) {
+                // ImGui::TextWrapped( ("Set prompt to: " + localSettings.inputPrompt).c_str() );
+                // if (ImGui::Button("cancel##prompt")) {
+                    // localSettings.cancelPromt();
+                // }
+                // ImGui::Separator();
+            // }
             
-            if (!localSettings.checkInputAntiprompt()) {
-                ImGui::TextWrapped( ("Set antiprompt to: " + localSettings.inputAntiprompt).c_str() );
-                if (ImGui::Button("cancel##antiprompt")) {
-                    localSettings.cancelAntipromt();
-                }
-                ImGui::Separator();
-            }
+            // if (!localSettings.checkInputAntiprompt()) {
+                // ImGui::TextWrapped( ("Set antiprompt to: " + localSettings.inputAntiprompt).c_str() );
+                // if (ImGui::Button("cancel##antiprompt")) {
+                    // localSettings.cancelAntipromt();
+                // }
+                // ImGui::Separator();
+            // }
             
-            if (!localSettings.checkInputAntiCFG()) {
-                ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
-                if (ImGui::Button("cancel##CFG")) {
-                    localSettings.cancelAntiCFG();
-                }
-                ImGui::Separator();
-            }
+            // if (!localSettings.checkInputAntiCFG()) {
+                // ImGui::TextWrapped( ("Set CFG antiprompt to " + localSettings.inputAntiCFG).c_str() );
+                // if (ImGui::Button("cancel##CFG")) {
+                    // localSettings.cancelAntiCFG();
+                // }
+                // ImGui::Separator();
+            // }
     #if GGML_OLD_FORMAT
             if (localSettings.params.cfg_scale > 1.0) {
                 ImGui::TextWrapped( ("Set CFG cfg_scale to " + std::to_string(localSettings.params.cfg_scale)).c_str() );
@@ -1969,17 +1965,21 @@ struct chatUI{
             
             ImGui::Spacing();
             
-            if (ImGui::Button("Apply to config")) {
-                //localSettings.getFromJson("config.json");
-                localSettings.grammarFile = inputGrammar; 
-                localSettings.updateInput();
-                localSettings.fillLocalJson();
-                localSettings.syncInputs();
-                //localJsonDump = localSettings.modelConfig.dump(3);
-                localSettings.updateDump();
-            }
+            if (!localSettings.checkInputPrompt() | !localSettings.checkInputAntiprompt() | !localSettings.checkInputAntiCFG()){
             
-            ImGui::SameLine();
+                if (ImGui::Button("Apply to config")) {
+                    //localSettings.getFromJson("config.json");
+                    localSettings.grammarFile = inputGrammar; 
+                    localSettings.updateInput();
+                    localSettings.fillLocalJson();
+                    localSettings.syncInputs();
+                    //localJsonDump = localSettings.modelConfig.dump(3);
+                    localSettings.updateDump();
+                }
+                
+                ImGui::SameLine();
+            
+            }
             
             if (!localSettings.noConfig){
                 if (ImGui::Button("Open settings json")) {
@@ -2258,14 +2258,13 @@ struct chatUI{
             //ImGui::SameLine();
         }
         
-        if (use_menu_left) {
-            if (ImGui::Button(menu, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
-                show_menu_left = !show_menu_left;
-                if (show_menu_left == true) menu = "||";
-                else menu = "=";
-            }
-            //ImGui::SameLine();
-        }
+        // if (use_menu_left) {
+            // if (ImGui::Button(menu, ImVec2(fontSize * 1.2f, fontSize * 1.2f))) {
+                // show_menu_left = !show_menu_left;
+                // if (show_menu_left == true) menu = "||";
+                // else menu = "=";
+            // }
+        // }
     }
     
     void settingsHeaderButtons() {
@@ -2784,16 +2783,17 @@ struct chatUI{
     }
     
     void menuSide(SDL_Window* window) {
-        if (ImGui::BeginChild("Menu", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y)))
+        //if (ImGui::BeginChild("Menu", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y)))
+        if (ImGui::BeginChild("Menu", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y)))
         {
-            if (newChat.loaded == 9 && show_profile){
-                if (ImGui::BeginChild("Profile shift", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetTextLineHeightWithSpacing() * 4.8f))) {
+            // if (newChat.loaded == 9 && show_profile){
+                // if (ImGui::BeginChild("Profile shift", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 4.8f))) {
                     
-                    ImGui::EndChild();
-                }
-            }
+                    // ImGui::EndChild();
+                // }
+            // }
             
-            if (ImGui::CollapsingHeader("File..."))
+            if (ImGui::CollapsingHeader("File...", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (ImGui::Button("Open a model")) {
                     if (modelsFolderName == "NULL"){
@@ -2875,7 +2875,7 @@ struct chatUI{
                 
             }
             
-            if (ImGui::CollapsingHeader("Save..."))
+            if (ImGui::CollapsingHeader("Save...", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (ImGui::Button("Save settings config")) {
                     nlohmann::json settingsJson;
@@ -2922,7 +2922,7 @@ struct chatUI{
                 }
             }
             
-            if (ImGui::CollapsingHeader("Themes..."))
+            if (ImGui::CollapsingHeader("Themes...", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_DefaultOpen))
             {
                 
                 if (ImGui::Button("Dark theme")) {
@@ -2939,7 +2939,7 @@ struct chatUI{
                 }
             }
             
-            if (ImGui::CollapsingHeader("Utilities..."))
+            if (ImGui::CollapsingHeader("Utilities...", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (ImGui::Button("Templates")) {
                     show_templates = !show_templates;
@@ -2975,7 +2975,7 @@ struct chatUI{
                 }
             }
             
-            if (ImGui::CollapsingHeader("Settings..."))
+            if (ImGui::CollapsingHeader("Settings...", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_DefaultOpen))
             {
                 
                 ImGui::CheckboxFlags("Send by Enter", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);
@@ -3072,7 +3072,7 @@ struct chatUI{
 #else
         if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(realImgSide, realImgSide))) {
 #endif
-            show_profile = !show_profile;
+            if (newChat.loaded == 9) show_profile = !show_profile;
         }
     }
     
@@ -3080,6 +3080,7 @@ struct chatUI{
         
         auto imageSide = ImGui::GetTextLineHeightWithSpacing() * 4;
         ImVec2 pose = ImVec2(ImGui::GetStyle().ItemSpacing.x, ImGui::GetTextLineHeightWithSpacing() * 2.8f);
+        if (use_menu_bar) pose.y += ImGui::GetTextLineHeightWithSpacing();
         ImVec2 size;
         size.y = imageSide + ImGui::GetStyle().ItemSpacing.y * 5;
         size.x = ImGui::GetContentRegionAvail().x;
@@ -3113,16 +3114,77 @@ struct chatUI{
         ImGui::End();
     }
     
+    void menuOverlay(SDL_Window* window) {
+        ImVec2 pose = ImVec2(13, ImGui::GetContentRegionAvail().y * 0.2f);
+        ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x * 0.3f, ImGui::GetContentRegionAvail().y * 0.75f);
+        
+        ImGui::SetNextWindowPos(pose, ImGuiCond_Appearing, ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(size);
+        
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(180, 180, 180, 255));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(180, 180, 180, 255));
+        ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 0, 0, 0));
+        
+        if (!ImGui::Begin("menu window", &show_menu_left, overlay_window_flags))
+        {
+            ImGui::End();
+            return;
+        }
+        
+        //ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
+        menuSide(window);
+        //ImGui::PopStyleColor();
+        ImGui::End();
+        
+        ImGui::PopStyleColor(4);
+    }
+    
+    void showMenuButton() {
+        if (use_menu_left) {
+            ImVec2 pose = ImVec2(0, ImGui::GetContentRegionAvail().y * 0.35f);
+            ImVec2 size = ImVec2(fontSize, ImGui::GetContentRegionAvail().y * 0.6f);
+            
+            ImGui::SetNextWindowPos(pose, ImGuiCond_Appearing, ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowSize(size);
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 0, 0, 0));
+            
+            if (!ImGui::Begin("menu button", &show_menu_left, overlay_window_flags))
+            {
+                ImGui::End();
+                return;
+            }
+            ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 0, 0, 255));
+            ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(255, 255, 255, 255));
+            if (ImGui::Button("|", ImVec2(12, ImGui::GetContentRegionAvail().y * 0.6f))) {
+                show_menu_left = !show_menu_left;
+            }
+            ImGui::PopStyleColor(2);
+            ImGui::End();
+            
+            ImGui::PopStyleColor(2);
+        }
+    }
+    
     void headerPlus() {
         buttonsForSide();
         ImGui::SameLine();
-        if (newChat.loaded == 9) {
-            if (ImGui::BeginChild("profile picture", ImVec2(ImGui::GetTextLineHeightWithSpacing() * 2.5f, ImGui::GetTextLineHeightWithSpacing() * 2.5f))){
+        //if (newChat.loaded == 9) {
+            if (ImGui::BeginChild("profile picture", ImVec2(ImGui::GetTextLineHeightWithSpacing() * 6.0f, ImGui::GetTextLineHeightWithSpacing() * 2.5f))){
                 profileImage();
+                ImGui::SameLine();
+                if (newChat.loaded == 9) ImGui::Text("ONLINE");
+                else ImGui::Text("OFFLINE");
             ImGui::EndChild();
             }
             ImGui::SameLine();
-        }
+            // if (ImGui::BeginChild("profile status", ImVec2(ImGui::GetTextLineHeightWithSpacing() * 2.5f, ImGui::GetTextLineHeightWithSpacing() * 2.5f))){
+                
+            // ImGui::EndChild();
+            // }
+            
+        //} 
         if (ImGui::BeginChild("HeaderTaller", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 2.5f))){
             settingsHeader();
             if (newChat.loaded == 9) {
@@ -3134,6 +3196,7 @@ struct chatUI{
         ImGui::EndChild();
         }
     }
+    
     
 #if defined(SDL2)
     void preloadImage(SDL_Renderer* renderer) {
@@ -3190,11 +3253,13 @@ struct chatUI{
         }
         //menu of the left
         if (use_menu_left) {
+            showMenuButton();
             if (show_menu_left){
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-                menuSide(window);
-                ImGui::PopStyleColor();
-                ImGui::SameLine();
+                // ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+                // menuSide(window);
+                // ImGui::PopStyleColor();
+                // ImGui::SameLine();
+                menuOverlay(window);
             }
         }
         // main dialog
@@ -3246,12 +3311,12 @@ struct chatUI{
         }
     }
     
-    void init(){
-        localSettings.modelFromJson = getStringFromJson("config.json","model");
+    void init(std::string configName = "config.json"){
+        localSettings.modelFromJson = getStringFromJson(configName,"model");
         if (promptsFolderName != "NULL") localSettings.promptFilesFolder = promptsFolderName;
         
         localSettings.getFilesList();
-        localSettings.getFromJson("config.json");
+        localSettings.getFromJson(configName);
         localSettings.getSettingsFull();
         localSettings.fillLocalJson();
         localSettings.updateDump();

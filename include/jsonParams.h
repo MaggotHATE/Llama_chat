@@ -48,27 +48,29 @@ static void processInstructFile(std::string filename, gpt_params& params, bool h
     }
 }
 
-static std::string getInlineFileText(std::string filename){
+static std::string getInlineFileText(std::string filename) {
     std::string result = "";
     std::ifstream file(filename);
     if (!file) {
         fprintf(stderr, "error: failed to open file '%s'\n", filename.c_str());
     } else {
+        fprintf(stderr, "Opening file '%s'...\n", filename.c_str());
         std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(result));
     }
     
     return result;
 }
 
-static void processPrompt(std::string& prompt){
-    int fileClose = prompt.rfind('>');
-    int fileOpen = prompt.rfind('<');
+static void processPrompt(std::string& prompt, char open = '<', char close = '>') {
+    int fileClose = prompt.rfind(close);
+    int fileOpen = prompt.rfind(open);
     int len = fileClose - fileOpen;
-    fprintf(stderr, "Between %d and %d, len %d\n", fileOpen, fileClose, len);
+    //fprintf(stderr, "Between %d and %d, len %d\n", fileOpen, fileClose, len);
     if(fileClose != prompt.npos && fileOpen != prompt.npos && len > 1){
         std::string filename = prompt.substr(fileOpen+1,len-1);
-        fprintf(stderr, "Opening file '%s'\n", filename.c_str());
+        //fprintf(stderr, "Looking for file '%s'\n", filename.c_str());
         std::string result = getInlineFileText(filename);
+        processPrompt(result);
         if (!result.empty()) prompt.replace(fileOpen,len+1,result);
     }
 }
@@ -451,4 +453,25 @@ static std::string processByWildcards(nlohmann::json& config, std::string inputS
     } else std::cout << " no last __" << std::endl;
         
     return inputString;
+}
+
+static void sanitizePath(std::string& path){
+    int slashes = path.rfind("\\");
+    while (slashes != path.npos){
+        path.replace(slashes,1,"/");
+        slashes = path.rfind("\\");
+    }
+}
+
+static std::string getFileWithSameName(std::string input, std::string type){
+    std::string result;
+
+    sanitizePath(input);
+    size_t lastDot = input.rfind('.');
+    size_t lastSlash = input.rfind('/');
+    if (lastDot != input.npos){
+        result = input.substr(lastSlash + 1, lastDot - lastSlash - 1) + type;
+    }
+    
+    return result;
 }
