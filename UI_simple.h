@@ -755,8 +755,13 @@ struct chatUI{
     std::string inputGrammar = "";
     
     std::string textFileContents = "";
-    std::string subprofile = "";
+    // let's make this safer
+    std::string char_profile = "";
+    std::string char_start = "";
+    std::string char_name = "";
+    std::string char_system_name = "";
     
+    std::string sendButtonName = "Load";
     
     int maxString = 3000;
     int messageNum = 0;
@@ -792,6 +797,8 @@ struct chatUI{
     bool use_models_list_right = true;
     bool use_settings_window = false;
     bool show_settings_window = false;
+    
+    bool showModelsList = false;
     
     
 #if defined(SDL2)
@@ -1436,7 +1443,7 @@ struct chatUI{
         //if (ImGui::CollapsingHeader(contextName.c_str(), ImGuiTreeNodeFlags_None)) {
             if (ImGui::BeginChild("ContextMsg")) {
                 //ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
-                messageAuto(localResultPairs[0].second, idx);
+                messageAuto(char_profile, idx);
                 //ImGui::PopTextWrapPos();
             ImGui::EndChild();
             }
@@ -1582,15 +1589,13 @@ struct chatUI{
         //}
     }
     
-    void getSubprofile() {
-        if (!localResultPairs.empty()) {
-            //std::cout << "Not empty, searching " << localSettings.params.input_suffix << " in:\n " << localResultPairs[0].second << std::endl;
-            size_t pos = localResultPairs[0].second.find(localSettings.params.input_suffix);
-            if (pos != localResultPairs[0].second.npos) {
-                subprofile = localResultPairs[0].second.substr(pos);
-                //std::cout << "Found " << subprofile << "at " << std::to_string(pos) << std::endl;
-            } else subprofile = "";
-        } else subprofile = "";
+    std::string getSubprofile() {
+        if (!char_profile.empty()) {
+            size_t pos = char_profile.find(char_system_name);
+            if (pos != char_profile.npos) {
+                return char_profile.substr(pos);
+            } else return "";
+        } else return "";
     }
     
     // separating this into more functions breaks "realtime" speed display
@@ -1603,7 +1608,7 @@ struct chatUI{
             }
 // Initial buttons and settings to load a model////////////////////////////////////////////////////
             //if (newChat.loaded == 9) {
-            if (newChat.isContinue == '_') {
+            if (newChat.isContinue == '_' && showModelsList) {
                 simpleStartScreen();
             } else {
                 if (!initTokens){
@@ -1634,7 +1639,7 @@ struct chatUI{
                                     copiedTimings = false;
                                     //aTiming = newChat.lastTimings;
                                     helpLabel = " ";
-                                    getSubprofile();
+                                    //getSubprofile();
                                 }
                             }
 
@@ -1664,7 +1669,7 @@ struct chatUI{
                                         message(r.second, messageNum);
                                         
                                         ImGui::PopTextWrapPos();
-                                    } else if (!subprofile.empty()) {
+                                    } else if (!char_start.empty()) {
                                         #if defined(SDL2)
                                         ImGui::Image((void*)my_texture, ImVec2(32, 32));
 #else 
@@ -1678,7 +1683,7 @@ struct chatUI{
                                             ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
                                         }
                                         
-                                        message(subprofile, messageNum);
+                                        message(char_start, messageNum);
                                         
                                         ImGui::PopTextWrapPos();
                                     }
@@ -1804,24 +1809,31 @@ struct chatUI{
                 auto inputWidth = ImGui::GetContentRegionAvail().x * 0.75f;
 
                ImGui::Spacing();
-               ImGui::BeginChild("inputAndSendButtons", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y));
+               ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14);
+               if (ImGui::BeginChild("inputAndSendButtons", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y))) {
 
                 sendButtonsHorizontal(viewport);
-                if (ImGui::InputTextMultiline(helpLabel.c_str(), &inputStr, ImVec2(inputWidth, ImGui::GetContentRegionAvail().y), inputFlags) == true){
+                if (ImGui::InputTextMultiline("###inputField", &inputStr, ImVec2(inputWidth, ImGui::GetContentRegionAvail().y), inputFlags) == true){
                     if (newChat.isContinue == 'i') sendPrompt();
                     else if (newChat.isContinue == '_') loadModel();
                 }
                 
-                if (newChat.isContinue == 'i') {
-                    ImGui::SameLine();
-                    ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
+                //if (newChat.isContinue == 'i') {
+                    
                     //ImGui::SetWindowFontScale(5);
                     
-                    if (ImGui::Button("Send", ImVec2(ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y * 0.5))) {
-                        sendPrompt();
+                    if (newChat.isContinue == '_' || newChat.isContinue == 'i') {
+                        ImGui::SameLine();
+                        ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
+                        if (ImGui::Button(sendButtonName.c_str(), ImVec2(ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y * 0.5))) {
+                            if (newChat.isContinue == 'i') {
+                                sendPrompt();
+                            } else if (newChat.isContinue == '_') loadModel();
+                        }
+                        ImGui::PopItemWidth();
                     }
-                    ImGui::PopItemWidth();
-                } else if (newChat.isContinue == '_') loadModel();
+                    
+                //} else if (newChat.isContinue == '_') loadModel();
                 
                 //ImGui::BeginChild("sendButtons", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y));
                 // we don't need to show the button if generation is going
@@ -1830,7 +1842,7 @@ struct chatUI{
                 //}
                 //ImGui::EndChild();
                ImGui::EndChild();
-                
+               }
             } //else {
 // Initial buttons and settings to load a model////////////////////////////////////////////////////
                 //if (newChat.isContinue == '_') {
@@ -2416,6 +2428,8 @@ struct chatUI{
 
         hasModel = false;
         newChat.unload();
+        
+        sendButtonName = "Load";
     }
     
     void pauseAndUnload() {
@@ -2507,6 +2521,8 @@ struct chatUI{
                 //ImGui::SameLine();
                 ImGui::TextWrapped(("Tokens: " + std::to_string(past_this_session)).c_str());
                 
+            } else if (newChat.isContinue == '_') {
+                ImGui::Checkbox("Show list of models", &showModelsList);
             }
             
             ImGui::EndChild();
@@ -3233,9 +3249,15 @@ struct chatUI{
         if (ImGui::BeginChild("profile picture", ImVec2(ImGui::GetTextLineHeightWithSpacing() * 6.0f, ImGui::GetTextLineHeightWithSpacing() * 2.4f))){
             profileImage();
             ImGui::SameLine();
-            if (newChat.loaded == 9) ImGui::Text("ONLINE");
-            else if (newChat.isContinue != '_') ImGui::Text("LOADING");
-            else ImGui::Text("OFFLINE");
+            if (char_name.empty()) {
+                if (newChat.loaded == 9) ImGui::Text("ONLINE");
+                else if (newChat.isContinue != '_') ImGui::Text("LOADING");
+                else ImGui::Text("OFFLINE");
+            } else {
+                if (newChat.loaded == 9) ImGui::TextWrapped((char_name + " is online").c_str());
+                else if (newChat.isContinue != '_') ImGui::TextWrapped((char_name + " is connecting...").c_str());
+                else ImGui::TextWrapped((char_name + " is offline").c_str());
+            }
             
         ImGui::EndChild();
         }
@@ -3253,10 +3275,10 @@ struct chatUI{
                 settingsHeaderButtons(windowWidth);
             ImGui::EndChild();
             }
-            if (newChat.loaded == 9) {
+            //if (newChat.loaded == 9) {
                 ImGui::SameLine();
                 infoButtonsHeader();
-            }
+            //}
             
             //buttonsHeader();
         ImGui::EndChild();
@@ -3360,7 +3382,27 @@ struct chatUI{
         
     }
     
-    
+    void getCharData(std::string& modelName) {
+        if (localSettings.modelConfig.contains("name") && localSettings.modelConfig["name"].is_string()) 
+                    char_name = localSettings.modelConfig["name"];
+
+        if (localSettings.modelConfig.contains(modelName)){
+
+            if (localSettings.modelConfig[modelName].contains("prompt") && localSettings.modelConfig[modelName]["prompt"].is_string()) {
+                char_profile = localSettings.modelConfig[modelName]["prompt"];
+                if (!char_profile.empty() && localSettings.modelConfig[modelName].contains("reverse-prompt") && localSettings.modelConfig[modelName]["reverse-prompt"].is_string()) {
+                    size_t pos = char_profile.rfind(localSettings.modelConfig[modelName]["reverse-prompt"]);
+                    if (pos != char_profile.npos) char_profile = char_profile.substr(0,pos);
+                }
+            }
+            
+            if (localSettings.modelConfig[modelName].contains("input_suffix") && localSettings.modelConfig[modelName]["input_suffix"].is_string()) 
+                char_system_name = localSettings.modelConfig[modelName]["input_suffix"];
+            
+            if (!char_profile.empty() && !char_system_name.empty()) 
+                char_start = getSubprofile();
+        }
+    }
     
     void loadModel(){
         if (std::filesystem::exists(localSettings.modelConfig["model"])){
@@ -3372,6 +3414,11 @@ struct chatUI{
             copiedDialog = false;
             copiedSettings = false;
             newChat.isContinue = 'l';
+            sendButtonName = "Send";
+            
+            std::string modelName = localSettings.modelConfig["model"];
+            getCharData(modelName);
+            
         } else {
             ImGui::OpenPopup("No Model");
         }
