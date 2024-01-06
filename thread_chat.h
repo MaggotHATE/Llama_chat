@@ -181,6 +181,7 @@ struct modelThread{
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
+        std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
         //std::cout << newChat.formatRepresentation << std::endl;
@@ -688,6 +689,7 @@ struct configurableChat{
     nlohmann::json localConfig;
     nlohmann::json modelConfig;
     bool tempFirst = true;
+    std::string charName = "";
     std::vector<std::pair<std::string, std::string>> modelsFromConfig;
     
     std::string promptFilesFolder = "/prompts/";
@@ -723,11 +725,11 @@ struct configurableChat{
                 
                 std::string onlyName = fullName.substr(result + 1);
                 
-                printf("\n%d vs %d = %d: result in %s\n", lastSlash, 
-                                                          lastRslash, 
-                                                          result, 
-                                                          onlyName.c_str()
-                );
+                // printf("\n%d vs %d = %d: result in %s\n", lastSlash, 
+                                                          // lastRslash, 
+                                                          // result, 
+                                                          // onlyName.c_str()
+                // );
                 
                 modelsFromConfig.push_back( std::pair(fullName,onlyName) );
                     //std::cout << "Adding " << fullName << std::endl;
@@ -750,11 +752,11 @@ struct configurableChat{
                 
                 std::string onlyName = fullName.substr(result + 1);
                 
-                printf("\n%d vs %d = %d: result in %s\n", lastSlash, 
-                                                          lastRslash, 
-                                                          result, 
-                                                          onlyName.c_str()
-                );
+                // printf("\n%d vs %d = %d: result in %s\n", lastSlash, 
+                                                          // lastRslash, 
+                                                          // result, 
+                                                          // onlyName.c_str()
+                // );
                 
                 modelsFromConfig.push_back( std::pair(fullName,onlyName) );
                     //std::cout << "Adding " << fullName << std::endl;
@@ -883,7 +885,8 @@ struct configurableChat{
     void getSettingsFull(){
         params = paramsDefault;
         readParamsFromJson(localConfig, params);
-        if (localConfig.contains("temp_first")) tempFirst = localConfig["temp_first"];
+        //if (localConfig.contains("temp_first")) tempFirst = localConfig["temp_first"];
+        if (localConfig.contains("name")) charName = localConfig["name"];
         modelName = params.model;
         syncInputs();
     }
@@ -1020,8 +1023,8 @@ struct configurableChat{
         readParamsFromJson(localConfig, modelName, params);
     }
     
-    void fillLocalJson(std::string& model){
-        modelConfig.clear();
+    void fillLocalJson(std::string& model, bool clear = true){
+        if (clear) modelConfig.clear();
         
         modelConfig["model"] = model;
         
@@ -1100,7 +1103,8 @@ struct configurableChat{
         
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
         
-        modelConfig["temp_first"] = tempFirst;
+        //modelConfig["temp_first"] = tempFirst;
+        if (!charName.empty()) modelConfig["name"] = charName;
         
     }
     
@@ -1175,8 +1179,8 @@ struct configurableChat{
         return newCard;
     }
     
-    void fillLocalJson(){
-        fillLocalJson(modelName);
+    void fillLocalJson(bool clear = true){
+        fillLocalJson(modelName, clear);
     }
     
     void applySuffix(chat& aChat){

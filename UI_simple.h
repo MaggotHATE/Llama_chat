@@ -546,9 +546,10 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
 
 static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
     if(ImGui::BeginChild("Params", size, false)) {
-    
+        
+        
         ImGui::TextWrapped(" Performance settings");
-            
+        ImGui::Separator();
         ImGui::SliderInt("Generation threads", &params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
         
         
@@ -905,7 +906,18 @@ struct chatUI{
     }
     
     void settingsTab(){
+        if (copiedTimings == false) {
+            aTiming = newChat.lastTimings;
+            copiedTimings = true;
+        }
         
+        paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
+        ImGui::SameLine();
+        ImGui::TextWrapped(aTiming.c_str());
+        
+        ImGui::TextWrapped( ("Order of samplers: " + newChat.sparamsList ).c_str() );
+        ImGui::Separator();
+        //ImGui::SameLine();
         if (newChat.loaded == 9) {
 
             if (copiedSettings){
@@ -964,7 +976,7 @@ struct chatUI{
                 //} else ImGui::TextWrapped( (newChat.newChat.tempFirst ? "Temperature is first in sampling." : "Temperature is last in sampling.") );
                 } 
                 
-                ImGui::TextWrapped( ("Order of samplers: " + newChat.sparamsList ).c_str() );
+                
             }
             
         } else {
@@ -988,20 +1000,16 @@ struct chatUI{
         
         //ImGui::BeginChild("SettingsTabsHalf", ImVec2( ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y), false);
         
-        paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetContentRegionAvail().y));
+        
 
         //ImGui::EndChild();
         
-        ImGui::SameLine();
+        
         
         //ImGui::BeginChild("Timings", ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), false);
+            
         
-            if (copiedTimings == false) {
-                aTiming = newChat.lastTimings;
-                copiedTimings = true;
-            }
-        
-            ImGui::TextWrapped(aTiming.c_str());
+            
             //ImGui::TextWrapped((newChat.lastTimings).c_str());
         
         //ImGui::EndChild();
@@ -1021,10 +1029,18 @@ struct chatUI{
             localSettings.updateDump();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Save config"))   { 
-            localSettings.pushToMainConfig();
-            writeJson(localSettings.localConfig, "config.json");
+        // if (ImGui::Button("Save config"))   { 
+            // localSettings.pushToMainConfig();
+            // writeJson(localSettings.localConfig, "config.json");
              
+        // }
+        // ImGui::SameLine();
+        if (ImGui::Button("Open settings json")) {
+            auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
+            
+            if (jsonConfigFilePath) {
+                loadSettingsJson(jsonConfigFilePath);
+            }
         }
         
         if (ImGui::BeginChild("Parameters from json file")) {
@@ -1033,6 +1049,7 @@ struct chatUI{
             
         ImGui::EndChild();
         }
+        
     }
     
     void templatesTab(){
@@ -1925,18 +1942,7 @@ struct chatUI{
                     auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
                     
                     if (jsonConfigFilePath) {
-                        nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
-                        if (jsonConfigFile.contains("model")){
-                             localSettings.modelName = jsonConfigFile["model"];
-                        }
-                        localSettings.getSettingsFromJson(jsonConfigFile);
-                        //localSettings.getSettingsFull();
-                        localSettings.fillLocalJson();
-                        localSettings.updateDump();
-                        localSettings.syncInputs();
-                        
-                        localSettings.inputPrompt = localSettings.params.prompt;
-                        if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
+                        loadSettingsJson(jsonConfigFilePath);
                         // we probably don't want presets to be instantly applied
                         //localSettings.fillLocalJson();
                     }
@@ -1958,6 +1964,25 @@ struct chatUI{
         ImGui::EndChild();
         }
         ImGui::PopStyleColor();
+    }
+    
+    void loadSettingsJson(std::string jsonConfigFilePath) {
+        nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
+        if (jsonConfigFile.contains("model")){
+             localSettings.modelName = jsonConfigFile["model"];
+        }
+        if (jsonConfigFile.contains("name")){
+             char_name = jsonConfigFile["name"];
+        }
+        
+        localSettings.getSettingsFromJson(jsonConfigFile);
+        //localSettings.getSettingsFull();
+        localSettings.fillLocalJson(false);
+        localSettings.updateDump();
+        localSettings.syncInputs();
+        
+        localSettings.inputPrompt = localSettings.params.prompt;
+        if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
     }
     
     void firstSettings(const float& baseWidth){
@@ -2035,26 +2060,7 @@ struct chatUI{
             }
             
             if (!localSettings.noConfig){
-                if (ImGui::Button("Open settings json")) {
-                    auto jsonConfigFilePath = tinyfd_openFileDialog("Select a json file...", currPath.c_str(),1, jsonFilterPatterns, "config.json",0);
-                    
-                    if (jsonConfigFilePath) {
-                        nlohmann::json jsonConfigFile = getJson(jsonConfigFilePath);
-                        if (jsonConfigFile.contains("model")){
-                             localSettings.modelName = jsonConfigFile["model"];
-                        }
-                        localSettings.getSettingsFromJson(jsonConfigFile);
-                        //localSettings.getSettingsFull();
-                        localSettings.fillLocalJson();
-                        localSettings.updateDump();
-                        localSettings.syncInputs();
-                        
-                        localSettings.inputPrompt = localSettings.params.prompt;
-                        if(localSettings.params.antiprompt.size()) localSettings.inputAntiprompt = localSettings.params.antiprompt[0];
-                        // we probably don't want presets to be instantly applied
-                        //localSettings.fillLocalJson();
-                    }
-                }
+                
                 
                 if (ImGui::BeginPopup("No Model", ImGuiWindowFlags_NoSavedSettings)) {
                     ImVec2 work_size = ImGui::GetMainViewport()->WorkSize;
@@ -2078,7 +2084,7 @@ struct chatUI{
             
           //ImGui::BeginChild("InitSettings");
             ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );                        
-            float initWidth = baseWidth * 0.92f;
+            float initWidth = baseWidth * 0.9f;
             if (localSettings.inputInstructFile == "NULL"){
                 
                 
@@ -2330,14 +2336,14 @@ struct chatUI{
         ImGui::SameLine();
         //if (!tall) ImGui::SameLine();
         
-        if (ImGui::Button("Settings")) {
+        if (ImGui::Button("Text settings")) {
             //show_settings = !show_settings;
             ImGui::OpenPopup("Basic settings");
         }
             
             //ImGui::SameLine();
         ImGui::SameLine();
-        if (ImGui::Button("Advanced")) {
+        if (ImGui::Button("Sampling parameters")) {
             //show_settings_advanced = !show_settings_advanced;
             ImGui::OpenPopup("Sampling settings");
         }
@@ -2416,34 +2422,37 @@ struct chatUI{
     }
     
     void unload() {
-        localResultPairs.clear();
         newChat.isUnload = 'y';
         newChat.loaded = 0;
         tokens_this_session = 0;
-        copiedDialog = false;
-        copiedSettings = false;
-        copiedTimings = false;
-        initTokens = false;
+        //copiedDialog = false;
+        //copiedSettings = false;
+        //copiedTimings = false;
+        //initTokens = false;
         cancelled = false;
 
         hasModel = false;
         newChat.unload();
         
         sendButtonName = "Load";
+        localResultPairs.clear();
     }
     
     void pauseAndUnload() {
         newChat.loaded = 0;
         tokens_this_session = 0;
-        copiedDialog = false;
-        copiedSettings = false;
-        copiedTimings = false;
-        initTokens = false;
+        // copiedDialog = false;
+        // copiedSettings = false;
+        // copiedTimings = false;
+        // initTokens = false;
         cancelled = false;
 
         hasModel = false;
         newChat.isUnload = 'y';
         newChat.pause();
+        
+        sendButtonName = "Load";
+        localResultPairs.clear();
     }
     
     void infoButtonsHeader() {
@@ -2523,6 +2532,7 @@ struct chatUI{
                 
             } else if (newChat.isContinue == '_') {
                 ImGui::Checkbox("Show list of models", &showModelsList);
+                //ImGui::TextWrapped((localSettings.modelName).c_str());
             }
             
             ImGui::EndChild();
@@ -2844,6 +2854,13 @@ struct chatUI{
                 ImGui::EndMenu();
             }
             
+            // ImGui::SameLine();
+            // if (ImGui::BeginChild("model display"))
+            // {
+            ImGui::TextWrapped(("|      Model: " + localSettings.modelName).c_str());
+                
+            // ImGui::EndChild();
+            // }
             ImGui::EndMenuBar();
         }
     }
@@ -3255,7 +3272,7 @@ struct chatUI{
                 else ImGui::Text("OFFLINE");
             } else {
                 if (newChat.loaded == 9) ImGui::TextWrapped((char_name + " is online").c_str());
-                else if (newChat.isContinue != '_') ImGui::TextWrapped((char_name + " is connecting...").c_str());
+                else if (newChat.isContinue != '_') ImGui::TextWrapped((char_name + " is loading").c_str());
                 else ImGui::TextWrapped((char_name + " is offline").c_str());
             }
             
@@ -3413,6 +3430,8 @@ struct chatUI{
             hasModel = true;
             copiedDialog = false;
             copiedSettings = false;
+            copiedTimings = false;
+            initTokens = false;
             newChat.isContinue = 'l';
             sendButtonName = "Send";
             

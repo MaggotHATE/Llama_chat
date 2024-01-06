@@ -707,6 +707,9 @@ demo_cl_mini: $(EXE_CL)_mini
 demo_vk: $(EXE_VK)
 	@echo Build $(EXE_VK) complete for $(ECHO_MESSAGE)
     
+demo_vk_mini: $(EXE_VK)_mini
+	@echo Build $(EXE_VK)_mini complete for $(ECHO_MESSAGE)
+    
 demo_vk2: $(EXE_VK2)
 	@echo Build $(EXE_VK2) complete for $(ECHO_MESSAGE)
     
@@ -825,10 +828,13 @@ chatTest_e1_cl:class_chat.cpp                                  include/json.hpp 
 $(EXE_VK): $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) -I. -Iinclude -IVULKAN $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
+$(EXE_VK)_mini: $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
+	 $(CXX) -I. -Iinclude -IVULKAN $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
+     
 chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
 	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
     
-$(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
+$(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
 	 $(CXX) -I. -Iinclude -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
 $(EXE_VK2)_mini: $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
