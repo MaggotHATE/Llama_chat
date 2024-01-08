@@ -206,6 +206,20 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.n_ctx = std::stoi(argv[i]);
+        } else if (arg == "--grp-attn-n" || arg == "-gan") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+
+            params.grp_attn_n = std::stoi(argv[i]);
+        } else if (arg == "--grp-attn-w" || arg == "-gaw") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+
+            params.grp_attn_w = std::stoi(argv[i]);
         } else if (arg == "--rope-freq-base") {
             if (++i >= argc) {
                 invalid_param = true;
