@@ -1056,6 +1056,8 @@ struct configurableChat{
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sparams.mirostat_eta;
         if (params.sparams.cfg_scale != paramsDefault.sparams.cfg_scale) modelConfig[model]["cfg-scale"] = params.sparams.cfg_scale;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
+        if (params.grp_attn_n != paramsDefault.grp_attn_n) modelConfig[model]["grp_attn_n"] = params.grp_attn_n;
+        if (params.grp_attn_w != paramsDefault.grp_attn_w) modelConfig[model]["grp_attn_w"] = params.grp_attn_w;
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;

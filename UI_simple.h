@@ -1723,10 +1723,10 @@ struct chatUI{
                                         if (msgLen < messageWidth) {
                                             
                                             ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - msgLen * 0.45f);
-                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + msgLen * 0.5f);
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + msgLen * 0.55f);
                                         } else {
                                             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.45f);
-                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + messageWidth* 0.5f);
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + messageWidth* 0.55f);
                                         }
                                         //else ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
                                     } else ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
@@ -2055,12 +2055,13 @@ struct chatUI{
                     localSettings.updateDump();
                 }
                 
-                ImGui::SameLine();
-            
+                
+                ImGui::Separator();
             }
             
             if (!localSettings.noConfig){
                 
+                //ImGui::SameLine();
                 
                 if (ImGui::BeginPopup("No Model", ImGuiWindowFlags_NoSavedSettings)) {
                     ImVec2 work_size = ImGui::GetMainViewport()->WorkSize;
@@ -2079,11 +2080,12 @@ struct chatUI{
             }
             
             
-            ImGui::Separator();
-            ImGui::Spacing();
+            
             
           //ImGui::BeginChild("InitSettings");
-            ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );                        
+            ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );
+            ImGui::Separator();
+                ImGui::Spacing();
             float initWidth = baseWidth * 0.9f;
             if (localSettings.inputInstructFile == "NULL"){
                 
@@ -2455,35 +2457,39 @@ struct chatUI{
         localResultPairs.clear();
     }
     
+    void inferencePlot() {
+        static float values[90] = {};
+        static int values_offset = 0;
+        static float maxSpeed = 10.0f;
+        static double refresh_time = 0.0;
+        while (refresh_time < ImGui::GetTime()) // Create data at fixed 30 Hz rate for the demo
+        {
+            static float phase = 0.0f;
+            values[values_offset] = newChat.lastSpeed;
+            if (newChat.lastSpeed > maxSpeed) maxSpeed = newChat.lastSpeed;
+            values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
+            phase += 0.10f * values_offset;
+            refresh_time += 1.0f / 30.0f;
+        }
+
+        // Plots can display overlay texts
+        // (in this example, we will display an average value)
+        {
+            float average = 0.0f;
+            for (int n = 0; n < IM_ARRAYSIZE(values); n++)
+                average += values[n];
+            average /= (float)IM_ARRAYSIZE(values);
+            char overlay[8];
+            ImGui::SameLine();
+            sprintf(overlay, "%f", average);
+            ImGui::PlotLines("###speed", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, maxSpeed, ImVec2(ImGui::GetContentRegionAvail().x * 0.4, fontSize + 3.0f));
+        }
+    }
+    
     void infoButtonsHeader() {
         if (ImGui::BeginChild("InfoAndButtons")) {
             if (newChat.loaded == 9){
-                static float values[90] = {};
-                static int values_offset = 0;
-                static float maxSpeed = 10.0f;
-                static double refresh_time = 0.0;
-                while (refresh_time < ImGui::GetTime()) // Create data at fixed 30 Hz rate for the demo
-                {
-                    static float phase = 0.0f;
-                    values[values_offset] = newChat.lastSpeed;
-                    if (newChat.lastSpeed > maxSpeed) maxSpeed = newChat.lastSpeed;
-                    values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
-                    phase += 0.10f * values_offset;
-                    refresh_time += 1.0f / 30.0f;
-                }
-
-                // Plots can display overlay texts
-                // (in this example, we will display an average value)
-                {
-                    float average = 0.0f;
-                    for (int n = 0; n < IM_ARRAYSIZE(values); n++)
-                        average += values[n];
-                    average /= (float)IM_ARRAYSIZE(values);
-                    char overlay[8];
-                    ImGui::SameLine();
-                    sprintf(overlay, "%f", average);
-                    ImGui::PlotLines("###speed", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, maxSpeed, ImVec2(ImGui::GetContentRegionAvail().x * 0.4, fontSize + 3.0f));
-                }
+                inferencePlot();
                 //ImGui::Spacing();
                 ImGui::SameLine();
                 
@@ -2531,7 +2537,7 @@ struct chatUI{
                 ImGui::TextWrapped(("Tokens: " + std::to_string(past_this_session)).c_str());
                 
             } else if (newChat.isContinue == '_') {
-                ImGui::Checkbox("Show list of models", &showModelsList);
+                //ImGui::Checkbox("Show list of models", &showModelsList);
                 //ImGui::TextWrapped((localSettings.modelName).c_str());
             }
             
@@ -2857,8 +2863,14 @@ struct chatUI{
             // ImGui::SameLine();
             // if (ImGui::BeginChild("model display"))
             // {
-            ImGui::TextWrapped(("|      Model: " + localSettings.modelName).c_str());
                 
+                
+            if (newChat.isContinue == '_') {
+            
+                if (ImGui::Selectable((" | Press to see the list | Selected: " + localSettings.modelName).c_str())) {
+                    showModelsList = !showModelsList;
+                }
+            } else ImGui::TextWrapped(("|      Model: " + localSettings.modelName).c_str());
             // ImGui::EndChild();
             // }
             ImGui::EndMenuBar();

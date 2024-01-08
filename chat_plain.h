@@ -221,6 +221,10 @@ private:
     int n_p_eval              = 0;
     // since params.n_keep changes
     int n_keep                = 0;
+    int ga_i = 0;
+
+    int ga_n;
+    int ga_w;
     
     std::vector<llama_token> embd;
     std::vector<llama_token> embd_msg;
@@ -428,19 +432,19 @@ public:
     }
     
     std::string getSparamsChanged(){
-        std::string result;
+        std::string result = "logits ";
         
-        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += "\n penalty_repeat = " + std::to_string(params.sparams.penalty_repeat); 
-        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "\n penalty_freq = " + std::to_string(params.sparams.penalty_freq); 
-        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "\n penalty_present = " + std::to_string(params.sparams.penalty_present); 
+        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += "-> penalty_repeat = " + std::to_string(params.sparams.penalty_repeat); 
+        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "-> penalty_freq = " + std::to_string(params.sparams.penalty_freq); 
+        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "-> penalty_present = " + std::to_string(params.sparams.penalty_present); 
         
         
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
-            if (params.sparams.temp != paramsDefault.sparams.temp) result += "\n temp = " + std::to_string(params.sparams.temp);
-            result += "\n mirostat = " + std::to_string(params.sparams.mirostat); 
-            result += "\n mirostat_tau = " + std::to_string(params.sparams.mirostat_tau); 
-            result += "\n mirostat_eta = " + std::to_string(params.sparams.mirostat_eta);
+            if (params.sparams.temp != paramsDefault.sparams.temp) result += "-> temp = " + std::to_string(params.sparams.temp);
+            result += "-> mirostat = " + std::to_string(params.sparams.mirostat); 
+            result += "; mirostat_tau = " + std::to_string(params.sparams.mirostat_tau); 
+            result += "; mirostat_eta = " + std::to_string(params.sparams.mirostat_eta);
         } else {
             // if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "\n top_k = " + std::to_string(params.sparams.top_k);
             // if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result +="\n tfs_z = " + std::to_string(params.sparams.tfs_z); 
@@ -448,13 +452,14 @@ public:
             // if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "\n top_p = " + std::to_string(params.sparams.top_p);
             // if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "\n min_p = " + std::to_string(params.sparams.min_p);
             for (auto s : params.sparams.samplers_sequence){
+                result += "-> ";
                 switch (s){
-                    case 'k': result += "\n top_k "; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "= " + std::to_string(params.sparams.top_k); break;
-                    case 'f': result += "\n tfs_z "; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += "= " + std::to_string(params.sparams.tfs_z); break;
-                    case 'y': result += "\n typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "= "+ std::to_string(params.sparams.typical_p); break;
-                    case 'p': result += "\n top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "= " + std::to_string(params.sparams.top_p); break;
-                    case 'm': result += "\n min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "= " + std::to_string(params.sparams.min_p); break;
-                    case 't': result += "\n temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); break;
+                    case 'k': result += "top_k "; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "= " + std::to_string(params.sparams.top_k); break;
+                    case 'f': result += "tfs_z "; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += "= " + std::to_string(params.sparams.tfs_z); break;
+                    case 'y': result += "typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "= "+ std::to_string(params.sparams.typical_p); break;
+                    case 'p': result += "top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "= " + std::to_string(params.sparams.top_p); break;
+                    case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "= " + std::to_string(params.sparams.min_p); break;
+                    case 't': result += "temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); break;
                     default : break;
                 }
             }
@@ -791,6 +796,14 @@ public:
         
         n_ctx = llama_n_ctx(ctx);
         
+        ga_n = params.grp_attn_n;
+        ga_w = params.grp_attn_w;
+        
+        if (ga_n != 1) {
+            GGML_ASSERT(ga_n > 0                    && "grp_attn_n must be positive");                     // NOLINT
+            GGML_ASSERT(ga_w % ga_n == 0            && "grp_attn_w must be a multiple of grp_attn_n");     // NOLINT
+        }
+        
 
         path_session = params.path_prompt_cache;
 
@@ -1022,7 +1035,7 @@ public:
         }
     }
     
-    void resetContext(){
+    void resetContext() {
         // infinite text generation via context swapping
         // if we run out of context:
         // - take the n_keep first tokens from the original prompt (via n_past)
@@ -1053,7 +1066,51 @@ public:
         }
     }
     
-    int reuse(){
+    void extendContext() {
+        if (ga_n == 1) {
+            // infinite text generation via context shifting
+            // if we run out of context:
+            // - take the n_keep first tokens from the original prompt (via n_past)
+            // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
+            if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) > n_ctx) {
+                // if (params.n_predict == -2) {
+                    // printf("\n\n%s: context full and n_predict == -%d => stopping\n", __func__, params.n_predict);
+                    // break;
+                // }
+                
+                const int n_left    = n_past - params.n_keep - 1;
+                const int n_discard = n_left/2;
+                
+                llama_kv_cache_seq_rm   (ctx, 0, params.n_keep + 1            , params.n_keep + n_discard + 1);
+                llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
+                
+                n_past -= n_discard;
+                
+                if (ctx_guidance) {
+                        n_past_guidance -= n_discard;
+                    }
+
+                path_session.clear();
+            }
+        } else {
+            // context extension via Self-Extend
+            while (n_past >= ga_i + ga_w) {
+                const int ib = (ga_n*ga_i)/ga_w;
+                const int bd = (ga_w/ga_n)*(ga_n - 1);
+                const int dd = (ga_w/ga_n) - ib*bd - ga_w;
+                
+                llama_kv_cache_seq_shift(ctx, 0, ga_i,                n_past,              ib*bd);
+                llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
+                llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+                
+                n_past -= bd;
+
+                ga_i += ga_w/ga_n;
+            }
+        }
+    }
+    
+    int reuse() {
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (n_session_consumed < (int) session_tokens.size()) {
             size_t i = 0;
@@ -1156,7 +1213,8 @@ public:
         // if we run out of context:
         // - take the n_keep first tokens from the original prompt (via n_past)
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-        resetContext();
+        //resetContext();
+        extendContext();
 
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (reuse() == 0) return 0;
@@ -1624,7 +1682,8 @@ public:
         // if we run out of context:
         // - take the n_keep first tokens from the original prompt (via n_past)
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-        resetContext();
+        //resetContext();
+        extendContext();
 
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (reuse(embd_msg) == 0) return 0;

@@ -181,6 +181,8 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = config["n_threads_batch"];
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
     if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
+    if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
+    if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
     if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "temp")) params.sparams.temp = config["temp"];

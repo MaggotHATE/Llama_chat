@@ -68,6 +68,7 @@
 #include <initializer_list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <queue>
 #include <random>
@@ -1902,6 +1903,28 @@ static void llama_kv_cache_seq_shift(
     cache.head = new_head != cache.size ? new_head : 0;
 }
 
+static void llama_kv_cache_seq_div(
+        struct llama_kv_cache & cache,
+                 llama_seq_id   seq_id,
+                    llama_pos   p0,
+                    llama_pos   p1,
+                          int   d) {
+    if (p0 < 0) p0 = 0;
+    if (p1 < 0) p1 = std::numeric_limits<llama_pos>::max();
+
+    for (uint32_t i = 0; i < cache.size; ++i) {
+        if (cache.cells[i].has_seq_id(seq_id) && cache.cells[i].pos >= p0 && cache.cells[i].pos < p1) {
+            cache.has_shift = true;
+
+            {
+                llama_pos p_old = cache.cells[i].pos;
+                cache.cells[i].pos   /= d;
+                cache.cells[i].delta += cache.cells[i].pos - p_old;
+            }
+        }
+    }
+}
+
 //
 // model loading and saving
 //
@@ -2179,7 +2202,11 @@ struct llama_model_loader {
                     type_max   = type;
                 }
 
-                // LLAMA_LOG_INFO("%s: - tensor %4d: %32s %-8s [ %s ]\n", __func__, i, name, ggml_type_name(meta->type), llama_format_tensor_shape(meta).c_str());
+                // TODO: make runtime configurable
+#if 0
+                struct ggml_tensor * meta = ggml_get_tensor(ctx_meta, gguf_get_tensor_name(ctx_gguf, i));
+                LLAMA_LOG_INFO("%s: - tensor %4d: %32s %-8s [ %s ]\n", __func__, i, ggml_get_name(meta), ggml_type_name(type), llama_format_tensor_shape(meta).c_str());
+#endif
             }
 
             switch (type_max) {
@@ -4771,7 +4798,6 @@ struct llm_build_context {
         const int64_t n_embd_head = hparams.n_embd_head_v;
         const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * inpL;
@@ -4895,7 +4921,6 @@ struct llm_build_context {
         const int64_t n_embd_head = hparams.n_embd_head_v;
         const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * pos;
@@ -4994,9 +5019,7 @@ struct llm_build_context {
         struct ggml_cgraph * gf = ggml_new_graph_custom(ctx0, LLAMA_MAX_NODES, false);
 
         const int64_t n_embd_head = hparams.n_embd_head_v;
-        const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         const int64_t n_rot = n_embd_head_k / 2;
 
@@ -5208,9 +5231,7 @@ struct llm_build_context {
         struct ggml_cgraph * gf = ggml_new_graph_custom(ctx0, LLAMA_MAX_NODES, false);
 
         const int64_t n_embd_head = hparams.n_embd_head_v;
-        const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * inpL;
@@ -5303,7 +5324,6 @@ struct llm_build_context {
         const int64_t n_embd_head = hparams.n_embd_head_v;
         const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * inpL;
@@ -5399,7 +5419,6 @@ struct llm_build_context {
         const int64_t n_embd_head = hparams.n_embd_head_v;
         const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * inpL;
@@ -5726,7 +5745,6 @@ struct llm_build_context {
         const int64_t n_embd_head = hparams.n_embd_head_v;
         const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * attn_norm_output;
@@ -5950,7 +5968,6 @@ struct llm_build_context {
         const int64_t n_embd_head = hparams.n_embd_head_v;
         const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
-        GGML_ASSERT(n_embd_gqa  == n_embd);
 
         struct ggml_tensor * cur;
         struct ggml_tensor * pos;
@@ -8924,10 +8941,10 @@ struct quantize_state_internal {
 
 static void llama_convert_tensor_internal(
     struct ggml_tensor * tensor, std::vector<no_init<float>> & output, std::vector<std::thread> & workers,
-    const size_t ne, const int nthread
+    const size_t nelements, const int nthread
 ) {
-    if (output.size() < ne) {
-        output.resize(ne);
+    if (output.size() < nelements) {
+        output.resize(nelements);
     }
     float * f32_output = (float *) output.data();
 
@@ -8943,9 +8960,9 @@ static void llama_convert_tensor_internal(
 
     if (nthread < 2) {
         if (tensor->type == GGML_TYPE_F16) {
-            ggml_fp16_to_fp32_row((ggml_fp16_t *)tensor->data, f32_output, ne);
+            ggml_fp16_to_fp32_row((ggml_fp16_t *)tensor->data, f32_output, nelements);
         } else if (ggml_is_quantized(tensor->type)) {
-            qtype.to_float(tensor->data, f32_output, ne);
+            qtype.to_float(tensor->data, f32_output, nelements);
         } else {
             GGML_ASSERT(false); // unreachable
         }
@@ -8955,8 +8972,8 @@ static void llama_convert_tensor_internal(
     size_t block_size = tensor->type == GGML_TYPE_F16 ? 1 : (size_t)ggml_blck_size(tensor->type);
     size_t block_size_bytes = ggml_type_size(tensor->type);
 
-    GGML_ASSERT(ne % block_size == 0);
-    size_t nblocks = ne / block_size;
+    GGML_ASSERT(nelements % block_size == 0);
+    size_t nblocks = nelements / block_size;
     size_t blocks_per_thread = nblocks / nthread;
     size_t spare_blocks = nblocks - (blocks_per_thread * nthread); // if blocks aren't divisible by thread count
 
@@ -9190,6 +9207,7 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
 
     std::vector<std::thread> workers;
     workers.reserve(nthread);
+    std::mutex mutex;
 
     int idx = 0;
 
@@ -9263,7 +9281,7 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
             new_size = ggml_nbytes(tensor);
             LLAMA_LOG_INFO("size = %8.3f MB\n", ggml_nbytes(tensor)/1024.0/1024.0);
         } else {
-            const size_t ne = ggml_nelements(tensor);
+            const size_t nelements = ggml_nelements(tensor);
 
             float * f32_data;
 
@@ -9272,58 +9290,53 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
             } else if (ggml_is_quantized(tensor->type) && !params->allow_requantize) {
                 throw std::runtime_error(format("requantizing from type %s is disabled", ggml_type_name(tensor->type)));
             } else {
-                llama_convert_tensor_internal(tensor, f32_conv_buf, workers, ne, nthread);
+                llama_convert_tensor_internal(tensor, f32_conv_buf, workers, nelements, nthread);
                 f32_data = (float *) f32_conv_buf.data();
             }
 
             LLAMA_LOG_INFO("quantizing to %s .. ", ggml_type_name(new_type));
             fflush(stdout);
 
-            if (work.size() < ne * 4) {
-                work.resize(ne * 4); // upper bound on size
+            if (work.size() < nelements * 4) {
+                work.resize(nelements * 4); // upper bound on size
             }
             new_data = work.data();
-            
             std::array<int64_t, 1 << 4> hist_cur = {};
 
-            {
-                static const size_t chunk_size = 32*512;
-
-                const int nchunk = GGML_PAD(ne, chunk_size)/chunk_size;
-                const int nthread_use = nthread > 1 ? std::max(1, std::min(nthread, nchunk)) : 1;
-
-                std::vector<size_t> size_th(nthread_use, 0);
-                std::vector<std::array<int64_t, 1 << 4>> hist_cur_th(nthread_use);
-
-                auto compute = [&size_th, &hist_cur_th, new_type, f32_data, new_data, ne, nchunk, nthread_use](int tid) {
-                    auto & local_size = size_th[tid];
-                    auto & local_hist = hist_cur_th[tid];
-
-                    for (int ch = tid; ch < nchunk; ch += nthread_use) {
-                        const size_t first = ch * chunk_size;
-                        const size_t last  = std::min(ne, first + chunk_size);
-
+            static const int chunk_size = 32 * 512;
+            const int nchunk = (nelements + chunk_size - 1)/chunk_size;
+            const int nthread_use = nthread > 1 ? std::max(1, std::min(nthread, nchunk)) : 1;
+            if (nthread_use < 2) {
+                new_size = ggml_quantize_chunk(new_type, f32_data, new_data, 0, nelements, hist_cur.data());
+            } else {
+                size_t counter = 0;
+                new_size = 0;
+                auto compute = [&mutex, &counter, &hist_cur, &new_size, new_type, f32_data, new_data, nelements]() {
+                    std::array<int64_t, 1 << 4> local_hist = {};
+                    size_t local_size = 0;
+                    while (true) {
+                        std::unique_lock<std::mutex> lock(mutex);
+                        size_t first = counter; counter += chunk_size;
+                        if (first >= nelements) {
+                            if (local_size > 0) {
+                                for (int j=0; j<int(local_hist.size()); ++j) {
+                                    hist_cur[j] += local_hist[j];
+                                }
+                                new_size += local_size;
+                            }
+                            break;
+                        }
+                        lock.unlock();
+                        size_t last = std::min(nelements, first + chunk_size);
                         local_size += ggml_quantize_chunk(new_type, f32_data, new_data, first, last - first, local_hist.data());
                     }
                 };
                 for (int it = 0; it < nthread_use - 1; ++it) {
-                    workers.emplace_back(compute, it);
+                    workers.emplace_back(compute);
                 }
-                compute(nthread_use - 1);
-
-                for (auto & w : workers) {
-                    w.join();
-                }
-                
+                compute();
+                for (auto & w : workers) { w.join(); }
                 workers.clear();
-                
-                new_size = 0;
-                for (int it = 0; it < nthread_use; ++it) {
-                    for (int j = 0; j < int(hist_cur.size()); ++j) {
-                        hist_cur[j] += hist_cur_th[it][j];
-                    }
-                    new_size += size_th[it];
-                }
             }
 
             LLAMA_LOG_INFO("size = %8.2f MiB -> %8.2f MiB | hist: ", ggml_nbytes(tensor)/1024.0/1024.0, new_size/1024.0/1024.0);
@@ -9335,7 +9348,7 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
 
             if (tot_count > 0) {
                 for (size_t i = 0; i < hist_cur.size(); i++) {
-                    LLAMA_LOG_INFO("%5.3f ", hist_cur[i] / float(ne));
+                    LLAMA_LOG_INFO("%5.3f ", hist_cur[i] / float(nelements));
                 }
             }
             LLAMA_LOG_INFO("\n");
@@ -10255,7 +10268,19 @@ void llama_kv_cache_seq_keep(struct llama_context * ctx, llama_seq_id seq_id) {
 }
 
 void llama_kv_cache_seq_shift(struct llama_context * ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1, llama_pos delta) {
+    if (delta == 0) {
+        return;
+    }
+
     llama_kv_cache_seq_shift(ctx->kv_self, seq_id, p0, p1, delta);
+}
+
+void llama_kv_cache_seq_div(struct llama_context * ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1, int d) {
+    if (d == 1) {
+        return;
+    }
+
+    llama_kv_cache_seq_div(ctx->kv_self, seq_id, p0, p1, d);
 }
 
 // Returns the *maximum* size of the state
