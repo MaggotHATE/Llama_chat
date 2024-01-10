@@ -168,9 +168,9 @@ void StyleColorsLightNew()
     // }
 // }
 
-std::string getStringFromJson(std::string fimeName, std::string stringName){
+std::string getStringFromJson(std::string fileName, std::string stringName){
     nlohmann::json config;
-    std::fstream o1(fimeName);
+    std::fstream o1(fileName);
     if (o1.is_open()) {
         
         o1 >> std::setw(4) >> config;
@@ -189,11 +189,11 @@ std::string getStringFromJson(std::string fimeName, std::string stringName){
 static void sliderTemp(float& temp, float& default_temp)
 {
     {
-        if (ImGui::Button("-##temp")) {
+        if (ImGui::Button("- ##temp")) {
             temp -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##temp")) {
+        if (ImGui::Button(" +##temp")) {
             temp += 0.001f;
         }
         ImGui::SameLine();
@@ -906,98 +906,108 @@ struct chatUI{
     }
     
     void settingsTab(){
-        if (copiedTimings == false) {
-            aTiming = newChat.lastTimings;
-            copiedTimings = true;
-        }
         
-        paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
-        ImGui::SameLine();
-        ImGui::TextWrapped(aTiming.c_str());
         
-        ImGui::TextWrapped( ("Order of samplers: " + newChat.sparamsList ).c_str() );
-        ImGui::Separator();
-        //ImGui::SameLine();
-        if (newChat.loaded == 9) {
+        //if (!localSettings.params.prompt.empty() ) {
+            
+            //ImGui::SameLine();
+            //ImGui::TextWrapped(localSettings.modelName.c_str());
+            //ImGui::TextWrapped(localSettings.modelFromJson.c_str());
+            ImGui::TextWrapped(aTiming.c_str());
+            
+            ImGui::TextWrapped( ("Order of samplers: " + newChat.sparamsList ).c_str() );
+            ImGui::Separator();
+            //ImGui::SameLine();
+            if (newChat.loaded == 9) {
+                
+                if (copiedTimings == false) {
+                    aTiming = newChat.lastTimings;
+                    copiedTimings = true;
+                }
 
-            if (copiedSettings){
-                ImGui::TextWrapped( ("SEED: " + std::to_string(localSettings.params.seed)).c_str() );
-               //ImGui::BeginChild("PreData");
-                ImGui::TextWrapped( ("Base (initial) prompt: " + localSettings.params.prompt).c_str() ); ImGui::SameLine(); HelpMarker("This serves as the basis for the dialog, providing context. Make sure it ends with the antiptrompt if you don't want the NN to converse endlessly.");
-                ImGui::Separator();
-               //ImGui::EndChild();
-                ImGui::TextWrapped( ("Antiprompt: " + localSettings.params.antiprompt[0]).c_str() ); ImGui::SameLine(); HelpMarker("This serves as a stop-word for the NN to be able to end generation and wait for your input.");
-                ImGui::Separator();
-#if GGML_OLD_FORMAT
-                ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.cfg_negative_prompt).c_str() ); 
-#elif GGML_USE_VULKAN2
-                ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sampling_params.cfg_negative_prompt).c_str() ); 
-#else
-                ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sparams.cfg_negative_prompt).c_str() ); 
-#endif
-                ImGui::SameLine(); HelpMarker("If cfg_scale > 1.0, CFG negative prompt is used for additional guiding.");
-                ImGui::Separator();
-                
-                if (localSettings.params.rope_freq_scale != paramsDefault.rope_freq_scale){
-                    ImGui::TextWrapped( ("rope_freq_scale: " + std::to_string(localSettings.params.rope_freq_scale)).c_str() ); ImGui::SameLine(); HelpMarker("Specific paramenter to adjust for extra large context models - needs to be (base model n_ctx)/(this model n_ctx), for example, 0.25 for llama2 (4096) -based everythinglm-13b-16k (16384)");
+                if (copiedSettings){
+                    ImGui::TextWrapped( ("SEED: " + std::to_string(localSettings.params.seed)).c_str() );
+                   //ImGui::BeginChild("PreData");
+                    ImGui::TextWrapped( ("Base (initial) prompt: " + localSettings.params.prompt).c_str() ); ImGui::SameLine(); HelpMarker("This serves as the basis for the dialog, providing context. Make sure it ends with the antiptrompt if you don't want the NN to converse endlessly.");
                     ImGui::Separator();
-                }
-                if (localSettings.params.rope_freq_base != paramsDefault.rope_freq_base){
-                    ImGui::TextWrapped( ("rope_freq_base: " + std::to_string(localSettings.params.rope_freq_base)).c_str() ); ImGui::SameLine(); HelpMarker("Specific paramenter to adjust for extra large context models.");
+                   //ImGui::EndChild();
+                    ImGui::TextWrapped( ("Antiprompt: " + localSettings.params.antiprompt[0]).c_str() ); ImGui::SameLine(); HelpMarker("This serves as a stop-word for the NN to be able to end generation and wait for your input.");
                     ImGui::Separator();
+    #if GGML_OLD_FORMAT
+                    ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.cfg_negative_prompt).c_str() ); 
+    #elif GGML_USE_VULKAN2
+                    ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sampling_params.cfg_negative_prompt).c_str() ); 
+    #else
+                    ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sparams.cfg_negative_prompt).c_str() ); 
+    #endif
+                    ImGui::SameLine(); HelpMarker("If cfg_scale > 1.0, CFG negative prompt is used for additional guiding.");
+                    ImGui::Separator();
+                    
+                    if (localSettings.params.rope_freq_scale != paramsDefault.rope_freq_scale){
+                        ImGui::TextWrapped( ("rope_freq_scale: " + std::to_string(localSettings.params.rope_freq_scale)).c_str() ); ImGui::SameLine(); HelpMarker("Specific paramenter to adjust for extra large context models - needs to be (base model n_ctx)/(this model n_ctx), for example, 0.25 for llama2 (4096) -based everythinglm-13b-16k (16384)");
+                        ImGui::Separator();
+                    }
+                    if (localSettings.params.rope_freq_base != paramsDefault.rope_freq_base){
+                        ImGui::TextWrapped( ("rope_freq_base: " + std::to_string(localSettings.params.rope_freq_base)).c_str() ); ImGui::SameLine(); HelpMarker("Specific paramenter to adjust for extra large context models.");
+                        ImGui::Separator();
+                    }
+                    ImGui::TextWrapped( ("Context size: " + std::to_string(localSettings.params.n_ctx)).c_str() ); ImGui::SameLine(); HelpMarker("The amount of data that can be stored and processed by the model within a session - depends on the model and should be used carefully. Models with context higher than 2048 usually have it in their name or description.");
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                    
+                    if (newChat.isContinue != 'w') {
+                        if (ImGui::Button("Apply settings")) {
+                            localSettings.fillLocalJson();
+                            localSettings.pushSettings(newChat.newChat);
+                            //localJsonDump = localSettings.modelConfig.dump(3);
+                            localSettings.updateDump();
+                        }
+                        
+                        ImGui::SameLine();
+                        
+                        if (ImGui::Button("Restore settings from model")) {
+                            localSettings.getSettings(newChat.newChat);
+                            localSettings.fillLocalJson();
+                        }
+                        
+                        ImGui::SameLine();
+                        openCard();
+                        ImGui::SameLine();
+                        saveCard();
+                        
+                        // ImGui::Checkbox("Temperature first", &newChat.newChat.tempFirst);
+                        // ImGui::SameLine();
+                        // HelpMarker("Temperature sampling is originally last in llama.cpp, which affect how it's randomeness affects the resulting array of tokens. You can change it for experiment.");
+                    //} else ImGui::TextWrapped( (newChat.newChat.tempFirst ? "Temperature is first in sampling." : "Temperature is last in sampling.") );
+                    } 
+                    
+                    
                 }
-                ImGui::TextWrapped( ("Context size: " + std::to_string(localSettings.params.n_ctx)).c_str() ); ImGui::SameLine(); HelpMarker("The amount of data that can be stored and processed by the model within a session - depends on the model and should be used carefully. Models with context higher than 2048 usually have it in their name or description.");
-                ImGui::Separator();
-                ImGui::Spacing();
                 
-                if (newChat.isContinue != 'w') {
-                    if (ImGui::Button("Apply settings")) {
-                        localSettings.fillLocalJson();
-                        localSettings.pushSettings(newChat.newChat);
-                        //localJsonDump = localSettings.modelConfig.dump(3);
-                        localSettings.updateDump();
-                    }
-                    
-                    ImGui::SameLine();
-                    
-                    if (ImGui::Button("Restore settings from model")) {
-                        localSettings.getSettings(newChat.newChat);
-                        localSettings.fillLocalJson();
-                    }
-                    
-                    ImGui::SameLine();
-                    openCard();
-                    ImGui::SameLine();
-                    saveCard();
-                    
-                    // ImGui::Checkbox("Temperature first", &newChat.newChat.tempFirst);
-                    // ImGui::SameLine();
-                    // HelpMarker("Temperature sampling is originally last in llama.cpp, which affect how it's randomeness affects the resulting array of tokens. You can change it for experiment.");
-                //} else ImGui::TextWrapped( (newChat.newChat.tempFirst ? "Temperature is first in sampling." : "Temperature is last in sampling.") );
-                } 
+            } else {
                 
                 
+                
+                ImGui::TextWrapped("Model isn't loaded yet...");
+                
+                if (ImGui::Button("Apply settings")) {
+                    localSettings.fillLocalJson();
+                    //localJsonDump = localSettings.modelConfig.dump(3);
+                    localSettings.updateDump();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Restore settings from config")) {
+                    localSettings.getSettingsFromModelConfig();
+                    localSettings.fillLocalJson();
+                }
+                ImGui::SameLine();
+                openCard();
+                ImGui::SameLine();
+                saveCard();
             }
             
-        } else {
-            ImGui::TextWrapped("Model isn't loaded yet...");
-            
-            if (ImGui::Button("Apply settings")) {
-                localSettings.fillLocalJson();
-                //localJsonDump = localSettings.modelConfig.dump(3);
-                localSettings.updateDump();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Restore settings from config")) {
-                localSettings.getSettingsFromModelConfig();
-                localSettings.fillLocalJson();
-            }
-            ImGui::SameLine();
-            openCard();
-            ImGui::SameLine();
-            saveCard();
-        }
-        
+            paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
+        //}
         //ImGui::BeginChild("SettingsTabsHalf", ImVec2( ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y), false);
         
         
@@ -1628,21 +1638,24 @@ struct chatUI{
             if (newChat.isContinue == '_' && showModelsList) {
                 simpleStartScreen();
             } else {
-                if (!initTokens){
-                    tokens_this_session = newChat.last_tokens;
-                    consumed_this_session = newChat.consumed_tokens;
-                    past_this_session = newChat.past_tokens;
+                
+                if (newChat.loaded == 9) {
+                    if (!initTokens){
+                        tokens_this_session = newChat.last_tokens;
+                        consumed_this_session = newChat.consumed_tokens;
+                        past_this_session = newChat.past_tokens;
+                        
+                        initTokens = true;
+                    }
                     
-                    initTokens = true;
+                    if (!copiedSettings){
+                        localSettings.getSettings(newChat.newChat);
+                        helpLabel = localSettings.params.antiprompt[0];
+                        shortModelName = newChat.shortModelName;
+                        copiedSettings = true;
+                    }
                 }
                 
-                if (!copiedSettings){
-                    localSettings.getSettings(newChat.newChat);
-                    helpLabel = localSettings.params.antiprompt[0];
-                    shortModelName = newChat.shortModelName;
-                    copiedSettings = true;
-                }
-
                 {
 /////// rendering dialogs ////////////////////////////////////////////////////////////////////////
                     if (ImGui::BeginChild("Dialog", ImVec2( messageWidth * 0.99f, ImGui::GetContentRegionAvail().y*0.75f))) {
@@ -1723,10 +1736,10 @@ struct chatUI{
                                         if (msgLen < messageWidth) {
                                             
                                             ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x - msgLen * 0.45f);
-                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + msgLen * 0.55f);
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + msgLen * 0.50f);
                                         } else {
                                             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.45f);
-                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + messageWidth* 0.55f);
+                                            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + messageWidth* 0.50f);
                                         }
                                         //else ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
                                     } else ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
@@ -1878,9 +1891,13 @@ struct chatUI{
     void modelToConfig(std::string& modelName) {
         if (newChat.isContinue == '_') {
             localSettings.modelName = modelName;
+            // update settings based on localSettings.modelName
             localSettings.updateSettings();
+            // create a localSettings.modelConfig
             localSettings.fillLocalJson();
+            // create a text dump of current configs
             localSettings.updateDump();
+            
             n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
            
             if (newChat.isContinue != 'w' && newChat.loaded == 9) {
@@ -1925,13 +1942,13 @@ struct chatUI{
         }
     }
     
-    void simpleStartScreen(){
+    void simpleStartScreen() {
         if (use_models_list_left) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 13);
         if (ImGui::BeginChild("Prompt for model", ImVec2( ImGui::GetContentRegionAvail().x * 0.55, ImGui::GetContentRegionAvail().y))) {
             
             if (std::filesystem::exists(localSettings.modelName)){
                 if (ImGui::Button(("Load " + localSettings.modelName).c_str())) {
-                    show_models_list = false;
+                    showModelsList = false;
                     show_menu_left = false;
                     arrow = ">";
                     menu = "=";
@@ -2043,7 +2060,7 @@ struct chatUI{
             
             ImGui::Spacing();
             
-            if (!localSettings.checkInputPrompt() | !localSettings.checkInputAntiprompt() | !localSettings.checkInputAntiCFG()){
+            if (!localSettings.checkInputPrompt() | !localSettings.checkInputAntiprompt() | !localSettings.checkInputAntiCFG() | !localSettings.checkInputSuffix() | !localSettings.checkInputPrefix()){
             
                 if (ImGui::Button("Apply to config")) {
                     //localSettings.getFromJson("config.json");
@@ -2241,9 +2258,9 @@ struct chatUI{
                     // } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
                         // localSettings.inputAntiprompt = "NULL";
                     // }
-            ImGui::InputTextMultiline("Prefix", &localSettings.params.input_prefix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
+            ImGui::InputTextMultiline("Prefix", &localSettings.inputPrefix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
                     
-            ImGui::InputTextMultiline("Suffix", &localSettings.params.input_suffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
+            ImGui::InputTextMultiline("Suffix", &localSettings.inputSuffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
             
             ImGui::InputText("Grammar file", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
             if (ImGui::Button("Choose grammar")) {
@@ -3352,7 +3369,7 @@ struct chatUI{
         
         //models of the left
         if (use_models_list_left) {
-            if (show_models_list) {
+            //if (show_models_list) {
                 ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
                 ImGui::SetNextItemAllowOverlap();
                 if (ImGui::BeginChild("Chats list", ImVec2( ImGui::GetContentRegionAvail().x * 0.2f, ImGui::GetContentRegionAvail().y))) {
@@ -3366,7 +3383,7 @@ struct chatUI{
                 ImGui::PopStyleColor();
                 
                 ImGui::SameLine();
-            }
+            //}
         }
         //menu of the left
         if (use_menu_left) {
@@ -3459,24 +3476,27 @@ struct chatUI{
         localSettings.modelFromJson = getStringFromJson(configName,"model");
         if (promptsFolderName != "NULL") localSettings.promptFilesFolder = promptsFolderName;
         
+        // scan existing models from .json
         localSettings.getFilesList();
+        // copy from current config to localSettings.localConfig 
         localSettings.getFromJson(configName);
+        // get settings from that json 
         localSettings.getSettingsFull();
-        localSettings.fillLocalJson();
-        localSettings.updateDump();
+        // fill in params and json dumps
+        modelToConfig(localSettings.modelFromJson);
         
-        inputPrompt = localSettings.params.prompt;
+        //inputPrompt = localSettings.params.prompt;
         
-        n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
+        //n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
 
-        if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
-#if GGML_OLD_FORMAT
-        inputAntiCFG = localSettings.params.cfg_negative_prompt;
-#elif GGML_USE_VULKAN2
-        inputAntiCFG = localSettings.params.sampling_params.cfg_negative_prompt;
-#else
-        inputAntiCFG = localSettings.params.sparams.cfg_negative_prompt;
-#endif
+        // if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
+// #if GGML_OLD_FORMAT
+        // inputAntiCFG = localSettings.params.cfg_negative_prompt;
+// #elif GGML_USE_VULKAN2
+        // inputAntiCFG = localSettings.params.sampling_params.cfg_negative_prompt;
+// #else
+        // inputAntiCFG = localSettings.params.sparams.cfg_negative_prompt;
+// #endif
 
         switch (themeIdx)
         {
@@ -3496,8 +3516,8 @@ struct chatUI{
             }
         }
         
+        // check if the settigns are valid
         localSettings.checkLocalConfig();
-        //loadModel();
     }
     
     void stopOnCheck() {

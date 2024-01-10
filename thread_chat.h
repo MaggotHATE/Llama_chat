@@ -273,7 +273,9 @@ struct modelThread{
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
+            file << std::to_string(newChat.params.seed) << DELIMINER;
             file << lastTimings << DELIMINER;
+            file << sparamsList << DELIMINER;
             for (auto r : resultsStringPairs){
                 file << r.first << DELIMINER;
                 file << ' ' << r.second << DELIMINER;
@@ -704,6 +706,8 @@ struct configurableChat{
     std::string instructFileFromJson = "NULL";
     std::string cfgNegativePrompt;
     std::string inputPrompt = "NULL";
+    std::string inputSuffix = "";
+    std::string inputPrefix = "";
     std::string inputAntiprompt = "NULL";
     std::string inputAntiCFG = "";
     std::string inputInstructFile = "NULL";
@@ -885,27 +889,21 @@ struct configurableChat{
     void getSettingsFull(){
         params = paramsDefault;
         readParamsFromJson(localConfig, params);
-        //if (localConfig.contains("temp_first")) tempFirst = localConfig["temp_first"];
         if (localConfig.contains("name")) charName = localConfig["name"];
+        else charName.clear();
+        //readParamsFromJson(modelConfig, params);
         modelName = params.model;
         syncInputs();
     }
     
     void syncInputs(){
         inputPrompt = params.prompt;
+        inputSuffix = params.input_suffix;
+        inputPrefix = params.input_prefix;
         if(params.antiprompt.size()) inputAntiprompt = params.antiprompt[0];
         if(params.sparams.cfg_negative_prompt.size()) inputAntiCFG = params.sparams.cfg_negative_prompt;
     }
-    
-    int checkChangedInputs(){
-        int result = 0;
-        if (inputPrompt != "NULL" && inputPrompt != params.prompt) result += 1;
-        if (inputAntiprompt != "NULL" && params.antiprompt.size() && inputAntiprompt != params.antiprompt[0]) result += 2;
-        if (!inputAntiCFG.empty() && inputAntiCFG != params.sparams.cfg_negative_prompt) result += 4;
         
-        return result;
-    }
-    
     void getSettingsFromModelConfig(){
         params = paramsDefault;
         readParamsFromJson(modelConfig, params);
@@ -973,6 +971,18 @@ struct configurableChat{
             if (localConfig["file"].is_string()) instructFileFromJson = localConfig["file"].get<std::string>();
         }
         
+    }
+    
+    bool checkInputSuffix(){
+        if (!inputSuffix.empty() && inputSuffix != modelConfig[modelName]["input_suffix"].get<std::string>()) return false;
+        
+        return true;
+    }
+    
+    bool checkInputPrefix(){
+        if (!inputPrefix.empty() && inputPrefix != modelConfig[modelName]["input_prefix"].get<std::string>()) return false;
+        
+        return true;
     }
     
     bool checkInputPrompt(){
@@ -1108,6 +1118,8 @@ struct configurableChat{
         //modelConfig["temp_first"] = tempFirst;
         if (!charName.empty()) modelConfig["name"] = charName;
         
+        modelConfig[model]["seed"] = params.seed;
+        
     }
     
     nlohmann::json createNewCard(){
@@ -1195,6 +1207,8 @@ struct configurableChat{
     
     void updateInput(){
         if (inputPrompt != "NULL") params.prompt = inputPrompt;
+        params.input_suffix = inputSuffix;
+        params.input_prefix = inputPrefix;
         if (inputAntiprompt != "NULL") {
             if(!params.antiprompt.size()) 
                 params.antiprompt.push_back(inputAntiprompt);
