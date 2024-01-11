@@ -189,16 +189,16 @@ std::string getStringFromJson(std::string fileName, std::string stringName){
 static void sliderTemp(float& temp, float& default_temp)
 {
     {
-        if (ImGui::Button("- ##temp")) {
+        if (ImGui::Button(" -##temp")) {
             temp -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button(" +##temp")) {
+        if (ImGui::Button("+ ##temp")) {
             temp += 0.001f;
         }
         ImGui::SameLine();
     }
-    ImGui::SliderFloat("temp", &temp, 0.0f, 2.0f);
+    ImGui::SliderFloat("temp", &temp, 0.0f, 5.0f);
     if (ImGui::BeginPopupContextItem("temp"))
     {
         if (ImGui::Selectable("Reset to default")){
@@ -211,11 +211,11 @@ static void sliderTemp(float& temp, float& default_temp)
 static void sliderTopK(int& top_k, int& default_top_k)
 {
     {
-        if (ImGui::Button("-##top_k")) {
+        if (ImGui::Button(" -##top_k")) {
             --top_k;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##top_k")) {
+        if (ImGui::Button("+ ##top_k")) {
             top_k++;
         }
         ImGui::SameLine();
@@ -232,11 +232,11 @@ static void sliderTopK(int& top_k, int& default_top_k)
 
 static void sliderTopP(float& top_p, float& default_top_p){
     {
-        if (ImGui::Button("-##top_p")) {
+        if (ImGui::Button(" -##top_p")) {
             top_p -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##top_p")) {
+        if (ImGui::Button("+ ##top_p")) {
             top_p += 0.001f;
         }
         ImGui::SameLine();
@@ -253,11 +253,11 @@ static void sliderTopP(float& top_p, float& default_top_p){
 
 static void sliderRepeatPen(float& repeat_penalty, float& default_repeat_penalty){
     {
-        if (ImGui::Button("-##repeat_penalty")) {
+        if (ImGui::Button(" -##repeat_penalty")) {
             repeat_penalty -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##repeat_penalty")) {
+        if (ImGui::Button("+ ##repeat_penalty")) {
             repeat_penalty += 0.001f;
         }
         ImGui::SameLine();
@@ -274,11 +274,11 @@ static void sliderRepeatPen(float& repeat_penalty, float& default_repeat_penalty
 
 static void sliderFrequencyPen(float& frequency_penalty, float& default_frequency_penalty){
     {
-        if (ImGui::Button("-##frequency_penalty")) {
+        if (ImGui::Button(" -##frequency_penalty")) {
             frequency_penalty -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##frequency_penalty")) {
+        if (ImGui::Button("+ ##frequency_penalty")) {
             frequency_penalty += 0.001f;
         }
         ImGui::SameLine();
@@ -295,11 +295,11 @@ static void sliderFrequencyPen(float& frequency_penalty, float& default_frequenc
 
 static void sliderPresencePen(float& presence_penalty, float& default_presence_penalty){
     {
-        if (ImGui::Button("-##presence_penalty")) {
+        if (ImGui::Button(" -##presence_penalty")) {
             presence_penalty -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##presence_penalty")) {
+        if (ImGui::Button("+ ##presence_penalty")) {
             presence_penalty += 0.001f;
         }
         ImGui::SameLine();
@@ -316,11 +316,11 @@ static void sliderPresencePen(float& presence_penalty, float& default_presence_p
 
 static void sliderMinP(float& min_p, float& default_min_p){
     {
-        if (ImGui::Button("-##min_p")) {
+        if (ImGui::Button(" -##min_p")) {
             min_p -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##min_p")) {
+        if (ImGui::Button("+ ##min_p")) {
             min_p += 0.001f;
         }
         ImGui::SameLine();
@@ -337,11 +337,11 @@ static void sliderMinP(float& min_p, float& default_min_p){
 
 static void sliderTfsZ(float& tfs_z, float& default_tfs_z){
     {
-        if (ImGui::Button("-##tfs_z")) {
+        if (ImGui::Button(" -##tfs_z")) {
             tfs_z -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##tfs_z")) {
+        if (ImGui::Button("+ ##tfs_z")) {
             tfs_z += 0.001f;
         }
         ImGui::SameLine();
@@ -358,11 +358,11 @@ static void sliderTfsZ(float& tfs_z, float& default_tfs_z){
 
 static void sliderTypicalP(float& typical_p, float& default_typical_p){
     {
-        if (ImGui::Button("-##typical_p")) {
+        if (ImGui::Button(" -##typical_p")) {
             typical_p -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##typical_p")) {
+        if (ImGui::Button("+ ##typical_p")) {
             typical_p += 0.001f;
         }
         ImGui::SameLine();
@@ -379,11 +379,11 @@ static void sliderTypicalP(float& typical_p, float& default_typical_p){
 
 static void sliderMirostat(int& mirostat, int& default_mirostat){
     {
-        if (ImGui::Button("-##mirostat")) {
+        if (ImGui::Button(" -##mirostat")) {
             if (mirostat > 0) --mirostat;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##mirostat")) {
+        if (ImGui::Button("+ ##mirostat")) {
             if (mirostat < 2) mirostat++;
         }
         ImGui::SameLine();
@@ -400,11 +400,11 @@ static void sliderMirostat(int& mirostat, int& default_mirostat){
 
 static void sliderMirostatTau(float& mirostat_tau, float& default_mirostat_tau){
     {
-        if (ImGui::Button("-##mirostat_tau")) {
+        if (ImGui::Button(" -##mirostat_tau")) {
             mirostat_tau -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##mirostat_tau")) {
+        if (ImGui::Button("+ ##mirostat_tau")) {
             mirostat_tau += 0.001f;
         }
         ImGui::SameLine();
@@ -421,11 +421,11 @@ static void sliderMirostatTau(float& mirostat_tau, float& default_mirostat_tau){
 
 static void sliderMirostatEta(float& mirostat_eta, float& default_mirostat_eta){
     {
-        if (ImGui::Button("-##mirostat_eta")) {
+        if (ImGui::Button(" -##mirostat_eta")) {
             mirostat_eta -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##mirostat_eta")) {
+        if (ImGui::Button("+ ##mirostat_eta")) {
             mirostat_eta += 0.001f;
         }
         ImGui::SameLine();
@@ -442,11 +442,11 @@ static void sliderMirostatEta(float& mirostat_eta, float& default_mirostat_eta){
 
 static void sliderCfgScale(float& cfg_scale, float& default_cfg_scale){
     {
-        if (ImGui::Button("-##cfg_scale")) {
+        if (ImGui::Button(" -##cfg_scale")) {
             cfg_scale -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+##cfg_scale")) {
+        if (ImGui::Button("+ ##cfg_scale")) {
             cfg_scale += 0.001f;
         }
         ImGui::SameLine();
@@ -548,8 +548,7 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
     if(ImGui::BeginChild("Params", size, false)) {
         
         
-        ImGui::TextWrapped(" Performance settings");
-        ImGui::Separator();
+        
         ImGui::SliderInt("Generation threads", &params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
         
         
@@ -984,6 +983,9 @@ struct chatUI{
                     
                 }
                 
+                ImGui::TextWrapped(" Model performance settings");
+                ImGui::Separator();
+                paramsPanelNew(newChat.newChat.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
             } else {
                 
                 
@@ -1004,9 +1006,14 @@ struct chatUI{
                 openCard();
                 ImGui::SameLine();
                 saveCard();
+                
+                ImGui::TextWrapped(" Config performance settings");
+                ImGui::Separator();
+                paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
+                
             }
             
-            paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
+            
         //}
         //ImGui::BeginChild("SettingsTabsHalf", ImVec2( ImGui::GetContentRegionAvail().x * 0.5, ImGui::GetContentRegionAvail().y), false);
         
@@ -1066,7 +1073,7 @@ struct chatUI{
         
         if (!templatesJson.contains("error")){
             //ImGui::Indent();
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.40f);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + messageWidth * 0.20f);
             if (ImGui::Button("Reset templates config")) {
                 templatesJson = getJson("templates.json");
                 //localSettings.getFromJson("config.json");
@@ -1662,7 +1669,7 @@ struct chatUI{
                         ImGui::Indent();
                             // to avoid mutexes we only use a copy of dialog DB for UI
                             if (newChat.isContinue == 'i') {
-                                if (!copiedDialog){
+                                if (!copiedDialog) {
                                     localResultPairs = newChat.resultsStringPairs;
                                     ImGui::SetScrollFromPosY(ImGui::GetCursorPos().y + ImGui::GetContentRegionAvail().y, 0.25f);
                                     copiedDialog = true;
@@ -2060,22 +2067,6 @@ struct chatUI{
             
             ImGui::Spacing();
             
-            if (!localSettings.checkInputPrompt() | !localSettings.checkInputAntiprompt() | !localSettings.checkInputAntiCFG() | !localSettings.checkInputSuffix() | !localSettings.checkInputPrefix()){
-            
-                if (ImGui::Button("Apply to config")) {
-                    //localSettings.getFromJson("config.json");
-                    localSettings.grammarFile = inputGrammar; 
-                    localSettings.updateInput();
-                    localSettings.fillLocalJson();
-                    localSettings.syncInputs();
-                    //localJsonDump = localSettings.modelConfig.dump(3);
-                    localSettings.updateDump();
-                }
-                
-                
-                ImGui::Separator();
-            }
-            
             if (!localSettings.noConfig){
                 
                 //ImGui::SameLine();
@@ -2102,14 +2093,31 @@ struct chatUI{
           //ImGui::BeginChild("InitSettings");
             ImGui::TextWrapped( "Below you can set up prompt and antiprompt instead of preconfigured ones." );
             ImGui::Separator();
-                ImGui::Spacing();
-            float initWidth = baseWidth * 0.9f;
-            if (localSettings.inputInstructFile == "NULL"){
+            ImGui::Spacing();
+                
+            if (localSettings.inputInstructFile == "NULL" && localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
+                
+            if (!localSettings.checkInputPrompt() | !localSettings.checkInputAntiprompt() | !localSettings.checkInputAntiCFG() | !localSettings.checkInputSuffix() | !localSettings.checkInputPrefix()) {
+            
+                if (ImGui::Button("Apply to config")) {
+                    //localSettings.getFromJson("config.json");
+                    localSettings.grammarFile = inputGrammar; 
+                    localSettings.updateInput();
+                    localSettings.fillLocalJson();
+                    localSettings.syncInputs();
+                    //localJsonDump = localSettings.modelConfig.dump(3);
+                    localSettings.updateDump();
+                }
                 
                 
-                if (localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
+                //ImGui::Separator();
+            }
+            
+            
+            if (localSettings.inputInstructFile == "NULL") {
                 
                 
+                ImGui::SameLine();
 
                 if (ImGui::Button("Open an instruct file...")) {
                     
@@ -2249,7 +2257,7 @@ struct chatUI{
                         localSettings.syncInputs();
                 }
             }
-            
+            float initWidth = baseWidth * 0.9f;
             //ImGui::EndChild();
             ImGui::InputTextMultiline("Prompt", &localSettings.inputPrompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 15)); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
             ImGui::InputTextMultiline("Antiprompt", &localSettings.inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
