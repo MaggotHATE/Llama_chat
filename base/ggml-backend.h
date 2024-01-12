@@ -43,7 +43,6 @@ extern "C" {
     GGML_API ggml_backend_buffer_type_t ggml_backend_buffer_get_type      (ggml_backend_buffer_t buffer);
     GGML_API void                       ggml_backend_buffer_reset         (ggml_backend_buffer_t buffer);
 
-
     //
     // Backend
     //
@@ -150,7 +149,7 @@ extern "C" {
     typedef struct ggml_backend_sched * ggml_backend_sched_t;
 
     // Initialize a backend scheduler
-    GGML_API ggml_backend_sched_t  ggml_backend_sched_new(ggml_backend_t * backends, int n_backends, size_t graph_size);
+    GGML_API ggml_backend_sched_t  ggml_backend_sched_new(ggml_backend_t * backends, ggml_backend_buffer_type_t * bufts, int n_backends, size_t graph_size);
     GGML_API void                  ggml_backend_sched_free(ggml_backend_sched_t sched);
     // Initialize backend buffers from a measure graph
     GGML_API void                  ggml_backend_sched_init_measure(ggml_backend_sched_t sched, struct ggml_cgraph * measure_graph);
@@ -161,11 +160,13 @@ extern "C" {
     GGML_API ggml_backend_buffer_t ggml_backend_sched_get_buffer (ggml_backend_sched_t sched, ggml_backend_t backend);
 
     GGML_API void                  ggml_backend_sched_set_node_backend(ggml_backend_sched_t sched, struct ggml_tensor * node, ggml_backend_t backend);
+    GGML_API ggml_backend_t        ggml_backend_sched_get_node_backend(ggml_backend_sched_t sched, struct ggml_tensor * node);
 
     // Allocate and compute graph on the backend scheduler
-    GGML_API void ggml_backend_sched_graph_compute(
-            ggml_backend_sched_t sched,
-            struct ggml_cgraph * graph);
+    GGML_API void                  ggml_backend_sched_graph_compute(ggml_backend_sched_t sched, struct ggml_cgraph * graph);
+
+    // Reset all assignments and allocators - must be called before using the sched allocators to allocate inputs
+    GGML_API void                  ggml_backend_sched_reset(ggml_backend_sched_t sched);
 
     //
     // Utils

@@ -75,6 +75,17 @@ static void processPrompt(std::string& prompt, char open = '<', char close = '>'
     }
 }
 
+static void processFormat(std::string& prompt, std::string& replacement, char open = '<', char close = '>') {
+    int stringClose = prompt.rfind(close);
+    int stringOpen = prompt.rfind(open);
+    int len = stringClose - stringOpen;
+    //fprintf(stderr, "Between %d and %d, len %d\n", stringOpen, stringClose, len);
+    if(stringClose != prompt.npos && stringOpen != prompt.npos && len > 1){
+        processPrompt(replacement);
+        prompt.replace(stringOpen,len+1,replacement);
+    }
+}
+
 static bool checkJString(nlohmann::json& config, std::string name){
     if(config.contains(name)){
         if(config[name].is_string()) return true;
@@ -139,25 +150,72 @@ static std::string formatPrompt(nlohmann::json& config) {
     return format;
 }
 
+static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
+    std::string format_template = "";
+    if (checkJString(config, "format_file")) {
+        format_template = getText(config["format_file"]);
+        
+        size_t systemPos = format_template.find("{system_message}");
+        size_t promptPos = format_template.find("{prompt}");
+        
+        if (promptPos != format_template.npos) {
+            
+            std::string antimprompt;
+            if (systemPos != format_template.npos) antimprompt = format_template.substr(systemPos + 16, promptPos - systemPos - 16);
+            else antimprompt = format_template.substr(0, promptPos);
+            
+            if (!antimprompt.empty()) {
+                // additional safeguard
+                while (antimprompt[0] == '\n') { 
+                    antimprompt = antimprompt.substr(1);
+                }
+                
+                if(!params.antiprompt.size())
+                    params.antiprompt.push_back(antimprompt);
+                else
+                    params.antiprompt[0] = antimprompt;
+            }
+            
+            params.prompt = format_template.substr(0,promptPos);
+            params.input_suffix = format_template.substr(promptPos+8);
+            
+            if (checkJString(config, "system_message")) {
+                std::string system_message = config["system_message"];
+                processFormat(params.prompt, system_message, '{','}');
+            }
+        }
+        
+    }
+}
+
 static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
         processPrompt(params.prompt);
     } else if (!hasFile) {
-        if (checkJString(config, "format")) {
-            params.prompt = formatPrompt(config);
-        } else if (checkJString(config, "prompt")) {
-            params.prompt = config["prompt"];
-            processPrompt(params.prompt);
+        if (checkJString(config, "format_file")) {
+            processFormatTemplate(config, params);
+        } else {
+            if (checkJString(config, "format")) {
+                params.prompt = formatPrompt(config);
+            } else if (checkJString(config, "prompt")) {
+                params.prompt = config["prompt"];
+                processPrompt(params.prompt);
+            }
+            
+            if (checkJString(config, "reverse-prompt")){
+                if(!params.antiprompt.size()) 
+                    params.antiprompt.push_back(config["reverse-prompt"]);
+                else
+                    params.antiprompt[0] = config["reverse-prompt"];
+            }
+            
+            if (checkJString(config, "input_prefix")) params.input_prefix = config["input_prefix"];
+            if (checkJString(config, "input_suffix")) params.input_suffix = config["input_suffix"];
+            
         }
         
-        if (checkJString(config, "reverse-prompt")){
-            if(!params.antiprompt.size()) 
-                params.antiprompt.push_back(config["reverse-prompt"]);
-            else
-                params.antiprompt[0] = config["reverse-prompt"];
-        }
     }
     
     if (checkJString(config, "model")) params.model = config["model"];
@@ -168,8 +226,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
         params.lora_adapter.push_back(std::tuple<std::string, float>(config["lora"], 1.0));
         params.use_mmap = false;
     }
-    if (checkJString(config, "input_prefix")) params.input_prefix = config["input_prefix"];
-    if (checkJString(config, "input_suffix")) params.input_suffix = config["input_suffix"];
+    
     if (checkJString(config, "format_instruct")) params.format_instruct = config["format_instruct"];
     if (checkJString(config, "format_dialog")) params.format_dialog = config["format_dialog"];
     if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];

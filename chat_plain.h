@@ -527,7 +527,7 @@ public:
         return result;
     }
     
-    void formatInput(std::string format, std::string& buffer){
+    void formatInput(std::string format, std::string& buffer) {
         
         for (auto s : format){
             switch (s){
@@ -1331,7 +1331,7 @@ public:
                     : 0;
 
                 if (last_output.find(antiprompt, search_start_pos) != std::string::npos) {
-                    formatRepresentation += params.antiprompt[0];
+                    //formatRepresentation += params.antiprompt[0];
                     if (params.interactive) {
                         is_interacting = true;
                     }
@@ -1819,22 +1819,26 @@ public:
     }
 
 // initial (instruct) processing
-    std::string generate(bool consoleOutput = true){
+    std::string generate(bool consoleOutput = true, bool verbose = false) {
         
         printf("Starting initial prompt processing...\n");
         
         std::string result;
         //std::cout << " * " << std::endl;
-        //char* result = new char[2048];
         bool fastStop = false;
         
         //appendPrefixBos();
         
+        // TECHNICALLY this is an overshoot, since we force antiprompt on user
+        // formats are very different, so are models, some do not need this
+        /*
         if (hasAntiprompt(params.prompt) == -1 && params.input_prefix.empty())  {
             params.prompt += DELIMINER + params.antiprompt[0];
             //formatRepresentation += DELIMINER + params.antiprompt[0];
         }
-        
+         */
+         
+         
         //ctx_sampling = llama_sampling_context_init(params, grammar);
         
         //n_vocab = llama_n_vocab(model);
@@ -1856,10 +1860,11 @@ public:
                 if (n_past > 0 && is_interacting) {
                     checkAntiprompt();
                     
-                    if (!streaming) 
-                        std::cout << result << " ";
-                    
-                    printf("Return generate: prompt processed\n");
+                    if (verbose) {
+                        if (!streaming) std::cout << result << " ";
+                        
+                        printf("Return generate: prompt processed\n");
+                    }
                     
                     return result;
                 }

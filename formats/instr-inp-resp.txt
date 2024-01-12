@@ -1,0 +1,7 @@
+### Instruction:
+{system_message}
+
+### Input:
+{prompt}
+
+### Response:

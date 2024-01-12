@@ -2386,8 +2386,7 @@ struct chatUI{
             }
         }
         
-        
-        ImVec2 settings_size = ImVec2(width * 0.95f, ImGui::GetTextLineHeightWithSpacing() * 36);
+        ImVec2 settings_size = ImVec2(width * 0.95f, ImGui::GetTextLineHeightWithSpacing() * 33);
         if (ImGui::BeginPopup("Basic settings", ImGuiWindowFlags_NoSavedSettings)) {
             
             if (ImGui::BeginChild("Settings frame", settings_size, ImGuiWindowFlags_NoSavedSettings)){
@@ -2395,7 +2394,7 @@ struct chatUI{
                 firstSettings(settings_size.x);
             
             ImGui::EndChild();
-            }    
+            }
         ImGui::EndPopup();
         }
         

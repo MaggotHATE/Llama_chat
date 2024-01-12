@@ -598,7 +598,7 @@ void getResultAsyncStringFull3() {
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
 
-            std::cout << "Loaded, you can type now! " << std::endl;
+            //std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
             getSparamsList();
             
@@ -623,7 +623,7 @@ void getResultAsyncStringFull3() {
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
 
-            std::cout << "Loaded, you can type now! " << std::endl;
+            //std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
             getSparamsList();
             //isContinue = 'i';
