@@ -243,6 +243,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "temp")) params.sparams.temp = config["temp"];
+    if (checkJNum(config, "dynatemp_range")) params.sparams.dynatemp_range = config["dynatemp_range"];
     if (checkJNum(config, "top_k")) params.sparams.top_k = config["top_k"];
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];

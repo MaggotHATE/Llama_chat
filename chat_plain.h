@@ -459,7 +459,7 @@ public:
                     case 'y': result += "typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "= "+ std::to_string(params.sparams.typical_p); break;
                     case 'p': result += "top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "= " + std::to_string(params.sparams.top_p); break;
                     case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "= " + std::to_string(params.sparams.min_p); break;
-                    case 't': result += "temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); break;
+                    case 't': result += "temp "; if (params.sparams.dynatemp_range > 0) result += "(dynamic) = " + std::to_string(params.sparams.dynatemp_range); else if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); break;
                     default : break;
                 }
             }
@@ -707,10 +707,7 @@ public:
         
         llama_sampling_params & sparams = params.sparams;
         
-        if (sparams.cfg_scale > 1.f) {
-            struct llama_context_params lparams = llama_context_params_from_gpt_params(params);
-            ctx_guidance = llama_new_context_with_model(model, lparams);
-        }
+        
         
         
         // if (!soft){
@@ -737,6 +734,10 @@ public:
             // load the model and apply lora adapter, if any
             std::tie(model, ctx) = llama_init_from_gpt_params(params);
             printf("..............Model initialized................\n");
+            if (sparams.cfg_scale > 1.f) {
+                struct llama_context_params lparams = llama_context_params_from_gpt_params(params);
+                ctx_guidance = llama_new_context_with_model(model, lparams);
+            }
             
             
             if (model == NULL) {

@@ -128,6 +128,7 @@ OBJS += o/tinyfiledialogs.o
 
 FILE_D = -Itinyfiledialogs
 I_GGUF = -I. -Ibase -Iinclude
+I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
 #OBJS_OB = $(subst main.o,main_ob.o,$(OBJS))
@@ -307,6 +308,9 @@ CXXFLAGS_E1 = -DGGML_EXPERIMENTAL1 -DGGML_EXPERIMENTAL
 ##---------------------------------------------------------------------
 
 GGUF_F = base
+ifdef PRE_BACKEND
+GGUF_F = pre_backend
+endif
 GGML_F = GGML
   
 #GGML
@@ -359,7 +363,7 @@ o/old_cl_ggml.o: GGML/ggml.c GGML/ggml.h
 o/old_cl_ggml-alloc.o: GGML/ggml-alloc.c GGML/ggml.h GGML/ggml-alloc.h
 	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
 
-o/old_cl_llama.o: GGML/llama.cpp base/ggml.h base/ggml-alloc.h GGML/llama.h
+o/old_cl_llama.o: GGML/llama.cpp GGML/ggml.h GGML/ggml-alloc.h GGML/llama.h
 	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
 
 o/old_cl_common.o: GGML/common.cpp GGML/common.h
@@ -521,6 +525,37 @@ o/cl_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h
 o/cl_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
+# pre-backend
+
+OBJS_GGUF_CL_PRE_BACKEND    = o/cl_pb_ggml.o o/cl_pb_ggml-quants.o o/cl_pb_ggml-opencl-gguf.o o/cl_pb_ggml-alloc.o o/cl_pb_ggml-backend.o o/cl_pb_llama.o o/cl_pb_sampling.o o/cl_pb_common.o o/cl_pb_grammar-parser.o
+
+o/cl_pb_ggml-opencl-gguf.o: pre_backend/ggml-opencl.cpp pre_backend/ggml-opencl.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+o/cl_pb_ggml.o: pre_backend/ggml.c pre_backend/ggml.h
+	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+    
+o/cl_pb_ggml-alloc.o: pre_backend/ggml-alloc.c pre_backend/ggml.h pre_backend/ggml-alloc.h
+	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+    
+o/cl_pb_ggml-backend.o: pre_backend/ggml-backend.c pre_backend/ggml.h pre_backend/ggml-backend.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+
+o/cl_pb_llama.o: pre_backend/llama.cpp pre_backend/ggml.h pre_backend/ggml-alloc.h pre_backend/ggml-backend.h pre_backend/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+o/cl_pb_sampling.o: pre_backend/sampling.cpp pre_backend/sampling.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+o/cl_pb_common.o: pre_backend/common.cpp pre_backend/common.h o/cl_sampling.o
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+o/cl_pb_ggml-quants.o: pre_backend/ggml-quants.c pre_backend/ggml.h pre_backend/ggml-quants.h
+	$(CC) $(CFLAGS)    -c $< -o $@
+    
+o/cl_pb_grammar-parser.o: pre_backend/grammar-parser.cpp pre_backend/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
     
 # separate OpenBlas
 
@@ -556,119 +591,6 @@ o/k_quants_ob.o: base/k_quants.c base/k_quants.h
     
 o/grammar-parser_ob.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Experimental  
-    
-EXPER_F = experimental
-IND_E = e_
-
-
-
-OBJS_GGUF_E = o/$(IND_E)ggml.o o/$(IND_E)ggml-alloc.o o/$(IND_E)llama.o o/$(IND_E)common.o o/$(IND_E)k_quants.o o/$(IND_E)grammar-parser.o
-  
-o/$(IND_E)ggml.o: $(EXPER_F)/ggml.c $(EXPER_F)/ggml.h
-	$(CC)  $(CFLAGS)  -c $< -o $@
-    
-o/$(IND_E)ggml-alloc.o: $(EXPER_F)/ggml-alloc.c $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h
-	$(CC)  $(CFLAGS)  -c $< -o $@
-
-#base/threadpool.h
-o/$(IND_E)llama.o: $(EXPER_F)/llama.cpp $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h $(EXPER_F)/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/$(IND_E)common.o: $(EXPER_F)/common.cpp $(EXPER_F)/common.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
-o/$(IND_E)k_quants.o: $(EXPER_F)/k_quants.c $(EXPER_F)/k_quants.h
-	$(CC) $(CFLAGS) -c $< -o $@
-    
-o/$(IND_E)grammar-parser.o: $(EXPER_F)/grammar-parser.cpp $(EXPER_F)/grammar-parser.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
-# experimental w clblast
-    
-IND_E_CL = e_cl_
-    
-OBJS_GGUF_E_CL = o/$(IND_E_CL)ggml.o o/$(IND_E_CL)ggml-alloc.o o/$(IND_E_CL)llama.o o/$(IND_E_CL)common.o o/$(IND_E_CL)k_quants.o o/$(IND_E_CL)grammar-parser.o o/$(IND_E_CL)ggml-opencl.o
-  
-o/$(IND_E_CL)ggml-opencl.o: $(EXPER_F)/ggml-opencl.cpp $(EXPER_F)/ggml-opencl.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-  
-o/$(IND_E_CL)ggml.o: $(EXPER_F)/ggml.c $(EXPER_F)/ggml.h
-	$(CC)  $(CFLAGS_CL)  -c $< -o $@
-    
-o/$(IND_E_CL)ggml-alloc.o: $(EXPER_F)/ggml-alloc.c $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h
-	$(CC)  $(CFLAGS_CL)  -c $< -o $@
-
-#base/threadpool.h
-o/$(IND_E_CL)llama.o: $(EXPER_F)/llama.cpp $(EXPER_F)/ggml.h $(EXPER_F)/ggml-alloc.h $(EXPER_F)/llama.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-
-o/$(IND_E_CL)common.o: $(EXPER_F)/common.cpp $(EXPER_F)/common.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-o/$(IND_E_CL)k_quants.o: $(EXPER_F)/k_quants.c $(EXPER_F)/k_quants.h
-	$(CC) $(CFLAGS_CL) -c $< -o $@
-    
-o/$(IND_E_CL)grammar-parser.o: $(EXPER_F)/grammar-parser.cpp $(EXPER_F)/grammar-parser.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-    
-# Experimental 1 
-    
-EXPER_F1 = experimental1
-IND_E1 = e1_
-
-
-
-OBJS_GGUF_E1 = o/$(IND_E1)ggml.o o/$(IND_E1)ggml-alloc.o o/$(IND_E1)llama.o o/$(IND_E1)common.o o/$(IND_E1)k_quants.o o/$(IND_E1)grammar-parser.o
-  
-o/$(IND_E1)ggml.o: $(EXPER_F1)/ggml.c $(EXPER_F1)/ggml.h
-	$(CC)  $(CFLAGS)  -c $< -o $@
-    
-o/$(IND_E1)ggml-alloc.o: $(EXPER_F1)/ggml-alloc.c $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h
-	$(CC)  $(CFLAGS)  -c $< -o $@
-
-#base/threadpool.h
-o/$(IND_E1)llama.o: $(EXPER_F1)/llama.cpp $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h $(EXPER_F1)/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/$(IND_E1)common.o: $(EXPER_F1)/common.cpp $(EXPER_F1)/common.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
-o/$(IND_E1)k_quants.o: $(EXPER_F1)/k_quants.c $(EXPER_F1)/k_quants.h
-	$(CC) $(CFLAGS) -c $< -o $@
-    
-o/$(IND_E1)grammar-parser.o: $(EXPER_F1)/grammar-parser.cpp $(EXPER_F1)/grammar-parser.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
-# experimental 1 w clblast
-    
-IND_E1_CL = e1_cl_
-    
-OBJS_GGUF_E1_CL = o/$(IND_E1_CL)ggml.o o/$(IND_E1_CL)ggml-alloc.o o/$(IND_E1_CL)llama.o o/$(IND_E1_CL)common.o o/$(IND_E1_CL)k_quants.o o/$(IND_E1_CL)grammar-parser.o o/$(IND_E1_CL)ggml-opencl.o
-  
-o/$(IND_E1_CL)ggml-opencl.o: $(EXPER_F1)/ggml-opencl.cpp $(EXPER_F1)/ggml-opencl.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-  
-o/$(IND_E1_CL)ggml.o: $(EXPER_F1)/ggml.c $(EXPER_F1)/ggml.h
-	$(CC)  $(CFLAGS_CL)  -c $< -o $@
-    
-o/$(IND_E1_CL)ggml-alloc.o: $(EXPER_F1)/ggml-alloc.c $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h
-	$(CC)  $(CFLAGS_CL)  -c $< -o $@
-
-#base/threadpool.h
-o/$(IND_E1_CL)llama.o: $(EXPER_F1)/llama.cpp $(EXPER_F1)/ggml.h $(EXPER_F1)/ggml-alloc.h $(EXPER_F1)/llama.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-
-o/$(IND_E1_CL)common.o: $(EXPER_F1)/common.cpp $(EXPER_F1)/common.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-o/$(IND_E1_CL)k_quants.o: $(EXPER_F1)/k_quants.c $(EXPER_F1)/k_quants.h
-	$(CC) $(CFLAGS_CL) -c $< -o $@
-    
-o/$(IND_E1_CL)grammar-parser.o: $(EXPER_F1)/grammar-parser.cpp $(EXPER_F1)/grammar-parser.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@   
     
 # general    
     
@@ -685,24 +607,15 @@ o/imgui/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
     
 demo: $(EXE)
 	@echo Build $(EXE) complete for $(ECHO_MESSAGE) 
-    
-demo_e: $(EXE)_e
-	@echo Build $(EXE)_e complete for $(ECHO_MESSAGE)
-    
-demo_e1: $(EXE)_e1
-	@echo Build $(EXE)_e1 complete for $(ECHO_MESSAGE)
-    
-demo_e_cl: $(EXE)_e_cl
-	@echo Build $(EXE)_e_cl complete for $(ECHO_MESSAGE)
-    
-demo_e1_cl: $(EXE)_e1_cl
-	@echo Build $(EXE)_e1_cl complete for $(ECHO_MESSAGE)
-    
+     
 demo_cl: $(EXE_CL)
 	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
     
 demo_cl_mini: $(EXE_CL)_mini
 	@echo Build $(EXE_CL)_mini complete for $(ECHO_MESSAGE)
+    
+demo_cl_mini_pre_backend: $(EXE_CL)_mini_pre_backend
+	@echo Build $(EXE_CL)_mini_pre_backend complete for $(ECHO_MESSAGE)
     
 demo_vk: $(EXE_VK)
 	@echo Build $(EXE_VK) complete for $(ECHO_MESSAGE)
@@ -795,33 +708,13 @@ $(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) chat_plain.h thread_chat.h UI.h llama_ch
 chatTest_ggml_cl:class_chat.cpp chat_plain.h thread_chat.h   $(OBJS_CL_GGML1)
 	$(CXX) $(I_GGML) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL_GGML)
     
-# experimental
-
-$(EXE)_e: $(OBJS) $(OBJS_GGUF_E) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F)/chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CXXFLAGS_E) $(LDFLAGS) $(LIBS)
-
-chatTestE:class_chat.cpp $(OBJS_GGUF_E) include/json.hpp $(EXPER_F)/chat_plain.h thread_chat.h
-	$(CXX) $(CXXFLAGS) $(CXXFLAGS_E) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+#CLBLAST pre-backend
     
-$(EXE)_e_cl: $(OBJS) $(OBJS_GGUF_E_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F)/chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CXXFLAGS_E) $(LDFLAGS_CL) $(LIBS)
-        
-chatTest_e_cl:class_chat.cpp                                  include/json.hpp $(EXPER_F)/chat_plain.h thread_chat.h $(OBJS_GGUF_E_CL)
-	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL) $(CXXFLAGS_E)
+$(EXE_CL)_mini_pre_backend: $(OBJS) $(OBJS_GGUF_CL_PRE_BACKEND) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
+	$(CXX) $(I_GGUF_PRE) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
     
-# experimental 1
-
-$(EXE)_e1: $(OBJS) $(OBJS_GGUF_E1) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F1)/chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI) $(CXXFLAGS_E1) $(LDFLAGS) $(LIBS)
-
-chatTestE1:class_chat.cpp $(OBJS_GGUF_E1_CL) include/json.hpp $(EXPER_F1)/chat_plain.h thread_chat.h
-	$(CXX) $(CXXFLAGS) $(CXXFLAGS_E1) $(filter-out %.h,$^) $(LDFLAGS) -o $@
-    
-$(EXE)_e1_cl: $(OBJS) $(OBJS_GGUF_E1_CL) include/json.hpp tinyfiledialogs/tinyfiledialogs.c $(EXPER_F1)/chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -o $@ $^ $(CXXFLAGS_UI_CL) $(CXXFLAGS_E1) $(LDFLAGS_CL) $(LIBS)
-        
-chatTest_e1_cl:class_chat.cpp                                  include/json.hpp $(EXPER_F1)/chat_plain.h thread_chat.h $(OBJS_GGUF_E1_CL)
-	$(CXX) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL) $(CXXFLAGS_E1)
+chatTest_cl_pre_backend:class_chat.cpp chat_plain.h thread_chat.h $(OBJS_GGUF_CL_PRE_BACKEND)
+	$(CXX) $(I_GGUF_PRE) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
     
 # VULKAN
 
@@ -834,10 +727,10 @@ $(EXE_VK)_mini: $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI_simple.h llama_
 chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
 	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
     
-$(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
+$(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) -I. -Iinclude -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
-$(EXE_VK2)_mini: $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
+$(EXE_VK2)_mini: $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
 	 $(CXX) -I. -Iinclude -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
     
 chatTest_vk2:class_chat.cpp $(OBJS_VK2) chat_plain.h thread_chat.h

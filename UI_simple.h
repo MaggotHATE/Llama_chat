@@ -208,6 +208,28 @@ static void sliderTemp(float& temp, float& default_temp)
     } ImGui::SameLine(); HelpMarker( ("Adjust the randomness of the generated text. Lower means more robotic. Default: " + std::to_string(default_temp)).c_str());
 }
 
+static void sliderDynatemp_range(float& dynatemp_range, float& default_dynatemp_range)
+{
+    {
+        if (ImGui::Button(" -##temp")) {
+            dynatemp_range -= 0.001f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##temp")) {
+            dynatemp_range += 0.001f;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderFloat("dynatemp_range", &dynatemp_range, 0.0f, 5.0f);
+    if (ImGui::BeginPopupContextItem("dynatemp_range"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            dynatemp_range = default_dynatemp_range;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker( ("Adjust the randomness of the generated text, but in a range of 0 to the value. Replaces temp if more than 0. Lower means more robotic. Default: " + std::to_string(default_dynatemp_range)).c_str());
+}
+
 static void sliderTopK(int& top_k, int& default_top_k)
 {
     {
@@ -517,6 +539,8 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
 #else
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
         sliderTemp(params.sparams.temp, paramsDefault.sparams.temp);
+        
+        sliderDynatemp_range(params.sparams.dynatemp_range, paramsDefault.sparams.dynatemp_range);
         
         sliderTopK(params.sparams.top_k, paramsDefault.sparams.top_k);
         

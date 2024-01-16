@@ -9,13 +9,29 @@ namespace llmcpp {
         int luck = 5;
     };
     
+    
     struct action_type {
         std::string action_descr = "move";
         std::string action_descr_s = "moves";
         std::string action_descr_ing = "moving";
+        
         char primary = 's';
         char secondary = 'a';
+        std::string tag = "space";
     };
+    
+    static std::string get_mood_estimate(int val, std::string verb) {
+        std::string description;
+        int diff = val - 5;
+        
+        if (diff > 8) description = "would love to " + verb;
+        else if (diff > 6) description = "wants to " + verb;
+        else if (diff == 5) description = "can " + verb;
+        else if (diff < 1) description = "hates to " + verb;
+        else if (diff < 3) description = "doesn't want to " + verb;
+        
+        return description;
+    }
     
     class Object {
         private:
@@ -35,61 +51,6 @@ namespace llmcpp {
             }
     };
     
-    class Human : public Object {
-        private:
-            stats permastats {5,6,4,7,7};
-            stats mood {1,1,1,1,1};
-            std::string name = "Jack";
-            std::string title = "knight";
-            char type = 'h'; // living creature
-        public:
-            int get(char property) {
-                switch (property) {
-                    case 's': return permastats.strength;
-                    case 'i': return permastats.intelligence;
-                    case 'a': return permastats.agility;
-                    case 'c': return permastats.charisma;
-                    case 'l': return permastats.luck;
-                    default: return type;
-                }
-            }
-            
-            std::string get_name() {
-                return name;
-            }
-            
-            std::string get_title() {
-                return title;
-            }
-        
-            Human(int s, int i, int a, int c, int l, std::string new_name = "Jack", std::string new_title = "knight") {
-                permastats.strength = s;
-                permastats.intelligence = i;
-                permastats.agility = a;
-                permastats.charisma = c;
-                permastats.luck = l;
-                name = new_name;
-                title = new_title;
-            }
-            
-            void act(int action_result, char action_mood) {
-                switch (action_mood) {
-                    case 's': mood.strength += 1 - action_result;
-                    case 'i': mood.intelligence += 1 - action_result;
-                    case 'a': mood.agility += 1 - action_result;
-                    case 'c': mood.charisma += 1 - action_result;
-                    case 'l': mood.luck += 1 - action_result;
-                    default: {
-                        mood.strength += 1 - action_result;
-                        mood.intelligence += 1 - action_result;
-                        mood.agility += 1 - action_result;
-                        mood.charisma += 1 - action_result;
-                        mood.luck += 1 - action_result;
-                    }
-                }
-            }
-    };
-    
     class Item : public Object {
         private:
             // int strength = 7; // sturdy
@@ -99,6 +60,7 @@ namespace llmcpp {
             // int luck = 0; // no luck bonus
             stats object_stats {7,1,1,1,0};
             std::string name = "table";
+            unordered_map<std::string,int> tags {{"furniture",10}};
             
             char type = 'o'; // object
         public:
@@ -116,15 +78,9 @@ namespace llmcpp {
             std::string get_name() {
                 return name;
             }
-        
-            Item(int s, int i, int a, int c, int l, std::string new_name = "table") {
-                object_stats.strength = s;
-                object_stats.intelligence = i;
-                object_stats.agility = a;
-                object_stats.charisma = c;
-                object_stats.luck = l;
+            
+            Item(stats new_stats = {7,1,1,1,0}, std::string new_name = "table", unordered_map<std::string,int> new_tags = {{"furniture",10}}): object_stats(new_stats), name(new_name), tags(new_tags) {
                 
-                name = new_name;
             }
             
             char get_important() {
@@ -143,6 +99,125 @@ namespace llmcpp {
                 else if (max_stat == object_stats.charisma) return 'c';
                 else return 'l';
             }
+            
+            bool has_tag(std::string tag) {
+                return tags.contains(tag);
+            }
+            
+            std::string get_tag(int rank) {
+                for (auto t : tags) {
+                    if (t.second == rank) {
+                        return t.first;
+                    }
+                }
+                return "";
+            }
+            
+            std::string properties() {
+                std::string props = " ";
+                for (auto t : tags) {
+                    if (t.second > 1) {
+                        if (t.second == 10) props += "definitely ";
+                        else if (t.second > 8) props += "very ";
+                        else if (t.second > 5) props += "quite ";
+                        else if (t.second > 3) props += "slightly ";
+                        else props += "a bit ";
+                        
+                        props += t.first;
+                    }
+                }
+                
+                return props;
+            }
+    };
+    
+    class Human : public Object {
+        private:
+            stats permastats {5,6,4,7,7};
+            // mood stats:
+            // s = +aggressive|scared-
+            // i = +focused|emotional-
+            // a = +quick|dull-
+            // c = +cheerful|depressed-
+            // l = +risky|cautious
+            stats mood {5,5,5,5,5};
+            std::string name = "Jack";
+            std::string title = "knight";
+            unordered_map<std::string,int> tags {{"male",10}};
+            char type = 'h'; // living creature
+        public:
+            int get(char property) {
+                switch (property) {
+                    case 's': return permastats.strength;
+                    case 'i': return permastats.intelligence;
+                    case 'a': return permastats.agility;
+                    case 'c': return permastats.charisma;
+                    case 'l': return permastats.luck;
+                    default: return type;
+                }
+            }
+            
+            int get_mood(char property) {
+                switch (property) {
+                    case 's': return mood.strength;
+                    case 'i': return mood.intelligence;
+                    case 'a': return mood.agility;
+                    case 'c': return mood.charisma;
+                    case 'l': return mood.luck;
+                    default: return type;
+                }
+            }
+            
+            std::string get_name() {
+                return name;
+            }
+            
+            std::string get_title() {
+                return title;
+            }
+        
+            Human(stats new_stats = {5,6,4,7,7}, std::string new_name = "Jack", std::string new_title = "knight", unordered_map<std::string,int> new_tags = {{"male",10}}) : permastats(new_stats), name(new_name), title(new_title), tags(new_tags) {
+
+            }
+            
+            void act(int action_result, char action_mood) {
+                switch (action_mood) {
+                    case 's': mood.strength += 1 - action_result;
+                    case 'i': mood.intelligence += 1 - action_result;
+                    case 'a': mood.agility += 1 - action_result;
+                    case 'c': mood.charisma += 1 - action_result;
+                    case 'l': mood.luck += 1 - action_result;
+                    default: {
+                        mood.strength += 1 - action_result;
+                        mood.intelligence += 1 - action_result;
+                        mood.agility += 1 - action_result;
+                        mood.charisma += 1 - action_result;
+                        mood.luck += 1 - action_result;
+                    }
+                }
+            }
+            
+            void mood_step() {
+                mood.strength += permastats.strength / 5;
+                mood.intelligence += permastats.intelligence / 5;
+                mood.agility += permastats.agility / 5;
+                mood.charisma += permastats.charisma / 5;
+                mood.luck += permastats.luck / 5;
+            }
+            
+            std::string action_mood(Item& subject, action_type& action) {
+                std::string action_name = action.action_descr + " the " + subject.get_name();
+                std::string mandatory = subject.get_tag(11);
+                if (!mandatory.empty() && !tags.contains(mandatory)) return "";
+                
+                if (subject.has_tag(action.tag)) {
+                    int value = std::max(get_mood(action.primary) + get(action.primary), get_mood(subject.get_important()) + get(subject.get_important()));
+                    
+                    return (get_mood_estimate(value,action_name) );
+                //d} else return "cannot " + action_name;
+                } else return "";
+            }
+            
     };
     
     class Place : public Object {
@@ -175,15 +250,8 @@ namespace llmcpp {
             std::string get_name() {
                 return name;
             }
-        
-            Place(int s, int i, int a, int c, int l, std::string new_name = "room") {
-                place_stats.strength = s;
-                place_stats.intelligence = i;
-                place_stats.agility = a;
-                place_stats.charisma = c;
-                place_stats.luck = l;
-                
-                name = new_name;
+            
+            Place(stats new_stats = {5,2,5,7,1}, std::string new_name = "room") : place_stats(new_stats), name(new_name) {
             }
             
             void place(Item& placeable_item) {
@@ -202,6 +270,46 @@ namespace llmcpp {
                 else if (max_stat == place_stats.agility) return 'a';
                 else if (max_stat == place_stats.charisma) return 'c';
                 else return 'l';
+            }
+            
+            std::string estimate_items(std::string name, action_type& action ) {
+                std::string result = " ";
+                Human& character = characters.at(name);
+                //if (characters.contains(name)) {
+                    for (auto i : items) {
+                        character.action_mood(i.second, action);
+                        if (result.back() != ';' && result.back() != ' ') result += "; ";
+                    }
+                //}
+                
+                return result;
+            }
+            
+            std::string estimate_items(Human& character, action_type& action ) {
+                std::string result = " ";
+                //if (characters.contains(name)) {
+                    for (auto i : items) {
+                        result += character.action_mood(i.second, action);
+                        if (result.back() != ';' && result.back() != ' ') result += "; ";
+                    }
+                //}
+                
+                return result;
+            }
+            
+            std::string estimate_items_all(action_type& action ) {
+                std::string result = "";
+                for (auto c : characters) {
+                    //result += c.second.get_name() + " ";
+                    std::string character_result = " ";
+                    for (auto i : items) {
+                        character_result += c.second.action_mood(i.second, action);
+                        if (character_result.back() != ';' && character_result.back() != ' ' && !character_result.empty()) character_result += ", ";
+                    }
+                    if (character_result.size() > 3) result += c.second.get_name() + character_result + ". ";
+                }
+                
+                return result;
             }
     };
     
@@ -230,18 +338,6 @@ namespace llmcpp {
         return actor - acted;
     }
     
-    
-    static std::string get_mood_estimate(int val, std::string verb) {
-        std::string description;
-        int diff = val - 1;
-        
-        if (diff > 5) description = "needs to " + verb;
-        else if (diff > 3) description = "wants to " + verb;
-        else if (diff < 0) description = "hates to " + verb;
-        else if (diff == 0) description = "doesn't want to " + verb;
-        
-        return description;
-    }
     
     static std::string get_stat_estimate(int val, int default_val, std::string adjective_pos, std::string adjective_neg) {
         std::string description;
@@ -339,12 +435,14 @@ namespace llmcpp {
     static std::string get_items_description(Place& location) {
         std::string description = "there's";
         for (auto i : location.items) {
-            description += get_description_important(i.second) + " " + i.first;
+            description += get_description_important(i.second) + " " + i.first + " (" + i.second.properties() + ")";
             description += ", ";
         }
         
         description.pop_back();
         description.pop_back();
+        
+        
         
         return description;
     }
@@ -376,7 +474,7 @@ namespace llmcpp {
         
     }
     
-    static std::string action_mood(Human& character, Item& subject, action_type action) {
+    static std::string action_mood(Human& character, Item& subject, action_type& action) {
         char stat = subject.get_important();
         //std::string character_names = character.get_name() + " the " + character.get_title();
         std::string action_name = action.action_descr + " the " + subject.get_name();
@@ -384,7 +482,7 @@ namespace llmcpp {
         return (get_mood_estimate(character.get(stat),action_name) );
     }
     
-    static std::string action_make(Human& character, Item& subject, action_type action) {
+    static std::string action_make(Human& character, Item& subject, action_type& action) {
         char stat = subject.get_important();
         int result = act(character, subject, action.primary, action.secondary);
         

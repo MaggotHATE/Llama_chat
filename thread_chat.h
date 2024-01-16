@@ -327,6 +327,7 @@ struct modelThread{
         isContinue = '_';
         isPregen = '_';
         isLoading = '_';
+        isUnload = '_';
     }
     
     void reset(){
@@ -336,6 +337,7 @@ struct modelThread{
         isContinue = '_';
         isPregen = '_';
         isLoading = '_';
+        isUnload = '_';
     }
     
     void getTimigs(){
@@ -1053,6 +1055,7 @@ struct configurableChat{
         
         
         if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
+        if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) modelConfig[model]["dynatemp_range"] = params.sparams.dynatemp_range;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) modelConfig[model]["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
@@ -1136,6 +1139,7 @@ struct configurableChat{
         
         
         if (params.sparams.temp != paramsDefault.sparams.temp) newCard["temp"] = params.sparams.temp;
+        if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) newCard["dynatemp_range"] = params.sparams.dynatemp_range;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) newCard["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) newCard["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
