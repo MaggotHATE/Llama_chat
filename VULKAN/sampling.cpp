@@ -127,6 +127,7 @@ void sampler_queue(
     const int n_vocab = llama_n_vocab(llama_get_model(ctx_main));
 
     const float       temp              = params.temp;
+    const float       dynatemp_range    = params.dynatemp_range;
     const int32_t     top_k             = params.top_k <= 0 ? n_vocab : params.top_k;
     const float       top_p             = params.top_p;
     const float       min_p             = params.min_p;
@@ -141,7 +142,24 @@ void sampler_queue(
             case 'y': llama_sample_typical  (ctx_main, &cur_p, typical_p, min_keep); break;
             case 'p': llama_sample_top_p    (ctx_main, &cur_p, top_p,     min_keep); break;
             case 'm': llama_sample_min_p    (ctx_main, &cur_p, min_p,     min_keep); break;
-            case 't': llama_sample_temp     (ctx_main, &cur_p, temp); break;
+            case 't': {
+                if (dynatemp_range>0)
+                {
+                    float dynatemp_min = temp - dynatemp_range;
+                    float dynatemp_max = temp + dynatemp_range;
+                    //do not allow negative values
+                    dynatemp_min = dynatemp_min<0?0:dynatemp_min;
+                    dynatemp_max = dynatemp_max<0?0:dynatemp_max;
+
+                    llama_sample_entropy(ctx_main, &cur_p, temp, dynatemp_min, dynatemp_max);
+                }
+                else
+                {
+                    llama_sample_temp(ctx_main, &cur_p, temp);
+                }
+
+                break;
+            }
             default : break;
         }
     }
@@ -177,6 +195,11 @@ llama_token llama_sampling_sample(
     for (auto it = params.logit_bias.begin(); it != params.logit_bias.end(); it++) {
         logits[it->first] += it->second;
     }
+    
+    if (ctx_cfg) {
+        float * logits_guidance = llama_get_logits_ith(ctx_cfg, idx);
+        llama_sample_apply_guidance(ctx_main, logits, logits_guidance, params.cfg_scale);
+    }
 
     cur.clear();
 
@@ -186,9 +209,9 @@ llama_token llama_sampling_sample(
 
     llama_token_data_array cur_p = { cur.data(), cur.size(), false };
 
-    if (ctx_cfg) {
-        llama_sample_classifier_free_guidance(ctx_main, &cur_p, ctx_cfg, params.cfg_scale);
-    }
+    // if (ctx_cfg) {
+        // llama_sample_classifier_free_guidance(ctx_main, &cur_p, ctx_cfg, params.cfg_scale);
+    // }
 
     // apply penalties
     if (!prev.empty()) {

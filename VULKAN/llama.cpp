@@ -6803,7 +6803,7 @@ static int llama_decode_internal(
     ggml_vk_preallocate_buffers();
 
     for (int i = 0; i < gf->n_nodes; i++) {
-        ggml_vk_build_graph(gf->nodes[i], gf);
+        ggml_vk_build_graph(gf->nodes[i]);
     }
 
     // HACK: ggml-alloc may change the tensor backend when reusing a parent, so force output to be on the CPU here if needed
@@ -8170,119 +8170,14 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     }
 }
 
-void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTrueRNG, unsigned int &rngSeed) {
-    std::ifstream infile("ExtStuff.txt");
-    if (!infile.good()) {
-        // File doesn't exist, create it with default values
-        std::ofstream outfile("ExtStuff.txt");
-        if (!outfile) {
-            return;
-        }
-        outfile << std::boolalpha;
-        outfile << "worstToken = " << worstToken << "\n";
-        outfile << "randomizationFactor = " << randomizationFactor << "\n";
-        outfile << "isTrueRNG = " << isTrueRNG << "\n";
-        outfile << "rngSeed = " << rngSeed << "\n";
-        outfile.close();
-    } else {
-        // File exists, read the values from it
-        std::string line;
-        while (getline(infile, line)) {
-            std::istringstream iss(line);
-            std::string key, equals;
-            if ((iss >> key >> equals) && (equals == "=")) {
-                if (key == "worstToken") {
-                    iss >> std::boolalpha >> worstToken; // Modify the referenced variable
-                } else if (key == "randomizationFactor") {
-                    iss >> randomizationFactor; // Read the randomizationFactor
-                } else if (key == "isTrueRNG") {
-                    iss >> std::boolalpha >> isTrueRNG; // Read the isTrueRNG
-                } else if (key == "rngSeed") {
-                    iss >> rngSeed; // Read the rngSeed
-                }
-            }
-        }
-        infile.close();
-    }
-}
-
-// void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * candidates, float p, size_t min_keep) {
-    // if (p <= 0.0f || !candidates->size) {
-        // return;
-    // }
-
-    // llama_sample_softmax(ctx, candidates);
-
-    // const int64_t t_start_sample_us = ggml_time_us();
-
-    // float scale = candidates->data[0].p; // scale by max prob
-    // size_t i = 1; // first token always matches
-
-    // for (; i < candidates->size; ++i) {
-        // if (candidates->data[i].p < p * scale && i >= min_keep) {
-            // break; // prob too small
-        // }
-    // }
-
-    ////Resize the output vector to keep only the matching tokens
-    // candidates->size = i;
-
-    // if (ctx) {
-        // ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
-    // }
-// }
-
 void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * candidates, float p, size_t min_keep) {
     if (p <= 0.0f || !candidates->size) {
         return;
     }
 
-    const int64_t t_start_sample_us = ggml_time_us();
-
     llama_sample_softmax(ctx, candidates);
 
-    // Variables to hold the external values
-    bool worstToken = false; // unused from earlier experiment, disregard
-    float randomizationFactor = 1.0f; // Default value of the randomization factor
-    bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
-    unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
-
-    // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0) {
-
-        // Read or write the external values
-        read_or_write_ext(worstToken, randomizationFactor, isTrueRNG, rngSeed);
-        
-        // Create a random number generator
-        std::default_random_engine generator;
-        if (isTrueRNG) {
-            // Seed with a real random value, if available
-            std::random_device rd;
-            generator.seed(rd());
-        } else {
-            // Use a fixed seed for deterministic behavior
-            generator.seed(rngSeed);
-        }
-
-        // Create a Gaussian distribution with mean 0 and standard deviation of your choice
-        std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-
-        // Apply Gaussian noise to each logit
-        for (size_t i = 0; i < candidates->size; ++i) {
-            // Add Gaussian noise to the logit
-            candidates->data[i].logit += distribution(generator);
-        }
-
-        candidates->sorted = false;
-
-        // Re-normalize probabilities if necessary
-        llama_sample_softmax(ctx, candidates);
-
-    }
-
-    // Store original top probability
-    float original_top_prob = candidates->data[0].p;
-
+    const int64_t t_start_sample_us = ggml_time_us();
 
     float scale = candidates->data[0].p; // scale by max prob
     size_t i = 1; // first token always matches
@@ -8295,7 +8190,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
-    llama_sample_softmax(ctx, candidates);
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
@@ -8425,6 +8319,74 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float min_temp = 0, float max_temp = 2.0f) {
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    llama_sample_softmax(ctx, candidates_p);
+
+    float exponent_val = 1.0f;
+
+    // Calculate entropy of the softmax probabilities
+    float entropy = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        float prob = candidates_p->data[i].p;
+        if (prob > 0.0f) { // Ensure no log(0)
+            entropy -= prob * logf(prob);
+        }
+    }
+
+    // Calculate maximum possible entropy
+    float max_entropy = -logf(1.0f / candidates_p->size);
+
+    // Guard against division by zero
+    if (max_entropy == 0.0f) {
+        max_entropy = 1.0f; // This ensures that normalized_entropy will be 0 when entropy is 0
+    }
+
+    // Normalize the entropy
+    float normalized_entropy = entropy / max_entropy;
+
+    // Map the normalized entropy to the desired temperature range using the power function
+    float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, exponent_val);
+
+    // //todo: Ensure to hide print statements unless debugging!
+    // printf("Your text maxtemp value is: %f\n", max_temp);
+    // // Print the variables
+    // printf("Entropy: %f\n", entropy);
+    // printf("Max Possible Entropy: %f\n", max_entropy);
+    // printf("Normalized Entropy: %f\n", normalized_entropy);
+    // printf("Exponent: %f\n", exponent_val);
+    // printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
+
+    // Apply the dynamically calculated temperature scaling
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= dyn_temp;
+    }
+
+    // Re-compute softmax probabilities after scaling logits with dynamic temperature
+    double max_l_double = candidates_p->data[0].logit;
+    double cum_sum_double = 0.0;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        double p = exp(candidates_p->data[i].logit - max_l_double);
+        candidates_p->data[i].p = p; // Store the scaled probability
+        cum_sum_double += p;
+    }
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].p /= cum_sum_double; // Re-normalize the probabilities
+    }
+
+    // //todo: Ensure to hide print statements unless debugging!
+    // // Print the updated top 25 probabilities after temperature scaling
+    // printf("\nUpdated Top 25 Probabilities After Dynamic Temperature Scaling (in percentages):\n");
+    // for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {
+    //     printf("Token %zu: %f%%\n", i + 1, candidates_p->data[i].p * 100.0f);
+    // }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
 void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
@@ -8544,39 +8506,59 @@ static void llama_log_softmax(float * array, size_t size) {
     }
 }
 
+void llama_sample_apply_guidance(
+          struct llama_context * ctx,
+                         float * logits,
+                         float * logits_guidance,
+                         float   scale) {
+    GGML_ASSERT(ctx);
+
+    const auto t_start_sample_us = ggml_time_us();
+    const auto n_vocab = llama_n_vocab(llama_get_model(ctx));
+
+    llama_log_softmax(logits, n_vocab);
+    llama_log_softmax(logits_guidance, n_vocab);
+
+    for (int i = 0; i < n_vocab; ++i) {
+              auto & l = logits[i];
+        const auto & g = logits_guidance[i];
+
+        l = scale * (l - g) + g;
+    }
+
+    ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+}
+
 void llama_sample_classifier_free_guidance(
           struct llama_context * ctx,
         llama_token_data_array * candidates,
           struct llama_context * guidance_ctx,
                          float   scale) {
-    int64_t t_start_sample_us = ggml_time_us();
-
     GGML_ASSERT(ctx);
+    int64_t t_start_sample_us;
 
-    auto n_vocab = llama_n_vocab(llama_get_model(ctx));
+    t_start_sample_us = ggml_time_us();
+    const size_t n_vocab = llama_n_vocab(llama_get_model(ctx));
 
-    GGML_ASSERT(n_vocab == (int)candidates->size);
+    GGML_ASSERT(n_vocab == candidates->size);
     GGML_ASSERT(!candidates->sorted);
 
-    std::vector<float> logits_base;
-    logits_base.reserve(candidates->size);
-    for (size_t i = 0; i < candidates->size; ++i) {
-        logits_base.push_back(candidates->data[i].logit);
-    }
-    llama_log_softmax(logits_base.data(), candidates->size);
-
-    float* logits_guidance = llama_get_logits(guidance_ctx);
-    llama_log_softmax(logits_guidance, n_vocab);
-
-    for (int i = 0; i < n_vocab; ++i) {
-        float logit_guidance = logits_guidance[i];
-        float logit_base = logits_base[i];
-        candidates->data[i].logit = scale * (logit_base - logit_guidance) + logit_guidance;
+    std::vector<float> logits_base(n_vocab);
+    for (size_t i = 0; i < n_vocab; ++i) {
+        logits_base[i] = candidates->data[i].logit;
     }
 
-    if (ctx) {
-        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    float * logits_guidance = llama_get_logits(guidance_ctx);
+
+    ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    llama_sample_apply_guidance(ctx, logits_base.data(), logits_guidance, scale);
+    t_start_sample_us = ggml_time_us();
+
+    for (size_t i = 0; i < n_vocab; ++i) {
+        candidates->data[i].logit = logits_base[i];
     }
+
+    ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
 }
 
 llama_token llama_sample_token_mirostat(struct llama_context * ctx, llama_token_data_array * candidates, float tau, float eta, int32_t m, float * mu) {
