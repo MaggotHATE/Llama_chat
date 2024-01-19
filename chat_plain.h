@@ -18,7 +18,7 @@
 #pragma once
 
 #include "common.h"
-#include "sampling_plus.h"
+//#include "sampling_plus.h"
 #include "llama.h"
 
 #include "jsonParams.h"
@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <format>
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #include <signal.h>
@@ -459,7 +460,7 @@ public:
                     case 'y': result += "typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "= "+ std::to_string(params.sparams.typical_p); break;
                     case 'p': result += "top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "= " + std::to_string(params.sparams.top_p); break;
                     case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "= " + std::to_string(params.sparams.min_p); break;
-                    case 't': result += "temp "; if (params.sparams.dynatemp_range > 0) result += "(dynamic) = " + std::to_string(params.sparams.dynatemp_range); else if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); break;
+                    case 't': if (params.sparams.dynatemp_range > 0) result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); else result += "temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); result += "/" + std::to_string(params.sparams.temp_smoothing); break;
                     default : break;
                 }
             }
@@ -1558,8 +1559,8 @@ public:
         //llama_sampling_context ctx_sampling = llama_sampling_context_init(params, grammar);
         
         // new generation function, moved to common 
-        //const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
-        const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
+        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
+        //const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
         
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.push_back(id);

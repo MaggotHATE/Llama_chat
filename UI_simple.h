@@ -205,29 +205,51 @@ static void sliderTemp(float& temp, float& default_temp)
             temp = default_temp;
         }
         ImGui::EndPopup();
-    } ImGui::SameLine(); HelpMarker( ("Adjust the randomness of the generated text. Lower means more robotic. Default: " + std::to_string(default_temp)).c_str());
+    } ImGui::SameLine(); HelpMarker( ("Defines randomness of generated text. Lower means more robotic. Default: " + std::to_string(default_temp)).c_str());
 }
 
-static void sliderDynatemp_range(float& dynatemp_range, float& default_dynatemp_range)
+static void sliderTempSmoothing(float& temp_smoothing, float& default_temp_smoothing)
 {
     {
-        if (ImGui::Button(" -##temp")) {
+        if (ImGui::Button(" -##temp_smoothing")) {
+            temp_smoothing -= 0.001f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##temp_smoothing")) {
+            temp_smoothing += 0.001f;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderFloat("temp_smoothing", &temp_smoothing, 0.0f, 10.0f);
+    if (ImGui::BeginPopupContextItem("temp_smoothing"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            temp_smoothing = default_temp_smoothing;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker( ("Add more smooth temperature rise for better creativity. Default: " + std::to_string(default_temp_smoothing)).c_str());
+}
+
+static void sliderDynatemp_range(float& dynatemp_range, float& temp, float& default_dynatemp_range)
+{
+    {
+        if (ImGui::Button(" -##dynatemp_range")) {
             dynatemp_range -= 0.001f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("+ ##temp")) {
+        if (ImGui::Button("+ ##dynatemp_range")) {
             dynatemp_range += 0.001f;
         }
         ImGui::SameLine();
     }
-    ImGui::SliderFloat("dynatemp_range", &dynatemp_range, 0.0f, 5.0f);
+    ImGui::SliderFloat(std::format("dynatemp_range ({:.2f} - {:.2f})",temp > dynatemp_range ? temp - dynatemp_range : 0, temp + dynatemp_range).c_str(), &dynatemp_range, 0.0f, 5.0f);
     if (ImGui::BeginPopupContextItem("dynatemp_range"))
     {
         if (ImGui::Selectable("Reset to default")){
             dynatemp_range = default_dynatemp_range;
         }
         ImGui::EndPopup();
-    } ImGui::SameLine(); HelpMarker( ("Adjust the randomness of the generated text, but in a range of 0 to the value. Replaces temp if more than 0. Lower means more robotic. Default: " + std::to_string(default_dynatemp_range)).c_str());
+    } ImGui::SameLine(); HelpMarker( ("Dynamically adjusts randomness in a range of temp +- dynatemp_range. Activated if dynatemp_range > 0. Default: " + std::to_string(default_dynatemp_range)).c_str());
 }
 
 static void sliderTopK(int& top_k, int& default_top_k)
@@ -540,7 +562,9 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
         sliderTemp(params.sparams.temp, paramsDefault.sparams.temp);
         
-        sliderDynatemp_range(params.sparams.dynatemp_range, paramsDefault.sparams.dynatemp_range);
+        sliderTempSmoothing(params.sparams.temp_smoothing, paramsDefault.sparams.temp_smoothing);
+        
+        sliderDynatemp_range(params.sparams.dynatemp_range, params.sparams.temp, paramsDefault.sparams.dynatemp_range);
         
         sliderTopK(params.sparams.top_k, paramsDefault.sparams.top_k);
         
@@ -928,7 +952,7 @@ struct chatUI{
         }
     }
     
-    void settingsTab(){
+    void settingsTab() {
         
         
         //if (!localSettings.params.prompt.empty() ) {
@@ -1009,7 +1033,7 @@ struct chatUI{
                 
                 ImGui::TextWrapped(" Model performance settings");
                 ImGui::Separator();
-                paramsPanelNew(newChat.newChat.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
+                paramsPanelNew(newChat.newChat.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*24));
             } else {
                 
                 
@@ -1033,7 +1057,7 @@ struct chatUI{
                 
                 ImGui::TextWrapped(" Config performance settings");
                 ImGui::Separator();
-                paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*22));
+                paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*24));
                 
             }
             
@@ -2423,6 +2447,7 @@ struct chatUI{
         }
         
         ImVec2 advanced_size = ImVec2(width * 0.95f, ImGui::GetTextLineHeightWithSpacing() * 30);
+        if (newChat.loaded == 9) advanced_size.y = ImGui::GetTextLineHeightWithSpacing() * 35;
         if (ImGui::BeginPopup("Sampling settings", ImGuiWindowFlags_NoSavedSettings)) {
             
             if (ImGui::BeginChild("Sampling settings frame", advanced_size, ImGuiWindowFlags_NoSavedSettings)){

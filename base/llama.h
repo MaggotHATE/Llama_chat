@@ -2,6 +2,7 @@
 #define LLAMA_H
 
 #include "ggml.h"
+#include "ggml-backend.h"
 #ifdef GGML_USE_CUBLAS
 #include "ggml-cuda.h"
 #define LLAMA_MAX_DEVICES GGML_CUDA_MAX_DEVICES
@@ -230,6 +231,9 @@ extern "C" {
         float    yarn_beta_fast;   // YaRN low correction dim
         float    yarn_beta_slow;   // YaRN high correction dim
         uint32_t yarn_orig_ctx;    // YaRN original context size
+
+        ggml_backend_sched_eval_callback cb_eval;
+        void * cb_eval_user_data;
 
         enum ggml_type type_k; // data type for K cache
         enum ggml_type type_v; // data type for V cache
@@ -770,10 +774,18 @@ extern "C" {
                            float   p,
                           size_t   min_keep);
 
+    /// @details Dynamic temperature implementation described in the paper https://arxiv.org/abs/2309.02772.
+    LLAMA_API void llama_sample_entropy(
+            struct llama_context * ctx,
+          llama_token_data_array * candidates_p,
+                           float   min_temp,
+                           float   max_temp);
+
     LLAMA_API void llama_sample_temp(
             struct llama_context * ctx,
           llama_token_data_array * candidates,
-                           float   temp);
+                           float   temp,
+                           float   smoothing_factor);
 
     LLAMA_API DEPRECATED(void llama_sample_temperature(
                 struct llama_context * ctx,
