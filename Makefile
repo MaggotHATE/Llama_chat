@@ -415,7 +415,7 @@ o/vk_grammar-parser.o: VULKAN/grammar-parser.cpp VULKAN/grammar-parser.h
     
 #VULKAN2
 
-OBJS_VK2 = o/vk2_ggml.o o/vk2_ggml-alloc.o o/vk2_ggml-backend.o o/vk2_llama.o o/vk2_sampling.o o/vk2_common.o o/vk2_ggml-quants.o o/vk2_grammar-parser.o o/vk2_ggml-vulkan.o
+OBJS_VK2 = o/vk2_ggml.o o/vk2_llama.o o/vk2_common.o o/vk2_sampling.o o/vk2_grammar-parser.o o/vk2_ggml-vulkan.o o/vk2_ggml-alloc.o o/vk2_ggml-backend.o o/vk2_ggml-quants.o
 
 o/vk2_ggml-vulkan.o: VULKAN2/ggml-vulkan.cpp VULKAN2/ggml-vulkan.h
 	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
@@ -726,7 +726,8 @@ $(EXE_VK)_mini: $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI_simple.h llama_
      
 chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
 	$(CXX)  -I. -Iinclude -IVULKAN $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
-    
+#-
+
 $(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) -I. -Iinclude -IVULKAN2 $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      

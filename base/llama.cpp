@@ -7981,11 +7981,32 @@ void llama_sample_top_k(struct llama_context * ctx, llama_token_data_array * can
         auto comp = [](const llama_token_data & a, const llama_token_data & b) {
             return a.logit > b.logit;
         };
-        if (k == (int) candidates->size) {
-            std::sort(candidates->data, candidates->data + candidates->size, comp);
-        } else {
-            std::partial_sort(candidates->data, candidates->data + k, candidates->data + candidates->size, comp);
+        constexpr int   nbuckets    = 100;
+        constexpr float bucket_low  = -10.0f;
+        constexpr float bucket_high =  10.0f;
+
+        std::vector<llama_token_data> buckets[nbuckets];
+
+        for (size_t i = 0; i < candidates->size; ++i) {
+            const float val = candidates->data[i].logit;
+            int ib = nbuckets * (val - bucket_low) / (bucket_high - bucket_low);
+            ib = std::max(ib, 0);
+            ib = std::min(ib, nbuckets-1);
+            buckets[ib].push_back(candidates->data[i]);
         }
+
+        int nsorted = 0;
+        for (int ib = nbuckets-1; ib >= 0; --ib) {
+            std::sort(buckets[ib].begin(), buckets[ib].end(), comp);
+            memcpy(candidates->data + nsorted, buckets[ib].data(), buckets[ib].size()*sizeof(llama_token_data));
+
+            nsorted += buckets[ib].size();
+
+            if (nsorted >= k) {
+                break;
+            }
+        }
+
         candidates->sorted = true;
     }
     candidates->size = k;
@@ -8034,7 +8055,35 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     const int64_t t_start_sample_us = ggml_time_us();
 
-    llama_sample_softmax(ctx, candidates);
+    //llama_sample_softmax(ctx, candidates);
+    
+    bool min_p_applied = false;
+
+    // if the candidates aren't sorted, try the unsorted implementation first
+    if (!candidates->sorted) {
+        std::vector<llama_token_data> filtered_tokens;
+
+        float max_logit = -FLT_MAX;
+        for (size_t i = 0; i < candidates->size; ++i) {
+            max_logit = std::max(max_logit, candidates->data[i].logit);
+        }
+        const float min_logit = max_logit + logf(p); // min logit for p_i >= p * p_max
+
+        for (size_t i = 0; i < candidates->size; ++i) {
+            if (candidates->data[i].logit >= min_logit) {
+                filtered_tokens.push_back(candidates->data[i]);
+            }
+        }
+        
+        // if we have enough values the operation was a success
+        if (filtered_tokens.size() >= min_keep) {
+            memcpy(candidates->data, filtered_tokens.data(), filtered_tokens.size()*sizeof(llama_token_data));
+            candidates->size = filtered_tokens.size();
+            min_p_applied = true;
+        }
+    }
+    
+    
 
     // Variables to hold the external values
     bool worstToken = false; // unused from earlier experiment, disregard
@@ -8043,11 +8092,7 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
 
     // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0) {
-
-        // Read or write the external values
-        //read_or_write_ext(worstToken, randomizationFactor, isTrueRNG, rngSeed);
-        
+    if (randomizationFactor > 0.0) {        
         // Create a random number generator
         std::default_random_engine generator;
         if (isTrueRNG) {
@@ -8069,28 +8114,33 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         }
 
         candidates->sorted = false;
-
-        // Re-normalize probabilities if necessary
-        llama_sample_softmax(ctx, candidates);
-
     }
 
     // Store original top probability
     float original_top_prob = candidates->data[0].p;
-
-
-    float scale = candidates->data[0].p; // scale by max prob
-    size_t i = 1; // first token always matches
-
-    for (; i < candidates->size; ++i) {
-        if (candidates->data[i].p < p * scale && i >= min_keep) {
-            break; // prob too small
+    
+    // if the candidates are sorted or the unsorted implementation failed, use this implementation
+    if (!min_p_applied) {
+        // Sort the logits in descending order
+        if (!candidates->sorted) {
+            std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
+                return a.logit > b.logit;
+            });
+            candidates->sorted = true;
         }
-    }
 
-    // Resize the output vector to keep only the matching tokens
-    candidates->size = i;
-    llama_sample_softmax(ctx, candidates);
+        const float min_logit = candidates->data[0].logit + logf(p); // min logit for p_i >= p * p_max
+        size_t i = 1; // first token always matches
+
+        for (; i < candidates->size; ++i) {
+            if (candidates->data[i].logit < min_logit && i >= min_keep) {
+                break; // prob too small
+            }
+        }
+
+        // Resize the output vector to keep only the matching tokens
+        candidates->size = i;
+    }
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
@@ -8220,12 +8270,18 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float min_temp = 0, float max_temp = 2.0f) {
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float min_temp, float max_temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
-    llama_sample_softmax(ctx, candidates_p);
+    // no need to do anything if there is only one (or zero) candidates
+    if(candidates_p->size <= 1) {
+        return;
+    }
 
-    float exponent_val = 1.0f;
+    // Calculate maximum possible entropy
+    float max_entropy = -logf(1.0f / candidates_p->size);
+
+    llama_sample_softmax(nullptr, candidates_p);
 
     // Calculate entropy of the softmax probabilities
     float entropy = 0.0f;
@@ -8236,19 +8292,11 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         }
     }
 
-    // Calculate maximum possible entropy
-    float max_entropy = -logf(1.0f / candidates_p->size);
-
-    // Guard against division by zero
-    if (max_entropy == 0.0f) {
-        max_entropy = 1.0f; // This ensures that normalized_entropy will be 0 when entropy is 0
-    }
-
-    // Normalize the entropy
+    // Normalize the entropy (max_entropy cannot be 0 here because we checked candidates_p->size != 1 above)
     float normalized_entropy = entropy / max_entropy;
 
     // Map the normalized entropy to the desired temperature range using the power function
-    float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, exponent_val);
+    float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, 1.0f);
 
     // Apply the dynamically calculated temperature scaling
     for (size_t i = 0; i < candidates_p->size; ++i) {
@@ -8266,6 +8314,14 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     for (size_t i = 0; i < candidates_p->size; ++i) {
         candidates_p->data[i].p /= cum_sum_double; // Re-normalize the probabilities
     }
+
+#ifdef DEBUG
+    // Print the updated top 25 probabilities after temperature scaling
+    LLAMA_LOG_INFO("\nUpdated Top 25 Probabilities After Dynamic Temperature Scaling (in percentages):\n");
+    for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {
+        LLAMA_LOG_INFO("Token %zu: %f%%\n", i + 1, candidates_p->data[i].p * 100.0f);
+    }
+#endif
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;

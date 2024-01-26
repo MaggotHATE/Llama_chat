@@ -180,9 +180,10 @@ struct modelThread{
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
-        std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << std::endl;
+        std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << "\n----------------------------------------" << std::endl;
+        if (newChat.params.antiprompt.size()) std::cout << "Antiprompt: " << newChat.params.antiprompt[0] << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
-        std::cout << "input_suffix: " << newChat.params.input_suffix << std::endl;
+        std::cout << "input_suffix: " << newChat.params.input_suffix << "\n----------------------------------------" << std::endl;
         //std::cout << newChat.formatRepresentation << std::endl;
         std::cout << externalData << std::endl;
         std::cout << sparamsList << std::endl;

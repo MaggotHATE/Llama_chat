@@ -160,20 +160,21 @@ static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
         
         if (promptPos != format_template.npos) {
             
-            std::string antimprompt;
-            if (systemPos != format_template.npos) antimprompt = format_template.substr(systemPos + 16, promptPos - systemPos - 16);
-            else antimprompt = format_template.substr(0, promptPos);
+            std::string antiprompt;
+            if (systemPos != format_template.npos) antiprompt = format_template.substr(systemPos + 16, promptPos - systemPos - 16);
+            else { 
+                antiprompt = format_template.substr(0, promptPos);
+            }
             
-            if (!antimprompt.empty()) {
+            if (!antiprompt.empty()) {
                 // additional safeguard
-                while (antimprompt[0] == '\n') { 
-                    antimprompt = antimprompt.substr(1);
-                }
+                size_t delimPos = antiprompt.find('\n');
+                if (delimPos != antiprompt.npos && delimPos != (antiprompt.size() - 1) ) antiprompt = antiprompt.substr(delimPos);
                 
                 if(!params.antiprompt.size())
-                    params.antiprompt.push_back(antimprompt);
+                    params.antiprompt.push_back(antiprompt);
                 else
-                    params.antiprompt[0] = antimprompt;
+                    params.antiprompt[0] = antiprompt;
             }
             
             params.prompt = format_template.substr(0,promptPos);

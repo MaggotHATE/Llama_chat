@@ -1981,7 +1981,16 @@ struct chatUI{
     void modelsBigListSelectables(){
         ImVec2 size_selectable_chat(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() * 1.9f);
         for (int n = 0; n < localSettings.modelsFromConfig.size(); n++) {
-            std::string modelData = localSettings.localConfig[localSettings.modelsFromConfig[n].first]["prompt"];
+            std::string modelData;
+            
+            if (localSettings.localConfig[localSettings.modelsFromConfig[n].first].contains("format_file")) {
+                modelData = "format_file: " + localSettings.localConfig[localSettings.modelsFromConfig[n].first]["format_file"].get<std::string>();
+                if (localSettings.localConfig[localSettings.modelsFromConfig[n].first].contains("system_message")) modelData += "\nsystem_message: " + localSettings.localConfig[localSettings.modelsFromConfig[n].first]["system_message"].get<std::string>();
+            } else if (localSettings.localConfig[localSettings.modelsFromConfig[n].first].contains("system_message")) {
+                modelData = "system_message: " + localSettings.localConfig[localSettings.modelsFromConfig[n].first]["system_message"].get<std::string>();
+            } else if (localSettings.localConfig[localSettings.modelsFromConfig[n].first].contains("prompt")) {
+                modelData = localSettings.localConfig[localSettings.modelsFromConfig[n].first]["prompt"];
+            } else modelData = "No prompt/system instruct/format!";
             //std::string modelCard = localSettings.modelsFromConfig[n].second + ": " + modelData;
             
             //ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x * 0.45);
@@ -2023,7 +2032,18 @@ struct chatUI{
 
             ImGui::SeparatorText(("Instruct for " + localSettings.modelName).c_str());
             
-            ImGui::TextWrapped(localSettings.localConfig[localSettings.modelName]["prompt"].get<std::string>().c_str());
+            std::string modelData;
+            
+            if (localSettings.localConfig[localSettings.modelName].contains("format_file")) {
+                modelData = "format_file: " + localSettings.localConfig[localSettings.modelName]["format_file"].get<std::string>();
+                if (localSettings.localConfig[localSettings.modelName].contains("system_message")) modelData += "\nsystem_message: " + localSettings.localConfig[localSettings.modelName]["system_message"].get<std::string>();
+            } else if (localSettings.localConfig[localSettings.modelName].contains("system_message")) {
+                modelData = "system_message: " + localSettings.localConfig[localSettings.modelName]["system_message"].get<std::string>();
+            } else if (localSettings.localConfig[localSettings.modelName].contains("prompt")) {
+                modelData = localSettings.localConfig[localSettings.modelName]["prompt"];
+            } else modelData = "No prompt/system instruct/format!";
+            
+            ImGui::TextWrapped(modelData.c_str());
             ImGui::Separator();
         ImGui::EndChild();
         }

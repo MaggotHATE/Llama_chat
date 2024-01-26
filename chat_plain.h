@@ -155,7 +155,7 @@ float llama_string_evalPrompt(const llama_timings & timings) {
     std::vector<int>   input_tokens;
     std::vector<int>   output_tokens;
 }; */
-
+/* 
 typedef struct format{
     //position, definition
     std::string bos;
@@ -169,7 +169,7 @@ typedef struct format{
     // d for \n or \r
     std::string sequence;
 }; 
-
+ */
 //CLASS////////////////////////////////////////////////////////////////////////////////////////////
 
 class chat
@@ -442,10 +442,10 @@ public:
         
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
-            if (params.sparams.temp != paramsDefault.sparams.temp) result += "-> temp = " + std::to_string(params.sparams.temp);
+            if (params.sparams.dynatemp_range > 0) result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); else result += "temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); result += std::format("/{:.2f}", params.sparams.temp_smoothing);
             result += "-> mirostat = " + std::to_string(params.sparams.mirostat); 
-            result += "; mirostat_tau = " + std::to_string(params.sparams.mirostat_tau); 
-            result += "; mirostat_eta = " + std::to_string(params.sparams.mirostat_eta);
+            result += std::format("; mirostat_tau =  {:.2f}", params.sparams.mirostat_tau); 
+            result += std::format("; mirostat_eta = {:.2f}", params.sparams.mirostat_eta);
         } else {
             // if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "\n top_k = " + std::to_string(params.sparams.top_k);
             // if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result +="\n tfs_z = " + std::to_string(params.sparams.tfs_z); 
@@ -456,11 +456,20 @@ public:
                 result += "-> ";
                 switch (s){
                     case 'k': result += "top_k "; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "= " + std::to_string(params.sparams.top_k); break;
-                    case 'f': result += "tfs_z "; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += "= " + std::to_string(params.sparams.tfs_z); break;
-                    case 'y': result += "typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "= "+ std::to_string(params.sparams.typical_p); break;
-                    case 'p': result += "top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "= " + std::to_string(params.sparams.top_p); break;
-                    case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "= " + std::to_string(params.sparams.min_p); break;
-                    case 't': if (params.sparams.dynatemp_range > 0) result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); else result += "temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += "= " + std::to_string(params.sparams.temp); result += "/" + std::to_string(params.sparams.temp_smoothing); break;
+                    case 'f': result += "tfs_z "; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("= {:.2f}",params.sparams.tfs_z); break;
+                    case 'y': result += "typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("= {:.2f}",params.sparams.typical_p); break;
+                    case 'p': result += "top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("= {:.2f}",params.sparams.top_p); break;
+                    case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("= {:.2f}",params.sparams.min_p); break;
+                    case 't': {
+                            if (params.sparams.dynatemp_range > 0) {
+                                result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); 
+                            } else { 
+                                result += "temp "; 
+                                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
+                                result += std::format("/{:.2f}", params.sparams.temp_smoothing); 
+                            }
+                            break;
+                        }
                     default : break;
                 }
             }
