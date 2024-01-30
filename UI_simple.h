@@ -1512,6 +1512,25 @@ struct chatUI{
         scrolled = false;
     }
     
+    void regenPrompt() {
+        //newChat.clear_last();
+        // accomodating pause
+        if (newChat.lastResult.empty()) newChat.resultsStringPairs.pop_back();
+        else cancelled = false;
+        newChat.newChat.clear_last();
+        localResultPairs = newChat.resultsStringPairs;
+        
+        helpLabel = "Generating... ";//+std::to_string(tokens_this_session) + " tokens.";
+        //newChat.isContinue = 'w';
+        newChat.startGen();
+        output = "...";
+        //newChat.getResultAsyncStringFull2(false, true);
+        newChat.getResultAsyncStringRepeat3();
+        copiedDialog = false;
+        copiedTimings = false;
+        scrolled = false;
+    }
+    
     void suffixEdit(char* name) {
         ImGui::InputTextMultiline(name, &localSettings.params.input_suffix, ImVec2(ImGui::GetContentRegionAvail().x * 0.6, ImGui::GetTextLineHeightWithSpacing() * 4)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
         if (newChat.isNewSuffix(localSettings.params.input_suffix)){ 
@@ -1601,6 +1620,11 @@ struct chatUI{
                 show_history = !show_history;
             }
             
+            if (newChat.isContinue == 'i' && ( localResultPairs.size() > 2 || !newChat.lastResult.empty())) {
+                if (ImGui::Button("Regenerate")) {
+                    regenPrompt();
+                }
+            }
                 
             
         //}
@@ -1658,6 +1682,12 @@ struct chatUI{
             if (ImGui::Button("Prompts history")) {
                 //show_history = !show_history;
                 ImGui::OpenPopup("History");
+            }
+            if (newChat.isContinue == 'i' && ( localResultPairs.size() > 2 || !newChat.lastResult.empty())) {
+                ImGui::SameLine();
+                if (ImGui::Button("Regenerate")) {
+                    regenPrompt();
+                }
             }
             if (ImGui::BeginPopup("History", ImGuiWindowFlags_NoSavedSettings))
             {

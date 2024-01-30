@@ -346,7 +346,11 @@ public:
 
     int getPastTokens(){
         return n_past;
-    }    
+    }
+    
+    int getEmbInpSize() {
+        return embd_inp.size();
+    }
     
     std::string get_timings(){
         //llama_print_timings(ctx);
@@ -1243,7 +1247,7 @@ public:
     }
     
     // main generation, includes adding antiprompt at the end
-    int applyEmb(bool fastStop = false){
+    int applyEmb(bool fastStop = false) {
         if (debug) fprintf(stderr, "2");
 
         // optionally save the session on first sample (for faster prompt loading next time)
@@ -1277,6 +1281,20 @@ public:
     }
     
 // main generation end////////////////////////////////////////////////////////////////
+
+    void clear_last() {
+        llama_kv_cache_seq_rm(ctx, 0, n_past - last_tokens_count, -1);
+        embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
+        n_remain += last_tokens_count;
+        n_past -= last_tokens_count;
+        
+        last_tokens_count = 0;
+        
+        if (n_past > 0) {
+            resetGrammar();
+            is_interacting = false;
+        }
+    }
 
 // additional functions
     void clearLastEmbd(){
@@ -1579,7 +1597,7 @@ public:
         // add it to the context
         //embd.push_back(id);
         embd_msg.push_back(id);
-        ++last_tokens_count;
+        //++last_tokens_count;
 
         // echo this to console
         input_echo = true;
@@ -1589,128 +1607,7 @@ public:
         
         return 1;
     }
-
-    int reuse(std::vector<llama_token>& embd_msg){
-        // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
-        if (n_session_consumed < (int) session_tokens.size()) {
-            size_t i = 0;
-            for ( ; i < embd_msg.size(); i++) {
-                if (embd_msg[i] != session_tokens[n_session_consumed]) {
-                    session_tokens.resize(n_session_consumed);
-                    return 0;
-                }
-
-                n_past++;
-                n_session_consumed++;
-
-                if (n_session_consumed >= (int) session_tokens.size()) {
-                    ++i;
-                    return 0;
-                }
-            }
-            if (i > 0) {
-                embd_msg.erase(embd_msg.begin(), embd_msg.begin() + i);
-            }
-            
-            // remove any "future" tokens that we might have inherited from the session from the KV cache
-            //llama_kv_cache_tokens_rm(ctx, n_past, -1);
-        }
-        
-        return 1;
-    }
     
-    int evaluate_guidance(std::vector<llama_token>& embd_msg){
-        if (ctx_guidance) {
-            int input_size = 0;
-            llama_token* input_buf = NULL;
-
-            if (n_past_guidance < (int) guidance_inp.size()) {
-                // Guidance context should have the same data with these modifications:
-                //
-                // * Replace the initial prompt
-                // * Shift everything by guidance_offset
-                embd_guidance = guidance_inp;
-                if (embd_msg.begin() + original_prompt_len < embd_msg.end()) {
-                    embd_guidance.insert(
-                        embd_guidance.end(),
-                        embd_msg.begin() + original_prompt_len,
-                        embd_msg.end()
-                    );
-                }
-
-                input_buf = embd_guidance.data();
-                input_size = embd_guidance.size();
-
-            } else {
-                input_buf = embd_msg.data();
-                input_size = embd_msg.size();
-            }
-
-            for (int i = 0; i < input_size; i += params.n_batch) {
-                int n_eval = std::min(input_size - i, params.n_batch);
-                if (llama_decode(ctx_guidance, llama_batch_get_one(input_buf + i, n_eval, n_past_guidance, 0))) {
-                    fprintf(stderr, "%s : failed to eval\n", __func__);
-                    return 0;
-                }
-
-                n_past_guidance += n_eval;
-            }
-        }
-        
-        return 1;
-    }
-    
-    int evaluate_main(std::vector<llama_token>& embd_msg){
-        for (int i = 0; i < (int) embd_msg.size(); i += params.n_batch) {
-            int n_eval = (int) embd_msg.size() - i;
-            if (n_eval > params.n_batch) {
-                n_eval = params.n_batch;
-            }
-            if (llama_decode(ctx, llama_batch_get_one(&embd_msg[i], n_eval, n_past, 0))) {
-                fprintf(stderr, "%s : failed to eval\n", __func__);
-                return 0;
-            }
-            n_past += n_eval;
-        }
-        
-        return 1;
-    }
-    void evaluate_session(std::vector<llama_token>& embd_msg){
-        if (embd_msg.size() > 0 && !path_session.empty()) {
-            session_tokens.insert(session_tokens.end(), embd_msg.begin(), embd_msg.end());
-            n_session_consumed = session_tokens.size();
-        }
-    }
-    
-    //checking already existing contex
-    int checkEmbNew(std::vector<llama_token>& embd_msg){
-        if (debug) fprintf(stderr, "1");
-        // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
-        // --prompt or --file which uses the same value.
-        checkSize();
-
-        // infinite text generation via context swapping
-        // if we run out of context:
-        // - take the n_keep first tokens from the original prompt (via n_past)
-        // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-        //resetContext();
-        extendContext();
-
-        // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
-        if (reuse(embd_msg) == 0) return 0;
-
-        // evaluate tokens in batches
-        // embd is typically prepared beforehand to fit within a batch, but not always
-        
-        if (evaluate_guidance(embd_msg) == 0) return 0;
-        
-        if (evaluate_main(embd_msg) == 0) return 0;
-
-        evaluate_session(embd_msg);
-        
-        return 1;
-    }
-
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
             embd_inp.push_back(llama_token_bos(model));
@@ -1813,7 +1710,7 @@ public:
         
         if (n_past > 0 && is_interacting) {
 
-            subInputNew(input);     
+            subInputNew(input);
             input_echo = false; // do not echo this again        
         }
         
@@ -1995,7 +1892,7 @@ public:
     }
     
     // token by token generation and pushing
-    std::string cycleStringsOnly(bool stream = false){
+    std::string cycleStringsOnly(bool stream = false) {
         //std::cout << " * " << input << std::endl;
         
         std::string result;

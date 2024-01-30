@@ -187,7 +187,14 @@ struct modelThread{
         //std::cout << newChat.formatRepresentation << std::endl;
         std::cout << externalData << std::endl;
         std::cout << sparamsList << std::endl;
-        std::cout << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+        std::cout << '\n' << "STATUS     : " << (newChat.finished ? "READY" : "BUSY") << std::endl;
+        std::cout << "WAITING    : " << (is_interacting ? "YES" : "NO") << std::endl;
+        std::cout << "isContinue : " << isContinue << std::endl;
+        std::cout << "Generated  : " << past_tokens << std::endl;
+        std::cout << "Consumed   : " << consumed_tokens << std::endl;
+        std::cout << "Last       : " << last_tokens << std::endl;
+        std::cout << "Past-Last  : " << past_tokens - last_tokens << '\n' << std::endl;
+        std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
@@ -219,6 +226,8 @@ struct modelThread{
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
+            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 //file << r.first << DELIMINER;
                 //file << ' ' << r.second << DELIMINER;
@@ -238,6 +247,8 @@ struct modelThread{
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
+            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 // file << r.first << DELIMINER;
                 // file << ' ' << r.second << DELIMINER;
@@ -252,11 +263,13 @@ struct modelThread{
     }
     
     bool writeTextFile(std::string path, std::string name){
-        std::string path1 = path + name + std::to_string(newChat.params.seed) + ".txt";
+        std::string path1 = path + std::to_string(newChat.params.seed) + "-" + name + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
+            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 // file << r.first << DELIMINER;
                 // file << ' ' << r.second << DELIMINER;
@@ -279,6 +292,8 @@ struct modelThread{
             file << std::to_string(newChat.params.seed) << DELIMINER;
             file << lastTimings << DELIMINER;
             file << sparamsList << DELIMINER;
+            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 //file << r.first << DELIMINER;
                 //file << ' ' << r.second << DELIMINER;
@@ -297,9 +312,12 @@ struct modelThread{
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
+            file << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << DELIMINER;
             file << lastTimings << DELIMINER;
             file << "Seed = " << std::to_string(newChat.params.seed) << DELIMINER;
             file << sparamsList << DELIMINER;
+            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 // file << r.first << DELIMINER;
                 // file << ' ' << r.second << DELIMINER;
@@ -316,6 +334,11 @@ struct modelThread{
     // void clearModel(){
         // ~newChat;
     // }
+    
+    void clear_last() {
+        resultsStringPairs.pop_back();
+        newChat.clear_last();
+    }
     
     void unload(){
         newChat.clear();
@@ -416,6 +439,7 @@ void checkFinished() {
         resultsStringPairs.push_back(std::pair("AI",lastResult));
         lastResult = "";
         isContinue = 'i';
+        isPregen = 'i';
         
         getTimigsBoth();
         newChat.clear_speed();
@@ -428,7 +452,7 @@ void getStats() {
     past_tokens = newChat.getPastTokens();
 }
 
-void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
+void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
         newChat.clearLastTokens();
@@ -440,10 +464,15 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = false) {
                 
             getTimigsPre();
             //newChat.inputOnly(input);
-            newChat.inputOnlyNew(input);
+            if (full == true) {
+                isPregen = 'w';
+                newChat.inputOnlyNew(input);
+            }
+            
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
+            last_tokens = newChat.getLastTokens();
             
             getTimigsPre();
             
@@ -486,12 +515,12 @@ void getResultAsyncStringFull3() {
         
         
         futureTextString = std::async(std::launch::async, [this] mutable {
+            isPregen = 'w';
+            getTimigsPre();
             
             std::string input = resultsStringPairs.back().second;
-                
-            getTimigsPre();
-            //newChat.inputOnly(input);
             newChat.inputOnlyNew(input);
+            
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
@@ -534,21 +563,19 @@ void getResultAsyncStringFull3() {
     }
     
     void getResultAsyncStringRepeat(bool streaming = false, bool full = false) {
-        //isContinue = 'w';
-        //std::cout << " ** " << input << std::endl;
-        //removeLastAnswer();
-        
-        //newChat.clearLastEmbd();
         
         futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
-            
-            //std::string input = resultsStringPairs.back().second;
                 
             getTimigsPre();
             isPregen = 'i';
+            consumed_tokens = newChat.getConsumedTokens();
+            past_tokens = newChat.getPastTokens();
+            last_tokens = newChat.getLastTokens();
+            
+            getTimigsPre();
             
             
-            while (isContinue != 'i'){
+            while (isContinue != 'i') {
         
 
                 std::string output = newChat.cycleStringsOnly(false);
@@ -584,6 +611,54 @@ void getResultAsyncStringFull3() {
                     }
                     return (std::string) "stopped";
                 }
+            }
+            
+            std::string result = "ready";
+                
+            return result;
+        });
+        
+    }
+    
+    void getResultAsyncStringRepeat3() {
+        //isContinue = 'w';
+        //std::cout << " ** " << input << std::endl;
+        newChat.clearLastTokens();
+        
+        
+        futureTextString = std::async(std::launch::async, [this] mutable {
+            isPregen = 'i';
+            consumed_tokens = newChat.getConsumedTokens();
+            past_tokens = newChat.getPastTokens();
+            
+            getTimigsPre();
+            
+            
+            while (isContinue != 'i'){
+        
+
+                std::string output = newChat.cycleStringsOnly(false);
+                if (isContinue == 'i') {
+                    if (isUnload == 'y') {
+                        unload();
+                    }
+                    return (std::string) "stopped";
+                }
+                lastResult += output;
+                
+                getTimigsGen();
+                
+                //getTimigsSimple();
+                
+                checkFinished();
+                getStats();
+                if (isContinue == 'i') {
+                    if (isUnload == 'y') {
+                        unload();
+                    }
+                    return (std::string) "stopped";
+                }
+            
             }
             
             std::string result = "ready";
@@ -1409,7 +1484,7 @@ struct presetTest{
     }
 };
 
-struct wildcardGen{
+struct wildcardGen {
     nlohmann::json wildcardsDB;
     std::string subname;
     std::string saveFolder = "R";
