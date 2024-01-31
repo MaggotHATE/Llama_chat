@@ -446,7 +446,13 @@ public:
         
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
-            if (params.sparams.dynatemp_range > 0) result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); else result += "temp "; if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); result += std::format("/{:.2f}", params.sparams.temp_smoothing);
+            if (params.sparams.dynatemp_range > 0) {
+                result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); 
+            } else { 
+                result += "temp "; 
+                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
+                result += std::format("/{:.2f}", params.sparams.temp_smoothing); 
+            }
             result += "-> mirostat = " + std::to_string(params.sparams.mirostat); 
             result += std::format("; mirostat_tau =  {:.2f}", params.sparams.mirostat_tau); 
             result += std::format("; mirostat_eta = {:.2f}", params.sparams.mirostat_eta);
