@@ -367,7 +367,7 @@ public:
         return std::to_string(llama_string_eval(ctx)) + " t/s";
     }
     
-    float get_speed(){
+    float get_speed() {
         const llama_timings timings = llama_get_timings(ctx);
         
         t_eval_ms = timings.t_eval_ms - t_eval_ms;

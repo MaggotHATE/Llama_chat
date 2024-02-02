@@ -1,4 +1,5 @@
 #include <thread_chat.h>
+#include "include/units.hpp"
 
 #define SESSIONS_FOLDER "sessions/"
 
@@ -14,34 +15,15 @@ std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
 
-static void sanitizePath(std::string& path){
-    int slashes = path.rfind("\\");
-    while (slashes != path.npos){
-        path.replace(slashes,1,"/");
-        slashes = path.rfind("\\");
-    }
-}
-
-std::string getFileWithSameName(std::string input, std::string type){
-    std::string result;
-
-    sanitizePath(input);
-    size_t lastDot = input.rfind('.');
-    size_t lastSlash = input.rfind('/');
-    if (lastDot != input.npos){
-        result = input.substr(lastSlash + 1, lastDot - lastSlash - 1) + type;
-    }
-    
-    return result;
-}
-
 int main(int argc, char ** argv) {
-    
+    std::string test_char_descr = "";
     wildcardGen Card;
     presetTest Test;
     std::string inputPrompt;
     std::string filename;
     bool busy = false;
+    int regens = 0;
+    bool regen = false;
     
     std::setlocale(LC_CTYPE, ".UTF8");
     SetConsoleCP(CP_UTF8);
@@ -151,7 +133,13 @@ int main(int argc, char ** argv) {
                 if (!busy){
                     std::getline(std::cin, input);
                 } else {
-                    if (Card.cycles >= 0) {
+                    if (regens > 0) {
+                        threadedChat.writeTextFile("tales/",std::to_string(regens));
+                        --regens;
+                        threadedChat.externalData = "Cycles left: " + std::to_string(regens);
+                        input = "regen";
+                        if (regens == 0) busy = false;
+                    } else if (Card.cycles >= 0) {
                         std::cout << "Card cycles " << std::to_string(Card.cycles) << std::endl;
                         if(cycling == 1){
                             threadedChat.writeTextFileFull(Card.saveFolder + '/', std::to_string(Card.seed) + "-" + Card.subname + "-" + std::to_string(Card.cycles));
@@ -207,12 +195,30 @@ int main(int argc, char ** argv) {
                     }
                 }
                 
-                if (input == "restart"){
+                if (input == "restart") {
                     threadedChat.unload();
                     threadedChat.load(settings.modelConfig, false);
-                } else if (input == "save"){
+                } else if (input == "regen") {
+                    threadedChat.clear_last();
+                    threadedChat.display();
+                    threadedChat.startGen();
+                    threadedChat.getResultAsyncStringFull2(true, false);
+                } else if (input == "regens") {
+                    regens = 20;
+                    threadedChat.externalData = "Cycles left: " + std::to_string(regens);
+                    busy = true;
+                } else if (input == "units") {
+                    std::cout << test_char_descr << std::endl; 
+                    std::string input2;
+                    std::getline(std::cin, input2);
+                    input2 = test_char_descr + "\n" + input2;
+                    threadedChat.appendQuestion(input2);
+                    threadedChat.display();
+                    threadedChat.startGen();
+                    threadedChat.getResultAsyncStringFull2(true, true);
+                } else if (input == "save") {
                     threadedChat.writeTextFile();
-                } else if (input == "cycle"){
+                } else if (input == "cycle") {
                      threadedChat.unload();
                      std::cout << "Write a filename for .json or a prompt: " << std::endl; 
                      std::string input2;
@@ -244,7 +250,19 @@ int main(int argc, char ** argv) {
                      // }
                      
                      busy = true;
-                } else if (input == "test"){
+                } else if (input == "unicycle") {
+                     threadedChat.unload();
+                     auto wildcardsDB = getJson(test_char_descr);
+                     
+                     if (wildcardsDB.contains("prompts")) Card.cycle(wildcardsDB, settings, threadedChat);
+                     else {
+                        Card.promptsDB.push_back(test_char_descr); 
+                        auto wildcardsDB = getJson("wildcards.json");
+                        Card.cycle(wildcardsDB, settings, threadedChat);
+                     }
+                     
+                     busy = true;
+                } else if (input == "test") {
                      std::cout << "Write a filename for test .json or a prompt, or skip to use default presetsTest.json: " << std::endl; 
                      std::string input2;
                      std::getline(std::cin, input2);

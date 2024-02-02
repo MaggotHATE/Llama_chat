@@ -475,14 +475,15 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
             last_tokens = newChat.getLastTokens();
             
             getTimigsPre();
-            
+            if (streaming == true) display();
             
             while (isContinue != 'i'){
         
 
                 std::string output = newChat.cycleStringsOnly(false);
                 lastResult += output;
-                if (streaming == true) display();
+                //if (streaming == true) display();
+                if (streaming == true) std::cout << output;
                 getTimigsGen();
                 
                 // if (full == true) {
@@ -499,6 +500,8 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
                 getStats();
                 
             }
+            
+            if (streaming == true) display();
             
             std::string result = "ready";
                 
