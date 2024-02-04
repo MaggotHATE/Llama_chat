@@ -125,12 +125,12 @@ struct modelThread{
             }
         }
         
-        resultsStringPairs.push_back(std::pair("AI",context));
+        resultsStringPairs.emplace_back(std::pair("AI",context));
     }
     
     void appendAnswer(std::string input){
-        //resultsString.push_back(input);
-        //resultsString.push_back(input);
+        //resultsString.emplace_back(input);
+        //resultsString.emplace_back(input);
         if (newChat.params.antiprompt.size()) {
             int cutAntiPos = input.rfind(newChat.params.antiprompt[0]);
             if (cutAntiPos != std::string::npos){
@@ -138,7 +138,7 @@ struct modelThread{
             }
         }
         
-        resultsStringPairs.push_back(std::pair("AI",input));
+        resultsStringPairs.emplace_back(std::pair("AI",input));
     }
     
     void applySuffix(std::string& suffix){
@@ -151,10 +151,10 @@ struct modelThread{
     
     void appendQuestion(std::string& input){
         //if (input.back() == DELIMINER ) input.pop_back();
-        //resultsString.push_back(input);
+        //resultsString.emplace_back(input);
         //if(newChat.params.input_prefix.empty()) 
-            resultsStringPairs.push_back(std::pair(newChat.params.antiprompt[0],input));
-        //else resultsStringPairs.push_back(std::pair(newChat.params.input_prefix,input));
+            resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
+        //else resultsStringPairs.emplace_back(std::pair(newChat.params.input_prefix,input));
     }
     
     void removeLastAnswer(){
@@ -414,7 +414,7 @@ struct modelThread{
     void stop(){
         //newChat.finished = true;
         isContinue = 'i';
-        resultsStringPairs.push_back(std::pair("AI",lastResult));
+        resultsStringPairs.emplace_back(std::pair("AI",lastResult));
         //getTimigsSimple();
         getTimigsBoth();
     }
@@ -436,7 +436,7 @@ void checkFinished() {
         newChat.eraseAntiprompt(lastResult);
         newChat.eraseLast(lastResult, newChat.params.input_prefix);
         
-        resultsStringPairs.push_back(std::pair("AI",lastResult));
+        resultsStringPairs.emplace_back(std::pair("AI",lastResult));
         lastResult = "";
         isContinue = 'i';
         isPregen = 'i';
@@ -820,7 +820,7 @@ struct configurableChat{
                                                           // onlyName.c_str()
                 // );
                 
-                modelsFromConfig.push_back( std::pair(fullName,onlyName) );
+                modelsFromConfig.emplace_back( std::pair(fullName,onlyName) );
                     //std::cout << "Adding " << fullName << std::endl;
             }
         }
@@ -847,7 +847,7 @@ struct configurableChat{
                                                           // onlyName.c_str()
                 // );
                 
-                modelsFromConfig.push_back( std::pair(fullName,onlyName) );
+                modelsFromConfig.emplace_back( std::pair(fullName,onlyName) );
                     //std::cout << "Adding " << fullName << std::endl;
             }
         }
@@ -861,7 +861,7 @@ struct configurableChat{
         if ( std::filesystem::exists(promptFilesFolder) ){
             for (auto const& file : std::filesystem::directory_iterator{promptFilesFolder}) 
             {
-                if (file.path().extension() == ".txt") promptFiles.push_back( file.path());
+                if (file.path().extension() == ".txt") promptFiles.emplace_back( file.path());
             }
         }
     }
@@ -1197,7 +1197,7 @@ struct configurableChat{
         if(params.antiprompt.size()) modelConfig[model]["reverse-prompt"] = params.antiprompt[0];
         else {
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
-            params.antiprompt.push_back("### Instruction:");
+            params.antiprompt.emplace_back("### Instruction:");
         }
         
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
@@ -1274,7 +1274,7 @@ struct configurableChat{
         if(params.antiprompt.size()) newCard["reverse-prompt"] = params.antiprompt[0];
         else {
             newCard["reverse-prompt"] = "### Instruction:";
-            params.antiprompt.push_back("### Instruction:");
+            params.antiprompt.emplace_back("### Instruction:");
         }
         
         if(grammarFile != "") newCard["grammar-file"] = grammarFile;
@@ -1300,7 +1300,7 @@ struct configurableChat{
         params.input_prefix = inputPrefix;
         if (inputAntiprompt != "NULL") {
             if(!params.antiprompt.size()) 
-                params.antiprompt.push_back(inputAntiprompt);
+                params.antiprompt.emplace_back(inputAntiprompt);
             else
                 params.antiprompt[0] = inputAntiprompt;
         }
@@ -1518,7 +1518,7 @@ struct wildcardGen {
         
         if (wildcardsDB.contains("prompts")) promptsDB = wildcardsDB["prompts"];
         else {
-            promptsDB.push_back(filename); // assuming that we passed the prompt itself instead of filename;
+            promptsDB.emplace_back(filename); // assuming that we passed the prompt itself instead of filename;
             std::string cNum;
             std::cout << " Enter the number of cycles: " << std::endl;
             std::getline(std::cin, cNum);
@@ -1552,7 +1552,7 @@ struct wildcardGen {
             std::string input2;
             std::getline(std::cin, input2);
             
-            promptsDB.push_back(input2);
+            promptsDB.emplace_back(input2);
         }
         
     }

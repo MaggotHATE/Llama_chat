@@ -115,6 +115,7 @@ int main(int argc, char ** argv) {
             //if (threadedChat.isContinue == 'w') threadedChat.getResultAsyncString(true);
             //else 
             std::this_thread::sleep_for(std::chrono::milliseconds(latency));
+            if (threadedChat.isContinue == 'w') threadedChat.display();
             //if (threadedChat.loaded == 9) threadedChat.display();
         } else {
             
@@ -203,6 +204,7 @@ int main(int argc, char ** argv) {
                     threadedChat.display();
                     threadedChat.startGen();
                     threadedChat.getResultAsyncStringFull2(true, false);
+                    //threadedChat.getResultAsyncStringFull3();
                 } else if (input == "regens") {
                     regens = 20;
                     threadedChat.externalData = "Cycles left: " + std::to_string(regens);

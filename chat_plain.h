@@ -519,7 +519,7 @@ public:
         if (prompt != "NULL") params.prompt = prompt;
         if (antiprompt != "NULL") {
             if(!params.antiprompt.size()) 
-                params.antiprompt.push_back(antiprompt);
+                params.antiprompt.emplace_back(antiprompt);
             else
                 params.antiprompt[0] = antiprompt;
         }
@@ -858,11 +858,11 @@ public:
         params.interactive_first = true;
         params.interactive = true;
         
-        if (!params.antiprompt.size()) params.antiprompt.push_back("You:");
+        if (!params.antiprompt.size()) params.antiprompt.emplace_back("You:");
         if (params.prompt.empty()) params.prompt = params.antiprompt.back();
         
         if (params.instruct) {
-            params.antiprompt.push_back("### Instruction:");
+            params.antiprompt.emplace_back("### Instruction:");
             params.prompt = "### Instruction:";
         }
 
@@ -898,11 +898,11 @@ public:
         }
         
         if (embd_inp.empty()) {
-            embd_inp.push_back(llama_token_bos(model));
+            embd_inp.emplace_back(llama_token_bos(model));
         }
         
         //if (embd_inp.empty()) {
-        //    embd_inp.push_back(llama_token_bos(ctx));
+        //    embd_inp.emplace_back(llama_token_bos(ctx));
         //}
 
         // Tokenize negative prompt
@@ -1269,12 +1269,12 @@ public:
         //const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
         
         //last_tokens.erase(last_tokens.begin());
-        //last_tokens.push_back(id);
+        //last_tokens.emplace_back(id);
         llama_sampling_accept(ctx_sampling, ctx, id, true);
 
         // add it to the context
-        //embd.push_back(id);
-        embd.push_back(id);
+        //embd.emplace_back(id);
+        embd.emplace_back(id);
         ++last_tokens_count;
 
         // echo this to console
@@ -1438,11 +1438,11 @@ public:
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
                 //fprintf(stderr, ">");
-                embd.push_back(embd_inp[n_consumed]);
+                embd.emplace_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
-                //last_n_tokens.push_back(embd_inp[n_consumed]);
+                //last_n_tokens.emplace_back(embd_inp[n_consumed]);
                 //last_tokens.erase(last_tokens.begin());
-                //last_tokens.push_back(embd_inp[n_consumed]);
+                //last_tokens.emplace_back(embd_inp[n_consumed]);
                 
                 // push the prompt in the sampling context in order to apply repetition penalties later
                 // for the prompt, we don't apply grammar rules
@@ -1489,7 +1489,7 @@ public:
         // Add tokens to embd only if the input buffer is non-empty
         // Entering a empty line lets the user pass control back
         if (params.input_prefix_bos) {
-            embd_inp.push_back(llama_token_bos(model));
+            embd_inp.emplace_back(llama_token_bos(model));
         }
         
         
@@ -1527,7 +1527,7 @@ public:
             
             for (size_t i = original_size; i < embd_inp.size(); ++i) {
                 const llama_token token = embd_inp[i];
-                output_tokens.push_back(token);
+                output_tokens.emplace_back(token);
                 output_ss << llama_token_to_piece(ctx, token);
             }
 
@@ -1596,13 +1596,13 @@ public:
         //const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
         
         //last_tokens.erase(last_tokens.begin());
-        //last_tokens.push_back(id);
+        //last_tokens.emplace_back(id);
         
         llama_sampling_accept(ctx_sampling, ctx, id, true);
 
         // add it to the context
-        //embd.push_back(id);
-        embd_msg.push_back(id);
+        //embd.emplace_back(id);
+        embd_msg.emplace_back(id);
         //++last_tokens_count;
 
         // echo this to console
@@ -1616,7 +1616,7 @@ public:
     
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
-            embd_inp.push_back(llama_token_bos(model));
+            embd_inp.emplace_back(llama_token_bos(model));
         }
     }
     
@@ -1689,7 +1689,7 @@ public:
             
             for (size_t i = original_size; i < embd_inp.size(); ++i) {
                 const llama_token token = embd_inp[i];
-                output_tokens.push_back(token);
+                output_tokens.emplace_back(token);
                 output_ss << llama_token_to_piece(ctx, token);
             }
 
@@ -1862,18 +1862,18 @@ public:
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
                 //fprintf(stderr, ">");
-                embd.push_back(embd_inp[n_consumed]);
+                embd.emplace_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
-                //last_n_tokens.push_back(embd_inp[n_consumed]);
+                //last_n_tokens.emplace_back(embd_inp[n_consumed]);
                 //last_tokens.erase(last_tokens.begin());
-                //last_tokens.push_back(embd_inp[n_consumed]);
+                //last_tokens.emplace_back(embd_inp[n_consumed]);
                 
                 // GG: I'm not sure it's a good idea to push the prompt tokens into the sampling context
                 //     Most likely will remove this in the future to avoid exposing "prev"
                 //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
                 //     penalty will be applied only based on the tokens generated by the model.
                 ctx_sampling->prev.erase(ctx_sampling->prev.begin());
-                ctx_sampling->prev.push_back(embd_inp[n_consumed]);
+                ctx_sampling->prev.emplace_back(embd_inp[n_consumed]);
                 
                 
                 ++n_consumed;

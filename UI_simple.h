@@ -1296,14 +1296,14 @@ struct chatUI{
 
                                 if(templatesJson.contains("error")){
                                     if (ImGui::Selectable("Store as saved")){
-                                        templatesJson["saved"].push_back(msg);
+                                        templatesJson["saved"].emplace_back(msg);
                                         templatesJson.erase("error");
                                     }
                                 } else {
                                     for (auto& [key, value] : templatesJson.items() ){
                                         if (value.is_array()) {
                                             if (ImGui::Selectable(("Store as " + key).c_str())){
-                                                templatesJson[key].push_back(msg);
+                                                templatesJson[key].emplace_back(msg);
                                             }
                                         }
                                     }
@@ -1487,7 +1487,7 @@ struct chatUI{
         processPrompt(inputStr, '{', '}');
         
         if (inputStr.size()){
-            sessionHistory[localSettings.modelName].push_back(inputStr);
+            sessionHistory[localSettings.modelName].emplace_back(inputStr);
         }
         newChat.appendQuestion(inputStr);
         localResultPairs = newChat.resultsStringPairs;
