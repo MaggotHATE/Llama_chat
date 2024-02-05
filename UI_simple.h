@@ -2355,7 +2355,7 @@ struct chatUI{
                         localSettings.syncInputs();
                 }
             }
-            float initWidth = baseWidth * 0.9f;
+            float initWidth = baseWidth * 0.8f;
             //ImGui::EndChild();
             ImGui::InputTextMultiline("Prompt", &localSettings.inputPrompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 15)); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
             ImGui::InputTextMultiline("Antiprompt", &localSettings.inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 

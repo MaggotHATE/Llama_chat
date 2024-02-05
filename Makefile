@@ -139,6 +139,18 @@ I_GGML = -Iggml -Iinclude
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
 
+ifndef LLAMA_NO_CCACHE
+CCACHE := $(shell which ccache)
+ifdef CCACHE
+export CCACHE_SLOPPINESS = time_macros
+$(info I ccache found, compilation results will be cached. Disable with LLAMA_NO_CCACHE.)
+CC    := $(CCACHE) $(CC)
+CXX   := $(CCACHE) $(CXX)
+else
+$(info I ccache not found. Consider installing it for faster compilation.)
+endif # CCACHE
+endif # LLAMA_NO_CCACHE
+
 # clock_gettime came in POSIX.1b (1993)
 # CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional
 # posix_memalign came in POSIX.1-2001 / SUSv3
@@ -602,9 +614,18 @@ o/imgui/%.o:$(IMGUI_DIR)/backends/%.cpp
     
 o/imgui/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
 	$(CXX) $(CXXFLAGS_UI) -c -o $@ $<
-
-#NAMED BULDS    
     
+#CCACHE
+
+# $< is the first prerequisite, i.e. the source file.
+# Explicitly compile this to an object file so that it can be cached with ccache.
+# The source file is then filtered out from $^ (the list of all prerequisites) and the object file is added instead.
+
+# Helper function that replaces .c, .cpp, and .cu file endings with .o:
+GET_OBJ_FILE = $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cu,%.o,$(1))))
+
+#NAMED BULDS
+
 demo: $(EXE)
 	@echo Build $(EXE) complete for $(ECHO_MESSAGE) 
      
@@ -722,10 +743,14 @@ $(EXE_VK): $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
 $(EXE_VK)_mini: $(OBJS) $(OBJS_VK) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
-	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
+	# $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
+	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE, $<)
+	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
 chatTest_vk:class_chat.cpp $(OBJS_VK) chat_plain.h thread_chat.h
-	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
+	#$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
+	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE, $<)
+	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
 #-
 
 $(EXE_VK2): $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI.h llama_chat1.res

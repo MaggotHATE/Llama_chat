@@ -12,6 +12,8 @@
 // - Helper ImGui_ImplVulkanH_XXX functions and structures are only used by this example (main.cpp) and by
 //   the backend itself (imgui_impl_vulkan.cpp), but should PROBABLY NOT be used by your own engine/app code.
 // Read comments in imgui_impl_vulkan.h.
+#pragma once
+
 #if defined(UI_SIMPLE)
 #include "UI_simple.h"
 #else 
@@ -19,7 +21,7 @@
 #endif
 
 // Main code
-int main(int, char**)
+int main(int argc, char ** argv)
 {
     std::setlocale(LC_CTYPE, ".UTF8");
     
@@ -120,7 +122,14 @@ int main(int, char**)
     
 
     // Our state
-    UI.init();
+    auto configName = getFileWithSameName(argv[0], ".json");
+    
+    if (std::filesystem::exists(configName)){
+        UI.init(configName);
+    } else {
+        UI.init();
+    }
+    
     UI.preloadImage();
     addStyling();
     UI.readStyleFromConfigJson();
