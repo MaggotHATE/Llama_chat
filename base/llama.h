@@ -98,6 +98,7 @@ extern "C" {
         LLAMA_FTYPE_MOSTLY_IQ2_XS        = 20, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_Q2_K_S        = 21, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_Q3_K_XS       = 22, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_IQ3_XXS       = 23, // except 1d tensors
 
         LLAMA_FTYPE_GUESSED = 1024, // not specified in the model file
     };
@@ -212,7 +213,7 @@ extern "C" {
         uint32_t n_batch;           // prompt processing maximum batch size
         uint32_t n_threads;         // number of threads to use for generation
         uint32_t n_threads_batch;   // number of threads to use for batch processing
-        uint32_t rope_scaling_type; // RoPE scaling type, from `enum llama_rope_scaling_type`
+        int32_t  rope_scaling_type; // RoPE scaling type, from `enum llama_rope_scaling_type`
 
         // ref: https://github.com/ggerganov/llama.cpp/pull/2054
         float    rope_freq_base;   // RoPE base frequency, 0 = from model
