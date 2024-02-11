@@ -174,9 +174,9 @@ struct modelThread{
         std::cout<< DELIMINER;
     }
     
-    void display(){
+    std::string display(){
         Clear();
-        
+        std::string summary = "ChatTest ";
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
@@ -187,20 +187,20 @@ struct modelThread{
         //std::cout << newChat.formatRepresentation << std::endl;
         std::cout << externalData << std::endl;
         std::cout << sparamsList << std::endl;
-        std::cout << '\n' << "STATUS     : " << (newChat.finished ? "READY" : "BUSY") << std::endl;
-        std::cout << "WAITING    : " << (is_interacting ? "YES" : "NO") << std::endl;
-        std::cout << "isContinue : " << isContinue << std::endl;
-        std::cout << "Generated  : " << past_tokens << std::endl;
-        std::cout << "Consumed   : " << consumed_tokens << std::endl;
-        std::cout << "Last       : " << last_tokens << std::endl;
-        std::cout << "Past-Last  : " << past_tokens - last_tokens << '\n' << std::endl;
+        std::cout << "\nSTATUS       : " << (newChat.finished ? "READY" : "BUSY") << std::endl;
+        std::cout << "WAITING      : " << (is_interacting ? "YES" : "NO") << std::endl;
+        std::cout << "isContinue   : " << isContinue << std::endl;
+        std::cout << "Past         : " << past_tokens << std::endl;
+        std::cout << "Consumed     : " << consumed_tokens << std::endl;
+        std::cout << "Last         : " << last_tokens << std::endl;
+        std::cout << "Past-Last    : " << past_tokens - last_tokens << '\n' << std::endl;
         std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
         //#endif
         //std::cout << lastTimings << std::endl;
-        std::cout << "Eval speed: " << std::to_string(lastSpeedPrompt) << "\n Gen speed: " << std::to_string(lastSpeed) << std::endl;
+        std::cout << std::format("Eval speed: {:.3f} t/s", lastSpeedPrompt) << std::format("\n Gen speed: {:.3f} t/s", lastSpeed) << std::endl;
         std::cout << "----------------------------------------\n"<< std::endl;
         
         for (auto r : resultsStringPairs){
@@ -216,9 +216,15 @@ struct modelThread{
             
             if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
-        if (isContinue == 'w') std::cout << lastResult;
+        if (isContinue == 'w') {
+            summary +=  std::format("| Msg: {}t | Total: {}t | at {:.3f}t/s |", last_tokens, past_tokens, lastSpeed);
+            std::cout << lastResult;
+            std::cout << "\n---------------------------------------------------------------------------\n" << summary;
+        }
         //if (last_tokens > 0) std::cout << "Generated: " << last_tokens << std::endl;
         //std::cout<< DELIMINER;
+        
+        return summary;
     }
     
     bool writeTextFileSimple(std::string path){
@@ -293,6 +299,10 @@ struct modelThread{
             file << lastTimings << DELIMINER;
             file << sparamsList << DELIMINER;
             file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << "Consumed   : " << consumed_tokens << std::endl;
+            file << "Last       : " << last_tokens << std::endl;
+            file << "Past-Last  : " << past_tokens - last_tokens << '\n' << std::endl;
+            file << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
             file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 //file << r.first << DELIMINER;
@@ -351,16 +361,6 @@ struct modelThread{
     
     void unloadSoft(){
         newChat.clearSoft();
-        resultsStringPairs.clear();
-        isContinue = '_';
-        isPregen = '_';
-        isLoading = '_';
-        isUnload = '_';
-    }
-    
-    void reset(){
-        newChat.resetCTX();
-        newChat.clearLastEmbd();
         resultsStringPairs.clear();
         isContinue = '_';
         isPregen = '_';

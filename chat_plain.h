@@ -43,6 +43,10 @@
 #include <signal.h>
 #endif
 
+// #ifdef GGML_USE_VULKAN
+    // #include "ggml-vulkan.h"
+// #endif
+
 #define SESSIONS_FOLDER "sessions/"
 
 static gpt_params paramsDefault;
@@ -323,6 +327,10 @@ public:
             llama_backend_free();
             
             clearSoft();
+            
+// #ifdef GGML_USE_VULKAN
+            // ggml_vk_free_cpu_assist();
+// #endif
         }
         
     }
@@ -898,7 +906,8 @@ public:
         }
         
         if (embd_inp.empty()) {
-            embd_inp.emplace_back(llama_token_bos(model));
+            //embd_inp.emplace_back(llama_token_bos(model));
+            embd_inp.push_back(llama_token_bos(model));
         }
         
         //if (embd_inp.empty()) {
@@ -1201,7 +1210,7 @@ public:
         return 1;
     }
     
-    int evaluate_main(){
+    int evaluate_main() {
         for (int i = 0; i < (int) embd.size(); i += params.n_batch) {
             int n_eval = (int) embd.size() - i;
             if (n_eval > params.n_batch) {
@@ -1209,14 +1218,15 @@ public:
             }
             if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval, n_past, 0))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
-                return 0;
+                return 1;
             }
             n_past += n_eval;
         }
         
         return 1;
     }
-    void evaluate_session(){
+    
+    void evaluate_session() {
         if (embd.size() > 0 && !path_session.empty()) {
             session_tokens.insert(session_tokens.end(), embd.begin(), embd.end());
             n_session_consumed = session_tokens.size();
@@ -1274,7 +1284,8 @@ public:
 
         // add it to the context
         //embd.emplace_back(id);
-        embd.emplace_back(id);
+        //embd.emplace_back(id);
+        embd.push_back(id);
         ++last_tokens_count;
 
         // echo this to console
@@ -1288,13 +1299,21 @@ public:
     
 // main generation end////////////////////////////////////////////////////////////////
 
+    
+
+// additional functions
+    void clearLastTokens() {
+        last_tokens_count = 0;
+    }
+
+
     void clear_last() {
         llama_kv_cache_seq_rm(ctx, 0, n_past - last_tokens_count, -1);
         embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
         n_remain += last_tokens_count;
         n_past -= last_tokens_count;
         
-        last_tokens_count = 0;
+        clearLastTokens();
         
         if (n_past > 0) {
             resetGrammar();
@@ -1302,17 +1321,6 @@ public:
         }
     }
 
-// additional functions
-    void clearLastEmbd(){
-        embd.erase(embd.begin()+last_tokens_count);
-        n_remain += last_tokens_count;
-        last_tokens_count = 0;
-    }
-        
-    void clearLastTokens(){
-        last_tokens_count = 0;
-    }
-    
     int resetGrammar(){
         if (is_interacting) {
             // reset grammar state if we're restarting generation
@@ -1438,7 +1446,8 @@ public:
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
                 //fprintf(stderr, ">");
-                embd.emplace_back(embd_inp[n_consumed]);
+                //embd.emplace_back(embd_inp[n_consumed]);
+                embd.push_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
                 //last_n_tokens.emplace_back(embd_inp[n_consumed]);
                 //last_tokens.erase(last_tokens.begin());
@@ -1489,7 +1498,8 @@ public:
         // Add tokens to embd only if the input buffer is non-empty
         // Entering a empty line lets the user pass control back
         if (params.input_prefix_bos) {
-            embd_inp.emplace_back(llama_token_bos(model));
+            //embd_inp.emplace_back(llama_token_bos(model));
+            embd_inp.push_back(llama_token_bos(model));
         }
         
         
@@ -1527,7 +1537,8 @@ public:
             
             for (size_t i = original_size; i < embd_inp.size(); ++i) {
                 const llama_token token = embd_inp[i];
-                output_tokens.emplace_back(token);
+                //output_tokens.emplace_back(token);
+                output_tokens.push_back(token);
                 output_ss << llama_token_to_piece(ctx, token);
             }
 
@@ -1602,7 +1613,8 @@ public:
 
         // add it to the context
         //embd.emplace_back(id);
-        embd_msg.emplace_back(id);
+        //embd_msg.emplace_back(id);
+        embd_msg.push_back(id);
         //++last_tokens_count;
 
         // echo this to console
@@ -1616,7 +1628,8 @@ public:
     
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
-            embd_inp.emplace_back(llama_token_bos(model));
+            //embd_inp.emplace_back(llama_token_bos(model));
+            embd_inp.push_back(llama_token_bos(model));
         }
     }
     
@@ -1689,7 +1702,8 @@ public:
             
             for (size_t i = original_size; i < embd_inp.size(); ++i) {
                 const llama_token token = embd_inp[i];
-                output_tokens.emplace_back(token);
+                //output_tokens.emplace_back(token);
+                output_tokens.push_back(token);
                 output_ss << llama_token_to_piece(ctx, token);
             }
 
@@ -1862,7 +1876,8 @@ public:
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
                 //fprintf(stderr, ">");
-                embd.emplace_back(embd_inp[n_consumed]);
+                //embd.emplace_back(embd_inp[n_consumed]);
+                embd.push_back(embd_inp[n_consumed]);
                 //last_n_tokens.erase(last_n_tokens.begin());
                 //last_n_tokens.emplace_back(embd_inp[n_consumed]);
                 //last_tokens.erase(last_tokens.begin());
@@ -1873,7 +1888,8 @@ public:
                 //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
                 //     penalty will be applied only based on the tokens generated by the model.
                 ctx_sampling->prev.erase(ctx_sampling->prev.begin());
-                ctx_sampling->prev.emplace_back(embd_inp[n_consumed]);
+                //ctx_sampling->prev.emplace_back(embd_inp[n_consumed]);
+                ctx_sampling->prev.push_back(embd_inp[n_consumed]);
                 
                 
                 ++n_consumed;

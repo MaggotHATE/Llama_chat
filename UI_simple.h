@@ -722,6 +722,32 @@ static void addStyling(){
     style.WindowRounding = 0.0f;
 }
 
+// struct imagesArray {
+// #if defined(SDL2)
+    // std::map<std::string, SDL_Texture*> data;
+    // std::map<std::string, std::pair<float, float>> sizes;
+    
+    // SDL_Texture* get_texture(std::string key) {
+        // if (data.count(key) > 0) {
+            // return data.at(key);
+        // } else return NULL;
+    // }
+    
+    // std::pair<float, float> get_sizes () {
+        
+    // }
+    
+// #else
+    // std::map<std::string, MyTextureData> data;
+
+    // MyTextureData get_texture(std::string key) {
+        // if (data.count(key) > 0) {
+            // return data.at(key);
+        // } else return NULL;
+    // }
+// #endif
+// };
+
 struct chatUI{
     int width = 600;
     int height = 800;
@@ -818,6 +844,8 @@ struct chatUI{
     
     int themeIdx = 2;
     int mdlIdx = 0;
+    
+    int regen_cycles = 0;
     
     bool show_models_list = true;
     bool show_immediate_settings = false;
@@ -1621,8 +1649,28 @@ struct chatUI{
             }
             
             if (newChat.isContinue == 'i' && ( localResultPairs.size() > 2 || !newChat.lastResult.empty())) {
-                if (ImGui::Button("Regenerate")) {
+                if (regen_cycles > 0) {
+                    newChat.writeTextFile("tales/",std::to_string(regen_cycles));
+                    --regen_cycles;
                     regenPrompt();
+                } else {
+                    if (ImGui::Button("Regenerate...")) {
+                        ImGui::OpenPopup("Regens");
+                    }
+                    
+                    if (ImGui::BeginPopup("Regens", ImGuiWindowFlags_NoSavedSettings)) {
+                        
+                        if (ImGui::Selectable("Regenerate once")) {
+                            regenPrompt();
+                        }
+                        
+                        if (ImGui::Selectable("Regenrate x10")) {
+                            regen_cycles = 10;
+                            regenPrompt();
+                        }
+                        
+                        ImGui::EndPopup();
+                    }
                 }
             }
                 
@@ -1684,9 +1732,31 @@ struct chatUI{
                 ImGui::OpenPopup("History");
             }
             if (newChat.isContinue == 'i' && ( localResultPairs.size() > 2 || !newChat.lastResult.empty())) {
-                ImGui::SameLine();
-                if (ImGui::Button("Regenerate")) {
+                
+                if (regen_cycles > 0 && !cancelled) {
+                    newChat.writeTextFile("tales/",std::to_string(regen_cycles));
+                    --regen_cycles;
                     regenPrompt();
+                } else {
+                    ImGui::SameLine();
+                    if (ImGui::Button("Regenerate...")) {
+                        ImGui::OpenPopup("Regens");
+                    }
+                    
+                    if (ImGui::BeginPopup("Regens", ImGuiWindowFlags_NoSavedSettings)) {
+                        
+                        if (ImGui::Selectable("Regenerate once")) {
+                            regenPrompt();
+                        }
+                        
+                        if (ImGui::Selectable("Regenrate x10")) {
+                            newChat.writeTextFile("tales/",std::to_string(regen_cycles));
+                            regen_cycles = 10;
+                            regenPrompt();
+                        }
+                        
+                        ImGui::EndPopup();
+                    }
                 }
             }
             if (ImGui::BeginPopup("History", ImGuiWindowFlags_NoSavedSettings))

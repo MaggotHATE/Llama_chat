@@ -54,20 +54,23 @@ int main(int argc, char ** argv) {
     
     
     configurableChat settings;
-    
+    SetConsoleTitle("Loading json...");
     settings.localConfig = getJson(configName);
     
     if (filename.rfind(".gguf") != filename.npos) {
         std::cout << "Opening a model " << filename << std::endl;
+        SetConsoleTitle("Opening a model...");
         settings.localConfig["model"] = filename;
     }
     
+    SetConsoleTitle("Getting settings for the model...");
     settings.getSettingsFull();
     settings.fillLocalJson(settings.params.model);
     modelThread threadedChat;
     
     
     if (filename.rfind(".json") != filename.npos){
+        SetConsoleTitle("Loading a json file...");
         auto instantJson = getJson(filename);
         if (instantJson.contains("presets")){
             //Test.init(instantJson);
@@ -87,6 +90,7 @@ int main(int argc, char ** argv) {
             settings.readJsonToParams(instantJson);
         }
     } else if (filename.rfind(".txt") != filename.npos) {
+        SetConsoleTitle("Loading a text file...");
         std::cout << "Opening text file " << filename << std::endl;
         inputPrompt = getText(filename);
         busy = true;
@@ -95,7 +99,7 @@ int main(int argc, char ** argv) {
     std::cout << settings.modelConfig.dump(3) << std::endl; 
     
     
-    
+    SetConsoleTitle("Loading...");
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
     
@@ -107,7 +111,7 @@ int main(int argc, char ** argv) {
     std::string input1;
     bool cycling = 0;
     
-    
+    SetConsoleTitle("ChatTest ");
     bool running = true;
       while (running) {
         //std::cout << "Loaded " << std::to_string(loaded) << std::endl;
@@ -115,7 +119,9 @@ int main(int argc, char ** argv) {
             //if (threadedChat.isContinue == 'w') threadedChat.getResultAsyncString(true);
             //else 
             std::this_thread::sleep_for(std::chrono::milliseconds(latency));
-            if (threadedChat.isContinue == 'w') threadedChat.display();
+            if (threadedChat.isContinue == 'w') {
+                SetConsoleTitle(threadedChat.display().c_str());
+            }
             //if (threadedChat.loaded == 9) threadedChat.display();
         } else {
             
@@ -132,7 +138,10 @@ int main(int argc, char ** argv) {
                 //std::cout << threadedChat.newChat.params.input_prefix << ">";
                 std::string input;
                 if (!busy){
-                    std::getline(std::cin, input);
+                    if (filename.rfind("regens.txt") != filename.npos) {
+                        input = "regens";
+                    } else 
+                        std::getline(std::cin, input);
                 } else {
                     if (regens > 0) {
                         threadedChat.writeTextFile("tales/",std::to_string(regens));
@@ -203,8 +212,8 @@ int main(int argc, char ** argv) {
                     threadedChat.clear_last();
                     threadedChat.display();
                     threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(true, false);
-                    //threadedChat.getResultAsyncStringFull3();
+                    //threadedChat.getResultAsyncStringFull2(true, false);
+                    threadedChat.getResultAsyncStringFull3();
                 } else if (input == "regens") {
                     regens = 20;
                     threadedChat.externalData = "Cycles left: " + std::to_string(regens);
@@ -279,8 +288,8 @@ int main(int argc, char ** argv) {
                     threadedChat.appendQuestion(input);
                     threadedChat.display();
                     threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(true, true);
-                    //threadedChat.getResultAsyncStringFull3();
+                    //threadedChat.getResultAsyncStringFull2(true, true);
+                    threadedChat.getResultAsyncStringFull3();
 
                     
                     
