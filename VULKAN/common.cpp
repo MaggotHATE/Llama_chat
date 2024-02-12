@@ -442,7 +442,7 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
-            params.lora_adapter.push_back(std::make_tuple(argv[i], 1.0f));
+            params.lora_adapter.emplace_back(std::make_tuple(argv[i], 1.0f));
             params.use_mmap = false;
         } else if (arg == "--lora-scaled") {
             if (++i >= argc) {
@@ -454,7 +454,7 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
-            params.lora_adapter.push_back(std::make_tuple(lora_adapter, std::stof(argv[i])));
+            params.lora_adapter.emplace_back(std::make_tuple(lora_adapter, std::stof(argv[i])));
             params.use_mmap = false;
         } else if (arg == "--lora-base") {
             if (++i >= argc) {
@@ -499,62 +499,74 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
-#ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
             params.n_gpu_layers = std::stoi(argv[i]);
-#else
-            fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers option will be ignored\n");
-            fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
-#endif
+            if (!llama_supports_gpu_offload()) {
+                fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers option will be ignored\n");
+                fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
+            }
         } else if (arg == "--gpu-layers-draft" || arg == "-ngld" || arg == "--n-gpu-layers-draft") {
             if (++i >= argc) {
                 invalid_param = true;
                 break;
             }
-#ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
             params.n_gpu_layers_draft = std::stoi(argv[i]);
-#else
-            fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers-draft option will be ignored\n");
-            fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
-#endif
+            if (!llama_supports_gpu_offload()) {
+                fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers-draft option will be ignored\n");
+                fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
+            }
         } else if (arg == "--main-gpu" || arg == "-mg") {
             if (++i >= argc) {
                 invalid_param = true;
                 break;
             }
-#ifdef GGML_USE_CUBLAS
             params.main_gpu = std::stoi(argv[i]);
-#else
-            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set a main GPU.\n");
-#endif
+#ifndef GGML_USE_CUBLAS
+            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. Setting the main GPU has no effect.\n");
+#endif // GGML_USE_CUBLAS
+        } else if (arg == "--split-mode" || arg == "-sm") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            std::string arg_next = argv[i];
+            if (arg_next == "none") {
+                params.split_mode = LLAMA_SPLIT_NONE;
+            } else if (arg_next == "layer") {
+                params.split_mode = LLAMA_SPLIT_LAYER;
+            } else if (arg_next == "row") {
+                params.split_mode = LLAMA_SPLIT_ROW;
+            } else {
+                invalid_param = true;
+                break;
+            }
+#ifndef GGML_USE_CUBLAS
+            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. Setting the split mode has no effect.\n");
+#endif // GGML_USE_CUBLAS
         } else if (arg == "--tensor-split" || arg == "-ts") {
             if (++i >= argc) {
                 invalid_param = true;
                 break;
             }
-#ifdef GGML_USE_CUBLAS
             std::string arg_next = argv[i];
 
             // split string by , and /
             const std::regex regex{R"([,/]+)"};
             std::sregex_token_iterator it{arg_next.begin(), arg_next.end(), regex, -1};
             std::vector<std::string> split_arg{it, {}};
-            GGML_ASSERT(split_arg.size() <= LLAMA_MAX_DEVICES);
-
-            for (size_t i = 0; i < LLAMA_MAX_DEVICES; ++i) {
+            
+            if (split_arg.size() >= llama_max_devices()) {
+                invalid_param = true;
+                break;
+            }
+            for (size_t i = 0; i < llama_max_devices(); ++i) {
                 if (i < split_arg.size()) {
                     params.tensor_split[i] = std::stof(split_arg[i]);
                 } else {
                     params.tensor_split[i] = 0.0f;
                 }
             }
-#else
-            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set a tensor split.\n");
-#endif // GGML_USE_CUBLAS
-        } else if (arg == "--no-mul-mat-q" || arg == "-nommq") {
-#ifdef GGML_USE_CUBLAS
-            params.mul_mat_q = false;
-#else
-            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. Disabling mul_mat_q kernels has no effect.\n");
+#ifndef GGML_USE_CUBLAS
+            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. Setting a tensor split has no effect.\n");
 #endif // GGML_USE_CUBLAS
         } else if (arg == "--no-mmap") {
             params.use_mmap = false;
@@ -567,7 +579,7 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
-            params.antiprompt.push_back(argv[i]);
+            params.antiprompt.emplace_back(argv[i]);
         } else if (arg == "-ld" || arg == "--logdir") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -797,29 +809,30 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("  -cb, --cont-batching  enable continuous batching (a.k.a dynamic batching) (default: disabled)\n");
     printf("  --mmproj MMPROJ_FILE  path to a multimodal projector file for LLaVA. see examples/llava/README.md\n");
     printf("  --image IMAGE_FILE    path to an image file. use with multimodal models\n");
-    if (llama_mlock_supported()) {
+    if (llama_supports_mlock()) {
         printf("  --mlock               force system to keep model in RAM rather than swapping or compressing\n");
     }
-    if (llama_mmap_supported()) {
+    if (llama_supports_mmap()) {
         printf("  --no-mmap             do not memory-map model (slower load but may reduce pageouts if not using mlock)\n");
     }
     printf("  --numa                attempt optimizations that help on some NUMA systems\n");
     printf("                        if run without this previously, it is recommended to drop the system page cache before using this\n");
     printf("                        see https://github.com/ggerganov/llama.cpp/issues/1437\n");
-#ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
-    printf("  -ngl N, --n-gpu-layers N\n");
-    printf("                        number of layers to store in VRAM\n");
-    printf("  -ngld N, --n-gpu-layers-draft N\n");
-    printf("                        number of layers to store in VRAM for the draft model\n");
-    printf("  -ts SPLIT --tensor-split SPLIT\n");
-    printf("                        how to split tensors across multiple GPUs, comma-separated list of proportions, e.g. 3,1\n");
-    printf("  -mg i, --main-gpu i   the GPU to use for scratch and small tensors\n");
-#ifdef GGML_USE_CUBLAS
-    printf("  -nommq, --no-mul-mat-q\n");
-    printf("                        use " GGML_CUBLAS_NAME " instead of custom mul_mat_q " GGML_CUDA_NAME " kernels.\n");
-    printf("                        Not recommended since this is both slower and uses more VRAM.\n");
-#endif // GGML_USE_CUBLAS
-#endif
+    if (llama_supports_gpu_offload()) {
+        printf("  -ngl N, --n-gpu-layers N\n");
+        printf("                        number of layers to store in VRAM\n");
+        printf("  -ngld N, --n-gpu-layers-draft N\n");
+        printf("                        number of layers to store in VRAM for the draft model\n");
+        printf("  -sm SPLIT_MODE, --split-mode SPLIT_MODE\n");
+        printf("                        how to split the model across multiple GPUs, one of:\n");
+        printf("                          - none: use one GPU only\n");
+        printf("                          - layer (default): split layers and KV across GPUs\n");
+        printf("                          - row: split rows across GPUs\n");
+        printf("  -ts SPLIT, --tensor-split SPLIT\n");
+        printf("                        fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1\n");
+        printf("  -mg i, --main-gpu i   the GPU to use for the model (with split-mode = none),\n");
+        printf("                        or for intermediate results and KV (with split-mode = row) (default: %d)\n", params.main_gpu);
+    }
     printf("  --verbose-prompt      print prompt before generation\n");
     printf("  --simple-io           use basic IO for better compatibility in subprocesses and limited consoles\n");
     printf("  --lora FNAME          apply LoRA adapter (implies --no-mmap)\n");
@@ -878,6 +891,7 @@ struct llama_model_params llama_model_params_from_gpt_params(const gpt_params & 
         mparams.n_gpu_layers = params.n_gpu_layers;
     }
     mparams.main_gpu        = params.main_gpu;
+    mparams.split_mode      = params.split_mode;
     mparams.tensor_split    = params.tensor_split;
     mparams.use_mmap        = params.use_mmap;
     mparams.use_mlock       = params.use_mlock;
@@ -1254,6 +1268,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cpu_has_avx512_vnni: %s\n", ggml_cpu_has_avx512_vnni() ? "true" : "false");
     fprintf(stream, "cpu_has_blas: %s\n",        ggml_cpu_has_blas()        ? "true" : "false");
     fprintf(stream, "cpu_has_cublas: %s\n",      ggml_cpu_has_cublas()      ? "true" : "false");
+    fprintf(stream, "cpu_has_vulkan: %s\n",      ggml_cpu_has_vulkan()      ? "true" : "false");
     fprintf(stream, "cpu_has_clblast: %s\n",     ggml_cpu_has_clblast()     ? "true" : "false");
     fprintf(stream, "cpu_has_fma: %s\n",         ggml_cpu_has_fma()         ? "true" : "false");
     fprintf(stream, "cpu_has_gpublas: %s\n",     ggml_cpu_has_gpublas()     ? "true" : "false");
@@ -1384,7 +1399,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cont_batching: %s # default: false\n", params.cont_batching ? "true" : "false");
     fprintf(stream, "temp: %f # default: 0.8\n", sparams.temp);
 
-    const std::vector<float> tensor_split_vector(params.tensor_split, params.tensor_split + LLAMA_MAX_DEVICES);
+    const std::vector<float> tensor_split_vector(params.tensor_split, params.tensor_split + llama_max_devices());
     dump_vector_float_yaml(stream, "tensor_split", tensor_split_vector);
 
     fprintf(stream, "tfs: %f # default: 1.0\n", sparams.tfs_z);

@@ -2,12 +2,8 @@
 #define LLAMA_H
 
 #include "ggml.h"
-#ifdef GGML_USE_CUBLAS
-#include "ggml-cuda.h"
-#define LLAMA_MAX_DEVICES GGML_CUDA_MAX_DEVICES
-#else
-#define LLAMA_MAX_DEVICES 1
-#endif // GGML_USE_CUBLAS
+#include "ggml-backend.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -43,12 +39,7 @@
 #define LLAMA_FILE_MAGIC_GGSN 0x6767736eu // 'ggsn'
 
 #define LLAMA_SESSION_MAGIC   LLAMA_FILE_MAGIC_GGSN
-#define LLAMA_SESSION_VERSION 3
-
-#if defined(GGML_USE_CUBLAS) || defined(GGML_USE_CLBLAST) || defined(GGML_USE_METAL) || defined(GGML_USE_VULKAN)
-// Defined when llama.cpp is compiled with support for offloading model layers to GPU.
-#define LLAMA_SUPPORTS_GPU_OFFLOAD
-#endif
+#define LLAMA_SESSION_VERSION 4
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,6 +94,11 @@ extern "C" {
         LLAMA_FTYPE_MOSTLY_Q5_K_S        = 16, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_Q5_K_M        = 17, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_Q6_K          = 18, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_IQ2_XXS       = 19, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_IQ2_XS        = 20, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_Q2_K_S        = 21, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_Q3_K_XS       = 22, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_IQ3_XXS       = 23, // except 1d tensors
 
         LLAMA_FTYPE_GUESSED = 1024, // not specified in the model file
     };
@@ -113,6 +109,12 @@ extern "C" {
         LLAMA_ROPE_SCALING_LINEAR      = 1,
         LLAMA_ROPE_SCALING_YARN        = 2,
         LLAMA_ROPE_SCALING_MAX_VALUE   = LLAMA_ROPE_SCALING_YARN,
+    };
+
+    enum llama_split_mode {
+        LLAMA_SPLIT_NONE    = 0, // single GPU
+        LLAMA_SPLIT_LAYER   = 1, // split layers and KV across GPUs
+        LLAMA_SPLIT_ROW     = 2, // split rows across GPUs
     };
 
     typedef struct llama_token_data {
@@ -177,8 +179,16 @@ extern "C" {
 
     struct llama_model_params {
         int32_t n_gpu_layers; // number of layers to store in VRAM
-        int32_t main_gpu;     // the GPU that is used for scratch and small tensors
-        const float * tensor_split; // how to split layers across multiple GPUs (size: LLAMA_MAX_DEVICES)
+        enum llama_split_mode split_mode; // how to split the model across multiple GPUs
+
+        // main_gpu interpretation depends on split_mode:
+        // LLAMA_SPLIT_NONE: the GPU that is used for the entire model
+        // LLAMA_SPLIT_ROW: the GPU that is used for small tensors and intermediate results
+        // LLAMA_SPLIT_LAYER: ignored
+        int32_t main_gpu;
+
+        // proportion of the model (layers or rows) to offload to each GPU, size: llama_max_devices()
+        const float * tensor_split;
 
         // Called with a progress value between 0.0 and 1.0. Pass NULL to disable.
         // If the provided progress_callback returns true, model loading continues.
@@ -203,7 +213,7 @@ extern "C" {
         uint32_t n_batch;           // prompt processing maximum batch size
         uint32_t n_threads;         // number of threads to use for generation
         uint32_t n_threads_batch;   // number of threads to use for batch processing
-        int8_t   rope_scaling_type; // RoPE scaling type, from `enum llama_rope_scaling_type`
+        int32_t  rope_scaling_type; // RoPE scaling type, from `enum llama_rope_scaling_type`
 
         // ref: https://github.com/ggerganov/llama.cpp/pull/2054
         float    rope_freq_base;   // RoPE base frequency, 0 = from model
@@ -213,6 +223,9 @@ extern "C" {
         float    yarn_beta_fast;   // YaRN low correction dim
         float    yarn_beta_slow;   // YaRN high correction dim
         uint32_t yarn_orig_ctx;    // YaRN original context size
+
+        ggml_backend_sched_eval_callback cb_eval;
+        void * cb_eval_user_data;
 
         enum ggml_type type_k; // data type for K cache
         enum ggml_type type_v; // data type for V cache
@@ -232,6 +245,7 @@ extern "C" {
         bool quantize_output_tensor; // quantize output.weight
         bool only_copy;              // only copy tensors - ftype, allow_requantize and quantize_output_tensor are ignored
         bool pure;                   // disable k-quant mixtures and quantize all tensors to the same type
+        void * imatrix;              // pointer to importance matrix data
     } llama_model_quantize_params;
 
     // grammar types
@@ -310,9 +324,14 @@ extern "C" {
 
     LLAMA_API int64_t llama_time_us(void);
 
-    LLAMA_API int32_t  llama_max_devices(void);
-    LLAMA_API bool llama_mmap_supported (void);
-    LLAMA_API bool llama_mlock_supported(void);
+    LLAMA_API size_t llama_max_devices(void);
+
+    LLAMA_API bool llama_supports_mmap       (void);
+    LLAMA_API bool llama_supports_mlock      (void);
+    LLAMA_API bool llama_supports_gpu_offload(void);
+
+    LLAMA_API DEPRECATED(bool llama_mmap_supported (void), "use llama_supports_mmap() instead");
+    LLAMA_API DEPRECATED(bool llama_mlock_supported(void), "use llama_supports_mlock() instead");
 
     LLAMA_API const struct llama_model * llama_get_model(const struct llama_context * ctx);
 
@@ -756,14 +775,14 @@ extern "C" {
     LLAMA_API void llama_sample_entropy(
             struct llama_context * ctx,
           llama_token_data_array * candidates_p,
-                           float   temp,
                            float   min_temp,
                            float   max_temp);
 
     LLAMA_API void llama_sample_temp(
             struct llama_context * ctx,
           llama_token_data_array * candidates,
-                           float   temp);
+                           float   temp,
+                           float   smoothing_factor);
 
     LLAMA_API DEPRECATED(void llama_sample_temperature(
                 struct llama_context * ctx,

@@ -19,8 +19,8 @@ shader_int8_ext = """
 
 # Type-specific defines
 shader_f16_defines = """
-#define QUANT_K 32
-#define QUANT_R 2
+#define QUANT_K 1
+#define QUANT_R 1
 
 #define A_TYPE float16_t
 """
@@ -157,19 +157,10 @@ struct block_q6_K
 
 # Dequant functions
 shader_f16_dequant_func = """
-#define DEQUANT_FUNC f16vec2 v = f16vec2(data_a[ib + 0], data_a[ib + 1]);
-"""
-shader_f16_dequant_func_compat = """
 #define DEQUANT_FUNC vec2 v = vec2(data_a[ib + 0], data_a[ib + 1]);
 """
 
 shader_q4_0_dequant_func = """
-#define DEQUANT_FUNC const float16_t d = data_a[ib].d; \
-const uint8_t vui = data_a[ib].qs[iqs]; \
-f16vec2 v = f16vec2(vui & 0xF, vui >> 4); \
-v = (v - 8.0hf)*d;
-"""
-shader_q4_0_dequant_func_compat = """
 #define DEQUANT_FUNC const float d = float(data_a[ib].d); \
 const uint vui = uint(data_a[ib].qs[iqs]); \
 vec2 v = vec2(vui & 0xF, vui >> 4); \
@@ -177,13 +168,6 @@ v = (v - 8.0f)*d;
 """
 
 shader_q4_1_dequant_func = """
-#define DEQUANT_FUNC const float16_t d = data_a[ib].d; \
-const float16_t m = data_a[ib].m; \
-const uint8_t vui = data_a[ib].qs[iqs]; \
-f16vec2 v = f16vec2(vui & 0xF, vui >> 4); \
-v = v*d + m;
-"""
-shader_q4_1_dequant_func_compat = """
 #define DEQUANT_FUNC const float d = float(data_a[ib].d); \
 const float m = float(data_a[ib].m); \
 const uint vui = uint(data_a[ib].qs[iqs]); \
@@ -192,14 +176,6 @@ v = v*d + m;
 """
 
 shader_q5_0_dequant_func = """
-#define DEQUANT_FUNC const float16_t d = data_a[ib].d; \
-const uint uint_qh = uint(data_a[ib].qh[1]) << 16 | data_a[ib].qh[0]; \
-const ivec2 qh = ivec2(((uint_qh >> iqs) << 4) & 0x10, (uint_qh >> (iqs + 12)) & 0x10); \
-const uint8_t vui = data_a[ib].qs[iqs]; \
-f16vec2 v = f16vec2((vui & 0xF) | qh.x, (vui >> 4) | qh.y); \
-v = (v - 16.0hf) * d;
-"""
-shader_q5_0_dequant_func_compat = """
 #define DEQUANT_FUNC const float d = float(data_a[ib].d); \
 const uint uint_qh = uint(data_a[ib].qh[1]) << 16 | data_a[ib].qh[0]; \
 const ivec2 qh = ivec2(((uint_qh >> iqs) << 4) & 0x10, (uint_qh >> (iqs + 12)) & 0x10); \
@@ -209,14 +185,6 @@ v = (v - 16.0f) * d;
 """
 
 shader_q5_1_dequant_func = """
-#define DEQUANT_FUNC const float16_t d = data_a[ib].d; \
-const float16_t m = data_a[ib].m; \
-const ivec2 qh = ivec2(((data_a[ib].qh >> iqs) << 4) & 0x10, (data_a[ib].qh >> (iqs + 12)) & 0x10); \
-const uint8_t vui = data_a[ib].qs[iqs]; \
-f16vec2 v = f16vec2((vui & 0xF) | qh.x, (vui >> 4) | qh.y); \
-v = v*d + m;
-"""
-shader_q5_1_dequant_func_compat = """
 #define DEQUANT_FUNC const float d = float(data_a[ib].d); \
 const float m = float(data_a[ib].m); \
 const ivec2 qh = ivec2(((data_a[ib].qh >> iqs) << 4) & 0x10, (data_a[ib].qh >> (iqs + 12)) & 0x10); \
@@ -226,11 +194,6 @@ v = v*d + m;
 """
 
 shader_q8_0_dequant_func = """
-#define DEQUANT_FUNC const float16_t d = data_a[ib].d; \
-f16vec2 v = f16vec2(data_a[ib].qs[iqs], data_a[ib].qs[iqs + 1]); \
-v = v * d;
-"""
-shader_q8_0_dequant_func_compat = """
 #define DEQUANT_FUNC const float d = float(data_a[ib].d); \
 vec2 v = vec2(int(data_a[ib].qs[iqs]), int(data_a[ib].qs[iqs + 1])); \
 v = v * d;
@@ -242,8 +205,6 @@ mulmat_head = """#version 450
 
 #extension GL_EXT_control_flow_attributes : enable
 #extension GL_EXT_shader_16bit_storage : require
-
-#define WARP 32
 
 #ifndef LOAD_VEC
 #define LOAD_VEC 1
@@ -266,7 +227,6 @@ layout (push_constant) uniform parameter
     uint stride_b;
     uint stride_d;
     uint k_split;
-    uint d_offset;
 
     uint ne02;
     uint ne12;
@@ -286,6 +246,7 @@ layout (constant_id = 5) const uint WN = 32;
 layout (constant_id = 6) const uint WMITER = 2;
 layout (constant_id = 7) const uint TM = 4;
 layout (constant_id = 8) const uint TN = 2;
+layout (constant_id = 9) const uint WARP = 32;
 
 shared FLOAT_TYPE buf_a[BM * (BK+1)];
 shared FLOAT_TYPE buf_b[BN * (BK+1)];
@@ -299,9 +260,9 @@ void main() {
 
     const uint batch_idx_a = i03 * p.ne02 + i02;
 
-    const uint blocks_x = (p.M + BM - 1) / BM;
-    const uint ir = gl_WorkGroupID.x % blocks_x;
-    const uint ik = gl_WorkGroupID.x / blocks_x;
+    const uint blocks_m = (p.M + BM - 1) / BM;
+    const uint ir = gl_WorkGroupID.x % blocks_m;
+    const uint ik = gl_WorkGroupID.x / blocks_m;
     const uint ic = gl_WorkGroupID.y;
 
     const uint warp_i = gl_LocalInvocationID.x / WARP;
@@ -354,7 +315,7 @@ void main() {
             buf_a[(loadc + l) * (BK+1) + loadr * LOAD_VEC + 2] = FLOAT_TYPE(data_a[idx].z);
             buf_a[(loadc + l) * (BK+1) + loadr * LOAD_VEC + 3] = FLOAT_TYPE(data_a[idx].w);
 #else
-            if (ir * BM + loadc + l < p.M && block + loadr < p.K) {
+            if (ir * BM + loadc + l < p.M && block + loadr < end_k) {
                 buf_a[(loadc + l) * (BK+1) + loadr] = FLOAT_TYPE(data_a[pos_a + (loadc + l) * p.stride_a + loadr]);
             } else {
                 buf_a[(loadc + l) * (BK+1) + loadr] = FLOAT_TYPE(0.0f);
@@ -379,7 +340,7 @@ void main() {
             buf_b[(loadc + l) * (BK+1) + loadr * LOAD_VEC + 2] = FLOAT_TYPE(data_b[idx].z);
             buf_b[(loadc + l) * (BK+1) + loadr * LOAD_VEC + 3] = FLOAT_TYPE(data_b[idx].w);
 #else
-            if (ic * BN + loadc + l < p.N && block + loadr < p.K) {
+            if (ic * BN + loadc + l < p.N && block + loadr < end_k) {
                 buf_b[(loadc + l) * (BK+1) + loadr] = FLOAT_TYPE(data_b[pos_b + (loadc + l) * p.stride_b + loadr]);
             } else {
                 buf_b[(loadc + l) * (BK+1) + loadr] = FLOAT_TYPE(0.0f);
@@ -422,7 +383,7 @@ void main() {
     const uint dr = ir * BM + warp_r * WM;
     const uint dc = ic * BN + warp_c * WN;
 
-    const uint k_split_offset = ik * p.M * p.N;
+    const uint offsets = gl_GlobalInvocationID.z * p.batch_stride_d + ik * p.batch_stride_d * gl_NumWorkGroups.z;
 
     [[unroll]] for (uint wsic = 0; wsic < WNITER; wsic++) {
         [[unroll]] for (uint wsir = 0; wsir < WMITER; wsir++) {
@@ -432,7 +393,7 @@ void main() {
             [[unroll]] for (uint cc = 0; cc < TN; cc++) {
                 [[unroll]] for (uint cr = 0; cr < TM; cr++) {
                     if (dr_warp + cr < p.M && dc_warp + cc < p.N) {
-                        data_d[p.d_offset + gl_GlobalInvocationID.z * p.batch_stride_d + k_split_offset + (dc_warp + cc) * p.stride_d + dr_warp + cr] = D_TYPE(sums[(wsic * TN + cc) * (WMITER * TM) + wsir * TM + cr]);
+                        data_d[offsets + (dc_warp + cc) * p.stride_d + dr_warp + cr] = D_TYPE(sums[(wsic * TN + cc) * (WMITER * TM) + wsir * TM + cr]);
                     }
                 }
             }
@@ -443,7 +404,9 @@ void main() {
 
 mulmat_split_k_reduce_src = """#version 450
 
-layout(local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
+#extension GL_EXT_control_flow_attributes : enable
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 layout (binding = 0) readonly buffer A {float data_a[];};
 layout (binding = 1) writeonly buffer D {float data_d[];};
@@ -451,7 +414,6 @@ layout (binding = 1) writeonly buffer D {float data_d[];};
 layout (push_constant) uniform parameter {
     uint ne;
     uint k_num;
-    uint d_offset;
 } p;
 
 void main() {
@@ -463,11 +425,11 @@ void main() {
 
     float result = 0.0f;
 
-    for (int i = 0; i < p.k_num; i++) {
+    [[unroll]] for (uint i = 0; i < p.k_num; i++) {
         result += data_a[i * p.ne + idx];
     }
 
-    data_d[p.d_offset + idx] = result;
+    data_d[idx] = result;
 }
 """
 
@@ -1690,7 +1652,8 @@ void main() {
     }
 
     const float xi = float(data_a[i]);
-    data_d[i] = D_TYPE(0.5f*xi*(1.0f + tanh(SQRT_2_OVER_PI*xi*(1.0f + GELU_COEF_A*xi*xi))));
+    const float val = SQRT_2_OVER_PI*xi*(1.0f + GELU_COEF_A*xi*xi);
+    data_d[i] = D_TYPE(0.5f*xi*(2.0f - 2.0f / (exp(2 * val) + 1)));
 }
 """
 
@@ -1981,6 +1944,90 @@ void main() {
 }
 """
 
+rope_neox_src = """
+#version 450
+
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 1, local_size_y = 256, local_size_z = 1) in;
+
+layout (binding = 0) readonly buffer X {A_TYPE data_a[];};
+layout (binding = 1) readonly buffer Y {int data_b[];};
+layout (binding = 2) writeonly buffer D {D_TYPE data_d[];};
+
+layout (push_constant) uniform parameter {
+    uint ncols;
+    uint ndims;
+    float freq_scale;
+    uint p_delta_rows;
+    float freq_base;
+    float ext_factor;
+    float attn_factor;
+    float corr_dims[4];
+    float theta_scale;
+    float inv_ndims;
+} p;
+
+float rope_yarn_ramp(const float low, const float high, const uint i0) {
+    const float y = (i0 / 2 - low) / max(0.001f, high - low);
+    return 1.0f - min(1.0f, max(0.0f, y));
+}
+
+void rope_yarn(const float theta_extrap, const uint i0, out float cos_theta, out float sin_theta) {
+    float mscale = p.attn_factor;
+    // Get n-d rotational scaling corrected for extrapolation
+    float theta_interp = p.freq_scale * theta_extrap;
+    float theta = theta_interp;
+    if (p.ext_factor != 0.0f) {
+        float ramp_mix = rope_yarn_ramp(p.corr_dims[0], p.corr_dims[1], i0) * p.ext_factor;
+        theta = theta_interp * (1 - ramp_mix) + theta_extrap * ramp_mix;
+
+        // Get n-d magnitude scaling corrected for interpolation
+        mscale *= 1.0f + 0.1f * log(1.0f / p.freq_scale);
+    }
+    cos_theta = cos(theta) * mscale;
+    sin_theta = sin(theta) * mscale;
+}
+
+void main() {
+    const uint col = gl_GlobalInvocationID.y * 2;
+    const uint row = gl_GlobalInvocationID.x;
+
+    if (col >= p.ncols) {
+        return;
+    }
+
+    const uint ib = col / p.ndims;
+    const uint ic = col % p.ndims;
+
+    if (ib > 0) {
+        const uint i = row*p.ncols + ib*p.ndims + ic;
+
+        data_d[i + 0] = data_a[i + 0];
+        data_d[i + 1] = data_a[i + 1];
+
+        return;
+    }
+
+    const uint i  = row*p.ncols + ib*p.ndims + ic/2;
+    const uint i2 = row/p.p_delta_rows;
+
+    const float cur_rot = p.inv_ndims * ic - ib;
+
+    const int pos = data_b[i2];
+    const float theta_base = pos*p.freq_scale*pow(p.theta_scale, col/2.0f);
+
+    float cos_theta, sin_theta;
+    rope_yarn(theta_base, uint(cur_rot), cos_theta, sin_theta);
+
+    const float x0 = float(data_a[i + 0]);
+    const float x1 = float(data_a[i + p.ndims/2]);
+
+    data_d[i + 0]        = D_TYPE(x0*cos_theta - x1*sin_theta);
+    data_d[i + p.ndims/2] = D_TYPE(x0*sin_theta + x1*cos_theta);
+}
+"""
+
 GLSLC = "glslc"
 
 VK_NUM_TYPES = 16
@@ -2026,7 +2073,7 @@ lock = asyncio.Lock()
 shader_fnames = []
 
 
-async def string_to_spv(name, code, defines, fp16):
+async def string_to_spv(name, code, defines, fp16=True):
     f = NamedTemporaryFile(mode="w", delete=False)
     f.write(code)
     f.flush()
@@ -2116,64 +2163,6 @@ async def main():
         tasks.append(string_to_spv("matmul_f16_f32_aligned_m", "".join(stream), {"LOAD_VEC": load_vec, "A_TYPE": vec_type_f16, "B_TYPE": vec_type, "D_TYPE": "float"}, fp16))
         tasks.append(string_to_spv("matmul_f16_f32_aligned_s", "".join(stream), {"LOAD_VEC": load_vec, "A_TYPE": vec_type_f16, "B_TYPE": vec_type, "D_TYPE": "float"}, fp16))
 
-        # Build dequant shaders
-        tasks.append(string_to_spv("f32_to_f16", f32_to_f16_src, {}, fp16))
-
-        for i in range(0, VK_NUM_TYPES):
-            stream.clear()
-
-            stream.extend((dequant_head, shader_int8_ext, shader_float_type))
-
-            if i == GGML_TYPE_F16:
-                stream.extend((shader_f16_defines, shader_f16_dequant_func_compat if not fp16 else shader_f16_dequant_func, dequant_body))
-            elif i == GGML_TYPE_Q4_0:
-                stream.extend((shader_q4_0_defines, shader_q4_0_dequant_func_compat if not fp16 else shader_q4_0_dequant_func, dequant_body))
-            elif i == GGML_TYPE_Q4_1:
-                stream.extend((shader_q4_1_defines, shader_q4_1_dequant_func_compat if not fp16 else shader_q4_1_dequant_func, dequant_body))
-            elif i == GGML_TYPE_Q5_0:
-                stream.extend((shader_q5_0_defines, shader_q5_0_dequant_func_compat if not fp16 else shader_q5_0_dequant_func, dequant_body))
-            elif i == GGML_TYPE_Q5_1:
-                stream.extend((shader_q5_1_defines, shader_q5_1_dequant_func_compat if not fp16 else shader_q5_1_dequant_func, dequant_body))
-            elif i == GGML_TYPE_Q8_0:
-                stream.extend((shader_q8_0_defines, shader_q8_0_dequant_func_compat if not fp16 else shader_q8_0_dequant_func, dequant_body))
-            elif i == GGML_TYPE_Q2_K:
-                stream.extend((shader_q2_K_defines, dequant_q2_K_body))
-            elif i == GGML_TYPE_Q3_K:
-                stream.extend((shader_q3_K_defines, dequant_q3_K_body))
-            elif i == GGML_TYPE_Q4_K:
-                stream.extend((shader_q4_K_defines, dequant_q4_K_body))
-            elif i == GGML_TYPE_Q5_K:
-                stream.extend((shader_q5_K_defines, dequant_q5_K_body))
-            elif i == GGML_TYPE_Q6_K:
-                stream.extend((shader_q6_K_defines, dequant_q6_K_body))
-            else:
-                continue
-
-            tasks.append(string_to_spv(f"dequant_{type_names[i]}", "".join(stream), {"D_TYPE": "float16_t"}, fp16))
-
-        # get_rows
-        for i in range(0, VK_NUM_TYPES):
-            stream.clear()
-            stream.extend((generic_head, shader_int8_ext, shader_float_type))
-
-            if i == GGML_TYPE_F16:
-                stream.extend((shader_f16_defines, shader_f16_dequant_func_compat if not fp16 else shader_f16_dequant_func, get_rows_body))
-            elif i == GGML_TYPE_Q4_0:
-                stream.extend((shader_q4_0_defines, shader_q4_0_dequant_func_compat if not fp16 else shader_q4_0_dequant_func, get_rows_body))
-            elif i == GGML_TYPE_Q4_1:
-                stream.extend((shader_q4_1_defines, shader_q4_1_dequant_func_compat if not fp16 else shader_q4_1_dequant_func, get_rows_body))
-            elif i == GGML_TYPE_Q5_0:
-                stream.extend((shader_q5_0_defines, shader_q5_0_dequant_func_compat if not fp16 else shader_q5_0_dequant_func, get_rows_body))
-            elif i == GGML_TYPE_Q5_1:
-                stream.extend((shader_q5_1_defines, shader_q5_1_dequant_func_compat if not fp16 else shader_q5_1_dequant_func, get_rows_body))
-            elif i == GGML_TYPE_Q8_0:
-                stream.extend((shader_q8_0_defines, shader_q8_0_dequant_func_compat if not fp16 else shader_q8_0_dequant_func, get_rows_body))
-            else:
-                continue
-
-            tasks.append(string_to_spv(f"get_rows_{type_names[i]}", "".join(stream), {"B_TYPE": "float", "D_TYPE": "float16_t"}, fp16))
-            tasks.append(string_to_spv(f"get_rows_{type_names[i]}_f32", "".join(stream), {"B_TYPE": "float", "D_TYPE": "float"}, fp16))
-
     # Shaders where precision is needed, so no fp16 version
 
     # mul mat vec
@@ -2182,17 +2171,17 @@ async def main():
         stream.extend((mul_mat_vec_head, shader_int8_ext, shader_f32))
 
         if i == GGML_TYPE_F16:
-            stream.extend((shader_f16_defines, shader_f16_dequant_func_compat, mul_mat_vec_body))
+            stream.extend((shader_f16_defines, shader_f16_dequant_func, mul_mat_vec_body))
         elif i == GGML_TYPE_Q4_0:
-            stream.extend((shader_q4_0_defines, shader_q4_0_dequant_func_compat, mul_mat_vec_body))
+            stream.extend((shader_q4_0_defines, shader_q4_0_dequant_func, mul_mat_vec_body))
         elif i == GGML_TYPE_Q4_1:
-            stream.extend((shader_q4_1_defines, shader_q4_1_dequant_func_compat, mul_mat_vec_body))
+            stream.extend((shader_q4_1_defines, shader_q4_1_dequant_func, mul_mat_vec_body))
         elif i == GGML_TYPE_Q5_0:
-            stream.extend((shader_q5_0_defines, shader_q5_0_dequant_func_compat, mul_mat_vec_body))
+            stream.extend((shader_q5_0_defines, shader_q5_0_dequant_func, mul_mat_vec_body))
         elif i == GGML_TYPE_Q5_1:
-            stream.extend((shader_q5_1_defines, shader_q5_1_dequant_func_compat, mul_mat_vec_body))
+            stream.extend((shader_q5_1_defines, shader_q5_1_dequant_func, mul_mat_vec_body))
         elif i == GGML_TYPE_Q8_0:
-            stream.extend((shader_q8_0_defines, shader_q8_0_dequant_func_compat, mul_mat_vec_body))
+            stream.extend((shader_q8_0_defines, shader_q8_0_dequant_func, mul_mat_vec_body))
         elif i == GGML_TYPE_Q2_K:
             stream.extend((shader_q2_K_defines, mul_mat_vec_q2_K_body))
         elif i == GGML_TYPE_Q3_K:
@@ -2206,40 +2195,101 @@ async def main():
         else:
             continue
 
-        tasks.append(string_to_spv(f"mul_mat_vec_{type_names[i]}_f32", "".join(stream), {"B_TYPE": "float", "D_TYPE": "float", "K_QUANTS_PER_ITERATION": K_QUANTS_PER_ITERATION}, fp16))
+        tasks.append(string_to_spv(f"mul_mat_vec_{type_names[i]}_f32", "".join(stream), {"B_TYPE": "float", "D_TYPE": "float", "K_QUANTS_PER_ITERATION": K_QUANTS_PER_ITERATION}))
 
-    tasks.append(string_to_spv("mul_mat_vec_p021_f16_f32", mul_mat_p021_src, {"A_TYPE": "float16_t", "B_TYPE": "float", "D_TYPE": "float"}, True))
-    tasks.append(string_to_spv("mul_mat_vec_nc_f16_f32", mul_mat_nc_src, {"A_TYPE": "float16_t", "B_TYPE": "float", "D_TYPE": "float"}, True))
+    # Dequant shaders
+    for i in range(0, VK_NUM_TYPES):
+        stream.clear()
+
+        stream.extend((dequant_head, shader_int8_ext, shader_f32))
+
+        if i == GGML_TYPE_F16:
+            stream.extend((shader_f16_defines,  shader_f16_dequant_func,  dequant_body))
+        elif i == GGML_TYPE_Q4_0:
+            stream.extend((shader_q4_0_defines, shader_q4_0_dequant_func, dequant_body))
+        elif i == GGML_TYPE_Q4_1:
+            stream.extend((shader_q4_1_defines, shader_q4_1_dequant_func, dequant_body))
+        elif i == GGML_TYPE_Q5_0:
+            stream.extend((shader_q5_0_defines, shader_q5_0_dequant_func, dequant_body))
+        elif i == GGML_TYPE_Q5_1:
+            stream.extend((shader_q5_1_defines, shader_q5_1_dequant_func, dequant_body))
+        elif i == GGML_TYPE_Q8_0:
+            stream.extend((shader_q8_0_defines, shader_q8_0_dequant_func, dequant_body))
+        elif i == GGML_TYPE_Q2_K:
+            stream.extend((shader_q2_K_defines, dequant_q2_K_body))
+        elif i == GGML_TYPE_Q3_K:
+            stream.extend((shader_q3_K_defines, dequant_q3_K_body))
+        elif i == GGML_TYPE_Q4_K:
+            stream.extend((shader_q4_K_defines, dequant_q4_K_body))
+        elif i == GGML_TYPE_Q5_K:
+            stream.extend((shader_q5_K_defines, dequant_q5_K_body))
+        elif i == GGML_TYPE_Q6_K:
+            stream.extend((shader_q6_K_defines, dequant_q6_K_body))
+        else:
+            continue
+
+        tasks.append(string_to_spv(f"dequant_{type_names[i]}", "".join(stream), {"D_TYPE": "float16_t"}))
+
+    tasks.append(string_to_spv("f32_to_f16", f32_to_f16_src, {}))
+
+    # get_rows
+    for i in range(0, VK_NUM_TYPES):
+        stream.clear()
+        stream.extend((generic_head, shader_int8_ext, shader_f32))
+
+        if i == GGML_TYPE_F16:
+            stream.extend((shader_f16_defines,  shader_f16_dequant_func,  get_rows_body))
+        elif i == GGML_TYPE_Q4_0:
+            stream.extend((shader_q4_0_defines, shader_q4_0_dequant_func, get_rows_body))
+        elif i == GGML_TYPE_Q4_1:
+            stream.extend((shader_q4_1_defines, shader_q4_1_dequant_func, get_rows_body))
+        elif i == GGML_TYPE_Q5_0:
+            stream.extend((shader_q5_0_defines, shader_q5_0_dequant_func, get_rows_body))
+        elif i == GGML_TYPE_Q5_1:
+            stream.extend((shader_q5_1_defines, shader_q5_1_dequant_func, get_rows_body))
+        elif i == GGML_TYPE_Q8_0:
+            stream.extend((shader_q8_0_defines, shader_q8_0_dequant_func, get_rows_body))
+        else:
+            continue
+
+        tasks.append(string_to_spv(f"get_rows_{type_names[i]}", "".join(stream), {"B_TYPE": "float", "D_TYPE": "float16_t"}))
+        tasks.append(string_to_spv(f"get_rows_{type_names[i]}_f32", "".join(stream), {"B_TYPE": "float", "D_TYPE": "float"}))
+
+    tasks.append(string_to_spv("mul_mat_vec_p021_f16_f32", mul_mat_p021_src, {"A_TYPE": "float16_t", "B_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("mul_mat_vec_nc_f16_f32", mul_mat_nc_src, {"A_TYPE": "float16_t", "B_TYPE": "float", "D_TYPE": "float"}))
 
     # Norms
-    tasks.append(string_to_spv("norm_f32", f"{generic_head}\n{shader_f32}\n{norm_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
-    tasks.append(string_to_spv("rms_norm_f32", f"{generic_head}\n{shader_f32}\n{rms_norm_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("norm_f32", f"{generic_head}\n{shader_f32}\n{norm_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("rms_norm_f32", f"{generic_head}\n{shader_f32}\n{rms_norm_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("cpy_f32_f32", f"{cpy_src}\n{cpy_end}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
-    tasks.append(string_to_spv("cpy_f32_f16", f"{cpy_src}\n{cpy_end}", {"A_TYPE": "float", "D_TYPE": "float16_t"}, True))
-    tasks.append(string_to_spv("cpy_f16_f16", f"{cpy_src}\n{cpy_f16_f16_end}", {"A_TYPE": "float16_t", "D_TYPE": "float16_t"}, True))
+    tasks.append(string_to_spv("cpy_f32_f32", f"{cpy_src}\n{cpy_end}", {"A_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("cpy_f32_f16", f"{cpy_src}\n{cpy_end}", {"A_TYPE": "float", "D_TYPE": "float16_t"}))
+    tasks.append(string_to_spv("cpy_f16_f16", f"{cpy_src}\n{cpy_f16_f16_end}", {"A_TYPE": "float16_t", "D_TYPE": "float16_t"}))
 
-    tasks.append(string_to_spv("add_f32", f"{generic_head}\n{shader_f32}\n{add_body}", {"A_TYPE": "float", "B_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("add_f32", f"{generic_head}\n{shader_f32}\n{add_body}", {"A_TYPE": "float", "B_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("split_k_reduce", mulmat_split_k_reduce_src, {}, True))
-    tasks.append(string_to_spv("mul_f32", f"{generic_head}\n{shader_f32}\n{mul_body}", {"A_TYPE": "float", "B_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("split_k_reduce", mulmat_split_k_reduce_src, {}))
+    tasks.append(string_to_spv("mul_f32", f"{generic_head}\n{shader_f32}\n{mul_body}", {"A_TYPE": "float", "B_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("scale_f32", f"{generic_head}\n{shader_f32}\n{scale_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("scale_f32", f"{generic_head}\n{shader_f32}\n{scale_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("sqr_f32", f"{generic_head}\n{shader_f32}\n{sqr_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("sqr_f32", f"{generic_head}\n{shader_f32}\n{sqr_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("clamp_f32", f"{generic_head}\n{shader_f32}\n{clamp_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("clamp_f32", f"{generic_head}\n{shader_f32}\n{clamp_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("gelu_f32", f"{generic_head}\n{shader_f32}\n{gelu_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
-    tasks.append(string_to_spv("silu_f32", f"{generic_head}\n{shader_f32}\n{silu_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
-    tasks.append(string_to_spv("relu_f32", f"{generic_head}\n{shader_f32}\n{relu_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("gelu_f32", f"{generic_head}\n{shader_f32}\n{gelu_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("silu_f32", f"{generic_head}\n{shader_f32}\n{silu_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("relu_f32", f"{generic_head}\n{shader_f32}\n{relu_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("diag_mask_inf_f32", f"{diag_mask_inf_head}\n{shader_f32}\n{diag_mask_inf_body}", {"A_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("diag_mask_inf_f32", f"{diag_mask_inf_head}\n{shader_f32}\n{diag_mask_inf_body}", {"A_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("soft_max_f32", f"{generic_head}\n{shader_f32}\n{soft_max_body}", {"A_TYPE": "float", "B_TYPE": "float", "D_TYPE": "float"}, True))
+    tasks.append(string_to_spv("soft_max_f32", f"{generic_head}\n{shader_f32}\n{soft_max_body}", {"A_TYPE": "float", "B_TYPE": "float", "D_TYPE": "float"}))
 
-    tasks.append(string_to_spv("rope_f32", rope_src, {"A_TYPE": "float", "D_TYPE": "float"}, True))
-    tasks.append(string_to_spv("rope_f16", rope_src, {"A_TYPE": "float16_t", "D_TYPE": "float16_t"}, True))
+    tasks.append(string_to_spv("rope_f32", rope_src, {"A_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("rope_f16", rope_src, {"A_TYPE": "float16_t", "D_TYPE": "float16_t"}))
+
+    tasks.append(string_to_spv("rope_neox_f32", rope_neox_src, {"A_TYPE": "float", "D_TYPE": "float"}))
+    tasks.append(string_to_spv("rope_neox_f16", rope_neox_src, {"A_TYPE": "float16_t", "D_TYPE": "float16_t"}))
 
     await asyncio.gather(*tasks)
 

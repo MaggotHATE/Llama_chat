@@ -124,12 +124,11 @@ void sampler_queue(
             const llama_sampling_params & params,
                  llama_token_data_array & cur_p,
                                  size_t & min_keep) {
-    const int n_vocab = llama_n_vocab(llama_get_model(ctx_main));
 
     const float       temp              = params.temp;
     const float       temp_smoothing    = params.temp_smoothing;
     const float       dynatemp_range    = params.dynatemp_range;
-    const int32_t     top_k             = params.top_k <= 0 ? n_vocab : params.top_k;
+    const int32_t     top_k             = params.top_k;
     const float       top_p             = params.top_p;
     const float       min_p             = params.min_p;
     const float       tfs_z             = params.tfs_z;
