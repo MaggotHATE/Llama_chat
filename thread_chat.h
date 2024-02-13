@@ -269,12 +269,15 @@ struct modelThread{
     }
     
     bool writeTextFile(std::string path, std::string name){
-        std::string path1 = path + std::to_string(newChat.params.seed) + "-" + name + ".txt";
+        std::string path1 = path + std::to_string(newChat.params.seed) + "-" + name  + "-" + shortModelName + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
-            file << lastTimings << DELIMINER;
-            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
+            file << sparamsList << DELIMINER;
+            file << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+            file << lastTimings << std::endl;
+            file << "Prompt:" << consumed_tokens << std::endl;
+            file << "Result: " << last_tokens << std::endl;
             file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 // file << r.first << DELIMINER;
@@ -291,18 +294,16 @@ struct modelThread{
     
     
     bool writeTextFile(){
-        std::string path = std::to_string(newChat.params.seed) + ".txt";
+        std::string path = std::to_string(newChat.params.seed) + "-" + shortModelName + "-" + ".txt";
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << std::to_string(newChat.params.seed) << DELIMINER;
-            file << lastTimings << DELIMINER;
             file << sparamsList << DELIMINER;
-            file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
-            file << "Consumed   : " << consumed_tokens << std::endl;
-            file << "Last       : " << last_tokens << std::endl;
-            file << "Past-Last  : " << past_tokens - last_tokens << '\n' << std::endl;
-            file << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
+            file << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+            file << lastTimings << std::endl;
+            file << "Prompt:" << consumed_tokens << std::endl;
+            file << "Result: " << last_tokens << std::endl;
             file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 //file << r.first << DELIMINER;

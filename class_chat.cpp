@@ -148,7 +148,9 @@ int main(int argc, char ** argv) {
                         --regens;
                         threadedChat.externalData = "Cycles left: " + std::to_string(regens);
                         input = "regen";
-                        if (regens == 0) busy = false;
+                        if (regens == 1) {
+                            busy = false;
+                        }
                     } else if (Card.cycles >= 0) {
                         std::cout << "Card cycles " << std::to_string(Card.cycles) << std::endl;
                         if(cycling == 1){

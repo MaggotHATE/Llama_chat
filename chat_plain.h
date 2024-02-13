@@ -43,9 +43,9 @@
 #include <signal.h>
 #endif
 
-// #ifdef GGML_USE_VULKAN
-    // #include "ggml-vulkan.h"
-// #endif
+#ifdef GGML_USE_VULKAN
+    #include "ggml-vulkan.h"
+#endif
 
 #define SESSIONS_FOLDER "sessions/"
 
@@ -328,9 +328,9 @@ public:
             
             clearSoft();
             
-// #ifdef GGML_USE_VULKAN
-            // ggml_vk_free_cpu_assist();
-// #endif
+#ifdef GGML_USE_VULKAN
+            ggml_vk_free_cpu_assist();
+#endif
         }
         
     }

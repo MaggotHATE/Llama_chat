@@ -151,7 +151,7 @@ void sampler_queue(
                     dynatemp_min = dynatemp_min<0?0:dynatemp_min;
                     dynatemp_max = dynatemp_max<0?0:dynatemp_max;
 
-                    llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max);
+                    llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f);
                 }
                 else
                 {
@@ -255,7 +255,7 @@ llama_token llama_sampling_sample(
                 dynatemp_min = dynatemp_min<0?0:dynatemp_min;
                 dynatemp_max = dynatemp_max<0?0:dynatemp_max;
 
-                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max);
+                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f);
             } else {
                 llama_sample_temp(ctx_main, &cur_p, temp, temp_smoothing);
             }
@@ -269,7 +269,7 @@ llama_token llama_sampling_sample(
                 dynatemp_min = dynatemp_min<0?0:dynatemp_min;
                 dynatemp_max = dynatemp_max<0?0:dynatemp_max;
 
-                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max);
+                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f);
             } else {
                 llama_sample_temp(ctx_main, &cur_p, temp, temp_smoothing);
             }
