@@ -316,6 +316,27 @@ static void sliderRepeatPen(float& repeat_penalty, float& default_repeat_penalty
     } ImGui::SameLine(); HelpMarker(("Controls the repetition of token sequences in the generated text. Default: " + std::to_string(default_repeat_penalty)).c_str());
 }
 
+static void sliderRepeatThresh(float& penalty_threshold, float& default_penalty_threshold){
+    {
+        if (ImGui::Button(" -##penalty_threshold")) {
+            penalty_threshold -= 0.001f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##penalty_threshold")) {
+            penalty_threshold += 0.001f;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderFloat("penalty_threshold", &penalty_threshold, 0.0f, 2.0f);
+    if (ImGui::BeginPopupContextItem("penalty_threshold"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            penalty_threshold = default_penalty_threshold;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker(("Controls the repetition of most frequently use tokes, excluding spaces, punctuations, etc. Default: " + std::to_string(default_penalty_threshold)).c_str());
+}
+
 static void sliderFrequencyPen(float& frequency_penalty, float& default_frequency_penalty){
     {
         if (ImGui::Button(" -##frequency_penalty")) {
@@ -574,6 +595,8 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
         
         sliderRepeatPen(params.sparams.penalty_repeat, paramsDefault.sparams.penalty_repeat);
         
+        sliderRepeatThresh(params.sparams.penalty_threshold, paramsDefault.sparams.penalty_threshold);
+        
         sliderFrequencyPen(params.sparams.penalty_freq, paramsDefault.sparams.penalty_freq);
         
         sliderPresencePen(params.sparams.penalty_present, paramsDefault.sparams.penalty_present);
@@ -722,31 +745,73 @@ static void addStyling(){
     style.WindowRounding = 0.0f;
 }
 
-// struct imagesArray {
-// #if defined(SDL2)
-    // std::map<std::string, SDL_Texture*> data;
-    // std::map<std::string, std::pair<float, float>> sizes;
+struct imagesArray {
+#if defined(SDL2)
+    SDL_Texture* default_image;
+    int my_image_width, my_image_height;
+    std::map<std::string, SDL_Texture*> data;
+    std::map<std::string, std::pair<float, float>> sizes;
     
-    // SDL_Texture* get_texture(std::string key) {
-        // if (data.count(key) > 0) {
-            // return data.at(key);
-        // } else return NULL;
-    // }
+    SDL_Texture* get_image(std::string key) {
+        if (data.count(key) > 0) {
+            return data.at(key);
+        } else return default_image;
+    }
     
-    // std::pair<float, float> get_sizes () {
+    void load_image(SDL_Renderer* renderer, std::string key) {
+        if (data.count(key) > 0) {
+            bool ret = LoadTextureFromFile(key.c_str(), &data.at(key), sizes.second.first, sizes.second.second, renderer);
+        } else {
+            bool ret = LoadTextureFromFile("default.png", &default_image, my_image_width, my_image_height, renderer);
+        }
+    }
+    
+    void load_images(SDL_Renderer* renderer) {
+        for (auto img : data) {
+            bool ret = LoadTextureFromFile(img.first.c_str(), &img.second, sizes.fisrt, sizes.fisrt, renderer);
+        }
+    }
+    
+    void add(std::string image_name) {
+        data.emplace(image_name, SDL_Texture* new_image);
+        sizes.emplace(image_name, std::pair<float, float>{1,1});
+    }
+    
+    std::pair<float, float> get_sizes () {
         
-    // }
-    
-// #else
-    // std::map<std::string, MyTextureData> data;
+    }
+#else
+    MyTextureData default_image;
+    std::map<std::string, MyTextureData> data;
 
-    // MyTextureData get_texture(std::string key) {
-        // if (data.count(key) > 0) {
-            // return data.at(key);
-        // } else return NULL;
-    // }
-// #endif
-// };
+    MyTextureData* get_image(std::string key) {
+        if (data.count(key) > 0) {
+            return &data.at(key);
+        } else return &default_image;
+    }
+    
+    void load_image(std::string key) {
+        if (data.count(key) > 0) {
+            bool ret = LoadTextureFromFile(key.c_str(), &data.at(key));
+            IM_ASSERT(ret);
+        } else {
+            bool ret = LoadTextureFromFile("default.png", &default_image);
+            IM_ASSERT(ret);
+        }
+    }
+    
+    void load_images() {
+        for (auto img : data) {
+            bool ret = LoadTextureFromFile(img.first.c_str(), &img.second);
+        }
+    }
+    
+    void add(std::string image_name) {
+        MyTextureData new_image;
+        data.emplace(image_name, new_image);
+    }
+#endif
+};
 
 struct chatUI{
     int width = 600;
@@ -878,11 +943,13 @@ struct chatUI{
     
     
 #if defined(SDL2)
-        SDL_Texture* my_texture;
-        int my_image_width, my_image_height;
+        SDL_Texture* current_image;
+        int* my_image_width, my_image_height;
 #else 
-        MyTextureData my_texture;
+        MyTextureData* current_image;
 #endif
+
+    imagesArray images;
     
     ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_EnterReturnsTrue;
     
@@ -1838,9 +1905,9 @@ struct chatUI{
                                     //ImGui::TextWrapped(r.second.c_str());
                                     if (messageNum > 1) {
 #if defined(SDL2)
-                                        ImGui::Image((void*)my_texture, ImVec2(32, 32));
+                                        ImGui::Image((void*)current_image, ImVec2(32, 32));
 #else 
-                                        ImGui::Image((ImTextureID)my_texture.DS, ImVec2(32, 32));
+                                        ImGui::Image((ImTextureID)current_image->DS, ImVec2(32, 32));
 #endif
                                         if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
                                         else {
@@ -1856,9 +1923,9 @@ struct chatUI{
                                         ImGui::PopTextWrapPos();
                                     } else if (!char_start.empty()) {
                                         #if defined(SDL2)
-                                        ImGui::Image((void*)my_texture, ImVec2(32, 32));
+                                        ImGui::Image((void*)current_image, ImVec2(32, 32));
 #else 
-                                        ImGui::Image((ImTextureID)my_texture.DS, ImVec2(32, 32));
+                                        ImGui::Image((ImTextureID)current_image->DS, ImVec2(32, 32));
 #endif
                                         if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.5f);
                                         else {
@@ -1927,9 +1994,9 @@ struct chatUI{
 //////////////// streaming dialog token-after-token
                             if (newChat.isContinue == 'w') {
 #if defined(SDL2)
-                                ImGui::Image((void*)my_texture, ImVec2(32, 32));
+                                ImGui::Image((void*)current_image, ImVec2(32, 32));
 #else 
-                                ImGui::Image((ImTextureID)my_texture.DS, ImVec2(32, 32));
+                                ImGui::Image((ImTextureID)current_image->DS, ImVec2(32, 32));
 #endif
                                 if (chatMode) ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + messageWidth * 0.50f);
                                 else {
@@ -2099,6 +2166,10 @@ struct chatUI{
             if (ImGui::Selectable(localSettings.modelsFromConfig[n].second.c_str(), localSettings.modelsFromConfig[n].first == localSettings.modelName, 0, size_selectable_chat)){
                 
                 modelToConfig(localSettings.modelsFromConfig[n].first);
+                
+                if (localSettings.localConfig[localSettings.modelName].contains("img")) {
+                    current_image = images.get_image(localSettings.localConfig[localSettings.modelName].get<std::string>());
+                }
             }
             ImGui::PopStyleColor();
             
@@ -3318,9 +3389,9 @@ struct chatUI{
         // ImGui::BeginChildFrame(ImGui::GetID("profilePicture frame"), size, ImGuiWindowFlags_NoSavedSettings);
         float realImgSide = imageSide * 0.95;
 #if defined(SDL2)
-        if (ImGui::ImageButton("", (void*)my_texture, ImVec2(realImgSide, realImgSide))) {
+        if (ImGui::ImageButton("", (void*)current_image, ImVec2(realImgSide, realImgSide))) {
 #else
-        if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(realImgSide, realImgSide))) {
+        if (ImGui::ImageButton("", (ImTextureID)current_image->DS, ImVec2(realImgSide, realImgSide))) {
 #endif
             show_profile = !show_profile;
         }
@@ -3356,9 +3427,9 @@ struct chatUI{
     void profileImage() {
         float realImgSide = ImGui::GetTextLineHeightWithSpacing() * 2.1;
 #if defined(SDL2)
-        if (ImGui::ImageButton("", (void*)my_texture, ImVec2(realImgSide, realImgSide))) {
+        if (ImGui::ImageButton("", (void*)current_image, ImVec2(realImgSide, realImgSide))) {
 #else
-        if (ImGui::ImageButton("", (ImTextureID)my_texture.DS, ImVec2(realImgSide, realImgSide))) {
+        if (ImGui::ImageButton("", (ImTextureID)current_image->DS, ImVec2(realImgSide, realImgSide))) {
 #endif
             if (newChat.loaded == 9) show_profile = !show_profile;
         }
@@ -3506,15 +3577,34 @@ struct chatUI{
         ImGui::EndChild();
         }
     }
-    
+
+    void fillImagesData() {
+        nlohmann::json tmp;
+        for (const auto& dirEntry : std::filesystem::recursive_directory_iterator("characters")) {
+            tmp = getJson(dirEntry.path().string());
+            if (tmp.contains("img") && tmp["img"].is_string()) {
+                images.add(tmp["img"].get<std::string>());
+            }
+        }
+    }
     
 #if defined(SDL2)
     void preloadImage(SDL_Renderer* renderer) {
-        bool ret = LoadTextureFromFile("default.png", &my_texture, my_image_width, my_image_height, renderer);
+        //bool ret = LoadTextureFromFile("default.png", &my_texture, my_image_width, my_image_height, renderer);
+        images.load_image(renderer, "default.png");
+        current_image = images.default_image;
+        if (!images.data.empty() && images.data.size() == images.sizes.size()) {
+            images.load_images(renderer);
+        }
 #else
     void preloadImage() {
-        bool ret = LoadTextureFromFile("default.png", &my_texture);
-        IM_ASSERT(ret);
+        // bool ret = LoadTextureFromFile("default.png", &my_texture);
+        // IM_ASSERT(ret);
+        images.load_image("default.png");
+        current_image = &images.default_image;
+        if (!images.data.empty()) {
+            images.load_images();
+        }
 #endif
     }
     
@@ -3661,6 +3751,8 @@ struct chatUI{
         // fill in params and json dumps
         modelToConfig(localSettings.modelFromJson);
         
+        fillImagesData();
+        
         //inputPrompt = localSettings.params.prompt;
         
         //n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
@@ -3687,6 +3779,9 @@ struct chatUI{
             for (int n = 0; n < localSettings.modelsFromConfig.size(); n++){
                 if (localSettings.modelName == localSettings.modelsFromConfig[n].first) {
                     mdlIdx = n;
+                    if (localSettings.localConfig[localSettings.modelName].contains("img")) {
+                        current_image = images.get_image(localSettings.localConfig[localSettings.modelName].get<std::string>());
+                    }
                     break;
                 }
             }

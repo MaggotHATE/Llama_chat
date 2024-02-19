@@ -67,6 +67,7 @@ int main(int argc, char ** argv) {
     settings.getSettingsFull();
     settings.fillLocalJson(settings.params.model);
     modelThread threadedChat;
+    //threadedChat.switch_debug();
     
     
     if (filename.rfind(".json") != filename.npos){

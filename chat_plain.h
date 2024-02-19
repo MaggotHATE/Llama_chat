@@ -219,13 +219,15 @@ private:
     int n_past_guidance       = 0;
     int guidance_offset       = 0;
     int original_prompt_len   = 0;
-    int last_tokens_count     = 0;
+    int n_last_message        = 0;
+    int n_last_message_past   = 0;
     int t_eval_ms             = 0;
     int n_eval                = 0;
     int t_p_eval_ms           = 0;
     int n_p_eval              = 0;
     // since params.n_keep changes
     int n_keep                = 0;
+    
     int ga_i = 0;
 
     int ga_n;
@@ -247,6 +249,8 @@ public:
     gpt_params params;
     bool tempFirst           = true;
     bool finished            = true;
+    int n_past_last           = 0;
+    int n_remain_last         = 0;
     
     std::string formatRepresentation;
     
@@ -305,6 +309,8 @@ public:
         t_p_eval_ms           = 0;
         n_p_eval              = 0;
         n_keep                = 0;
+        n_past_last           = 0;
+        n_remain_last         = 0;
         
        
         
@@ -335,16 +341,20 @@ public:
         
     }
     
-    void print_timings(){
+    void switch_debug() {
+        debug = !debug;
+    }
+    
+    void print_timings() {
         //llama_print_timings(ctx);
         std::cout << llama_string_timings(ctx) << std::endl;
     }
     
-    int getLastTokens(){
-        return last_tokens_count;
+    int getLastTokens() {
+        return n_last_message;
     }
     
-    int getRemainTokens(){
+    int getRemainTokens() {
         return n_remain;
     } 
 
@@ -448,6 +458,7 @@ public:
         std::string result = "logits ";
         
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += "-> penalty_repeat = " + std::to_string(params.sparams.penalty_repeat); 
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += "-> penalty_threshold = " + std::to_string(params.sparams.penalty_threshold); 
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "-> penalty_freq = " + std::to_string(params.sparams.penalty_freq); 
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "-> penalty_present = " + std::to_string(params.sparams.penalty_present); 
         
@@ -590,7 +601,7 @@ public:
                     //else formatRepresentation += "{input}";
                     const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
                     embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-                    n_remain -= line_inp.size();
+                    if (n_remain > 0) n_remain -= line_inp.size();
                     break;
                 }
                 case 's':{
@@ -672,7 +683,7 @@ public:
     int loadModel(){
 
         //llama_init_backend(params.numa);
-        llama_backend_init(params.numa);
+        llama_backend_init();
         printf("..............Backend initialized................\n");
 
         // load the model and apply lora adapter, if any
@@ -702,7 +713,7 @@ public:
         //status += loadModel(); // +3
         // LET'S TRY THIS
         //llama_init_backend(params.numa);
-        llama_backend_init(params.numa);
+        llama_backend_init();
         printf("..............Backend initialized................\n");
 
         // load the model and apply lora adapter, if any
@@ -756,7 +767,7 @@ public:
             //loading the model itself; uses llama_backend, ctx, ctx_guidance
             // LET'S TRY THIS
             //llama_init_backend(params.numa);
-            llama_backend_init(params.numa);
+            llama_backend_init();
             printf("..............Backend initialized................\n");
 
             // load the model and apply lora adapter, if any
@@ -1027,6 +1038,7 @@ public:
         bool need_to_save_session = !path_session.empty() && n_matching_session_tokens < embd_inp.size();
 
         n_remain           = params.n_predict;
+        n_remain_last      = embd_inp.size();
        
 
         // the first thing we will do is to output the prompt, so set color accordingly
@@ -1085,6 +1097,7 @@ public:
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
             //embd.insert(embd.begin(), last_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_tokens.end() - embd.size());
             n_past -= n_discard;
+            n_last_message_past -= n_discard;
 
             if (ctx_guidance) {
                 n_past_guidance -= n_discard;
@@ -1115,6 +1128,7 @@ public:
                 llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
                 
                 n_past -= n_discard;
+                n_last_message_past -= n_discard;
                 
                 if (ctx_guidance) {
                         n_past_guidance -= n_discard;
@@ -1134,6 +1148,7 @@ public:
                 llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
                 
                 n_past -= bd;
+                n_last_message_past -= bd;
 
                 ga_i += ga_w/ga_n;
             }
@@ -1151,6 +1166,7 @@ public:
                 }
 
                 n_past++;
+                //n_past_last = n_past;
                 n_session_consumed++;
 
                 if (n_session_consumed >= (int) session_tokens.size()) {
@@ -1221,6 +1237,7 @@ public:
                 return 1;
             }
             n_past += n_eval;
+            //n_past_last = n_past;
         }
         
         return 1;
@@ -1235,7 +1252,8 @@ public:
     
     //checking already existing contex
     int checkEmb(){
-        if (debug) fprintf(stderr, "1");
+        if (debug) printf("-ce");
+        //fprintf(stderr, "1");
         // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
         // --prompt or --file which uses the same value.
         checkSize();
@@ -1264,7 +1282,8 @@ public:
     
     // main generation, includes adding antiprompt at the end
     int applyEmb(bool fastStop = false) {
-        if (debug) fprintf(stderr, "2");
+        if (debug) printf("-ae");
+        //fprintf(stderr, "2");
 
         // optionally save the session on first sample (for faster prompt loading next time)
         if (!path_session.empty() && need_to_save_session && !params.prompt_cache_ro) {
@@ -1286,13 +1305,14 @@ public:
         //embd.emplace_back(id);
         //embd.emplace_back(id);
         embd.push_back(id);
-        ++last_tokens_count;
+        ++n_last_message;
+        ++n_last_message_past;
 
         // echo this to console
         input_echo = true;
 
         // decrement remaining sampling budget
-        --n_remain;
+        if (n_remain > 0) --n_remain;
         
         return 1;
     }
@@ -1303,15 +1323,21 @@ public:
 
 // additional functions
     void clearLastTokens() {
-        last_tokens_count = 0;
+        n_last_message = 0;
+        n_last_message_past = 0;
     }
 
 
     void clear_last() {
-        llama_kv_cache_seq_rm(ctx, 0, n_past - last_tokens_count, -1);
+        // n_past = n_past_last + 1;
+        // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
+        // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
+        llama_sampling_rollback(ctx_sampling, n_last_message);
+        llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
         embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
-        n_remain += last_tokens_count;
-        n_past -= last_tokens_count;
+        //n_remain += last_tokens_count;
+        n_past -= n_last_message_past;
+        
         
         clearLastTokens();
         
@@ -1378,7 +1404,7 @@ public:
                     if (params.interactive) {
                         is_interacting = true;
                     }
-                    if (debug) fprintf(stderr, "6");
+                    if (debug) printf("-ca");
                     is_antiprompt = true;
                     fflush(stdout);
                     break;
@@ -1441,7 +1467,7 @@ public:
         if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
             applyEmb(); // 2
         } else {
-            if (debug) fprintf(stderr, "3");
+            if (debug) printf("-pes");
             fastStop = true;
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
@@ -1469,7 +1495,7 @@ public:
         
         
         if (input_echo) {
-            if (debug) fprintf(stderr, "4");
+            if (debug) printf("-pei");
             for (auto id : embd) { 
                 //std::string tknStr = llama_token_to_string(ctx, id); 
                 const std::string tknStr = llama_token_to_piece(ctx, id); 
@@ -1493,7 +1519,7 @@ public:
     // input assembly, DELIMINER is important for proper model functioning since we use getline
     int subInput(std::string& buffer, std::string line){
         buffer += line + DELIMINER;
-        //if (debug) fprintf(stderr, "7");
+        if (debug) printf("-si");
         //std::cout << " *** *** " << line << std::endl;
         // Add tokens to embd only if the input buffer is non-empty
         // Entering a empty line lets the user pass control back
@@ -1548,7 +1574,7 @@ public:
                 embd_inp.insert(embd_inp.end(), inp_sfx.begin(), inp_sfx.end());
             }
 
-            n_remain -= line_inp.size();
+            if (n_remain > 0) n_remain -= line_inp.size();
         }
 
         //is_antiprompt = false;
@@ -1589,42 +1615,6 @@ public:
     void resetCTX(){
         llama_sampling_reset(ctx_sampling);
     }
-
-
-    int applyEmbNew(bool fastStop = false){
-        if (debug) fprintf(stderr, "2");
-
-        // optionally save the session on first sample (for faster prompt loading next time)
-        if (!path_session.empty() && need_to_save_session && !params.prompt_cache_ro) {
-            need_to_save_session = false;
-            llama_save_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
-        }
-        
-        //llama_sampling_context ctx_sampling = llama_sampling_context_init(params, grammar);
-        
-        // new generation function, moved to common 
-        const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
-        //const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
-        
-        //last_tokens.erase(last_tokens.begin());
-        //last_tokens.emplace_back(id);
-        
-        llama_sampling_accept(ctx_sampling, ctx, id, true);
-
-        // add it to the context
-        //embd.emplace_back(id);
-        //embd_msg.emplace_back(id);
-        embd_msg.push_back(id);
-        //++last_tokens_count;
-
-        // echo this to console
-        input_echo = true;
-
-        // decrement remaining sampling budget
-        --n_remain;
-        
-        return 1;
-    }
     
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
@@ -1643,7 +1633,7 @@ public:
         embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
         embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
         
-        n_remain -= line_inp.size();
+        if (n_remain > 0) n_remain -= line_inp.size();
     }
     
     int subInputNew(std::string& line){
@@ -1713,7 +1703,6 @@ public:
                 embd_inp.insert(embd_inp.end(), inp_sfx.begin(), inp_sfx.end());
             }
             
-            
 
             // n_remain -= line_inp.size();
         }
@@ -1721,6 +1710,11 @@ public:
         //is_antiprompt = false;
         
         return 1;
+    }
+    
+    void capture_lasts() {
+        n_past_last = embd_inp.size();
+        //n_remain_last = n_remain;
     }
     
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
@@ -1737,7 +1731,10 @@ public:
         if (n_past > 0) {
             resetGrammar();
             is_interacting = false;
+            
         }
+        
+        
         
         formatRepresentation += "{output}";
         
@@ -1781,7 +1778,7 @@ public:
             else preEmb(result, fastStop, consoleOutput);
             
             if ((int) embd_inp.size() <= n_consumed) {
-                if (debug) fprintf(stderr, "5");
+                if (debug) printf("-g");
                 
                 //checkAntiprompt();
                 
@@ -1807,7 +1804,7 @@ public:
     }
 
     const std::string getPrinted(){
-        if (debug) fprintf(stderr, "4");
+        if (debug) printf("-gp");
         
         for (auto id : embd) { 
             //return llama_token_to_string(ctx, id); 
@@ -1816,7 +1813,7 @@ public:
     }
     
     const std::string getPrinted(std::vector<llama_token>& embd_msg){
-        if (debug) fprintf(stderr, "4");
+        if (debug) printf("-gp");
         
         for (auto id : embd_msg) { 
             //return llama_token_to_string(ctx, id); 
@@ -1871,7 +1868,7 @@ public:
         if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
             applyEmb(); // 2
         } else {
-            if (debug) fprintf(stderr, "3");
+            if (debug) printf("-pen");
             fastStop = true;
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
@@ -1894,9 +1891,12 @@ public:
                 
                 ++n_consumed;
                 if ((int) embd.size() >= params.n_batch) {
+                    
                     break;
                 }
             }
+
+            capture_lasts();
         }
 
         // display text
@@ -1931,7 +1931,7 @@ public:
         result += bit;
         
         if ((int) embd_inp.size() <= n_consumed) {
-            if (debug) fprintf(stderr, "5");
+            if (debug) printf("-cso");
             //fprintf(stderr, "5");
             
             checkAntiprompt();

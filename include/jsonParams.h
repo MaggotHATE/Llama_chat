@@ -40,7 +40,7 @@ static void processInstructFile(std::string filename, gpt_params& params, bool h
             int antiPos = params.prompt.rfind('\n');
             if (antiPos != params.prompt.npos) {
                 if(!params.antiprompt.size()) 
-                    params.antiprompt.push_back(params.prompt.substr(antiPos));
+                    params.antiprompt.emplace_back(params.prompt.substr(antiPos));
                 else
                     params.antiprompt[0] = params.prompt.substr(antiPos);
             }
@@ -172,7 +172,7 @@ static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
                 if (delimPos != antiprompt.npos && delimPos != (antiprompt.size() - 1) ) antiprompt = antiprompt.substr(delimPos);
                 
                 if(!params.antiprompt.size())
-                    params.antiprompt.push_back(antiprompt);
+                    params.antiprompt.emplace_back(antiprompt);
                 else
                     params.antiprompt[0] = antiprompt;
             }
@@ -207,7 +207,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
             
             if (checkJString(config, "reverse-prompt")){
                 if(!params.antiprompt.size()) 
-                    params.antiprompt.push_back(config["reverse-prompt"]);
+                    params.antiprompt.emplace_back(config["reverse-prompt"]);
                 else
                     params.antiprompt[0] = config["reverse-prompt"];
             }
@@ -224,7 +224,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "cfg-scale")) params.sparams.cfg_scale = config["cfg-scale"];
     //if (config["cfg-smooth-factor"].is_number()) params.cfg_smooth_factor = config["cfg-smooth-factor", false);
     if (checkJString(config, "lora")) {
-        params.lora_adapter.push_back(std::tuple<std::string, float>(config["lora"], 1.0));
+        params.lora_adapter.emplace_back(std::tuple<std::string, float>(config["lora"], 1.0));
         params.use_mmap = false;
     }
     
@@ -242,6 +242,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
     if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
     if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
+    if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "temp")) params.sparams.temp = config["temp"];
     if (checkJNum(config, "dynatemp_range")) params.sparams.dynatemp_range = config["dynatemp_range"];
@@ -252,6 +253,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
+    if (checkJNum(config, "penalty_threshold")) params.sparams.penalty_threshold = config["penalty_threshold"];
     if (checkJNum(config, "frequency_penalty")) params.sparams.penalty_freq = config["frequency_penalty"];
     if (checkJNum(config, "presence_penalty")) params.sparams.penalty_present = config["presence_penalty"];
     if (checkJNum(config, "mirostat")) params.sparams.mirostat = config["mirostat"];

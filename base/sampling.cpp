@@ -174,17 +174,18 @@ llama_token llama_sampling_sample(
 
     const int n_vocab = llama_n_vocab(llama_get_model(ctx_main));
 
-    const float   temp            = params.temp;
-    const float   temp_smoothing  = params.temp_smoothing;
-    const float   dynatemp_range  = params.dynatemp_range;
-    const int32_t penalty_last_n  = params.penalty_last_n < 0 ? params.n_prev : params.penalty_last_n;
-    const float   penalty_repeat  = params.penalty_repeat;
-    const float   penalty_freq    = params.penalty_freq;
-    const float   penalty_present = params.penalty_present;
-    const int     mirostat        = params.mirostat;
-    const float   mirostat_tau    = params.mirostat_tau;
-    const float   mirostat_eta    = params.mirostat_eta;
-    const bool    penalize_nl     = params.penalize_nl;
+    const float   temp              = params.temp;
+    const float   temp_smoothing    = params.temp_smoothing;
+    const float   dynatemp_range    = params.dynatemp_range;
+    const int32_t penalty_last_n    = params.penalty_last_n < 0 ? params.n_prev : params.penalty_last_n;
+    const float   penalty_repeat    = params.penalty_repeat;
+    const float   penalty_freq      = params.penalty_freq;
+    const float   penalty_present   = params.penalty_present;
+    const float   penalty_threshold = params.penalty_threshold;
+    const int     mirostat          = params.mirostat;
+    const float   mirostat_tau      = params.mirostat_tau;
+    const float   mirostat_eta      = params.mirostat_eta;
+    const bool    penalize_nl       = params.penalize_nl;
 
     auto & prev = ctx_sampling->prev;
     auto & cur  = ctx_sampling->cur;
@@ -221,7 +222,7 @@ llama_token llama_sampling_sample(
 
         llama_sample_repetition_penalties(ctx_main, &cur_p,
                 prev.data() + prev.size() - penalty_last_n,
-                penalty_last_n, penalty_repeat, penalty_freq, penalty_present);
+                penalty_last_n, penalty_repeat, penalty_freq, penalty_present, penalty_threshold);
 
         if (!penalize_nl) {
             for (size_t idx = 0; idx < cur_p.size; idx++) {
@@ -276,7 +277,8 @@ llama_token llama_sampling_sample(
             id = llama_sample_token_mirostat_v2(ctx_main, &cur_p, mirostat_tau, mirostat_eta, &ctx_sampling->mirostat_mu);
         } else {
             // temperature sampling
-            size_t min_keep = std::max(1, params.n_probs);
+            //size_t min_keep = std::max(1, params.n_probs);
+            size_t min_keep = std::max(1, params.min_keep);
 
             sampler_queue(ctx_main, params, cur_p, min_keep);
 
@@ -312,3 +314,18 @@ void llama_sampling_accept(
         llama_grammar_accept_token(ctx_main, ctx_sampling->grammar, id);
     }
 }
+
+void llama_sampling_rollback(
+        struct llama_sampling_context * ctx_sampling,
+        int rollback_num) {
+    if(rollback_num > ctx_sampling->prev.size()) {
+        rollback_num = ctx_sampling->prev.size();
+    }
+
+    // remove rollback_num elements from the end
+    ctx_sampling->prev.erase(ctx_sampling->prev.end() - rollback_num, ctx_sampling->prev.end());
+
+    // Insert rollback_num zeros at the beginning to preserve the size of prev
+    ctx_sampling->prev.insert(ctx_sampling->prev.begin(), rollback_num, 0);
+}
+

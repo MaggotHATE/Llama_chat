@@ -12,6 +12,7 @@
 typedef struct llama_sampling_params {
     int32_t     n_prev                = 64;       // number of previous tokens to remember
     int32_t     n_probs               = 0;        // if greater than 0, output the probabilities of top n_probs tokens.
+    int32_t     min_keep              = 0;        // 0 = disabled, otherwise samplers should return at least min_keep tokens
     int32_t     top_k                 = 0;       // <= 0 to use vocab size
     float       top_p                 = 1.0f;    // 1.0 = disabled
     float       min_p                 = 0.05f;    // 0.0 = disabled
@@ -24,6 +25,7 @@ typedef struct llama_sampling_params {
     float       penalty_repeat        = 1.00f;    // 1.0 = disabled
     float       penalty_freq          = 0.00f;    // 0.0 = disabled
     float       penalty_present       = 0.00f;    // 0.0 = disabled
+    float       penalty_threshold     = 1.00f;    // 0.0 = disabled
     int32_t     mirostat              = 0;        // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
     float       mirostat_tau          = 5.00f;    // target entropy
     float       mirostat_eta          = 0.10f;    // learning rate
@@ -115,3 +117,11 @@ void llama_sampling_accept(
         struct llama_context * ctx_main,
         llama_token id,
         bool apply_grammar);
+
+// this performs rollback of the latest sampling operation by "rollback_num" tokens;
+// it simply strikes the latest "rollback_num" tokens from the "prev" vector
+// in general, the rollback is "imperfect", meaning the "forgotten tokens" which were dropped when the length of "prev" exceeded "n_prev" cannot be recalled after rollback
+// however, if `sampling_params.n_prev` >= `sampling_params.penalty_last_n` + `rollback_num`, then it becomes "perfect" rollback
+void llama_sampling_rollback(
+        struct llama_sampling_context * ctx_sampling,
+        int rollback_num);

@@ -578,7 +578,16 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
         } else if (arg == "--no-mmap") {
             params.use_mmap = false;
         } else if (arg == "--numa") {
-            params.numa = true;
+            //params.numa = true;
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            std::string value(argv[i]);
+            /**/ if (value == "distribute" || value == "") { params.numa = GGML_NUMA_STRATEGY_DISTRIBUTE; }
+            else if (value == "isolate") { params.numa = GGML_NUMA_STRATEGY_ISOLATE; }
+            else if (value == "numactl") { params.numa = GGML_NUMA_STRATEGY_NUMACTL; }
+            else { invalid_param = true; break; }
         } else if (arg == "--verbose-prompt") {
             params.verbose_prompt = true;
         } else if (arg == "-r" || arg == "--reverse-prompt") {
@@ -822,7 +831,11 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     if (llama_supports_mmap()) {
         printf("  --no-mmap             do not memory-map model (slower load but may reduce pageouts if not using mlock)\n");
     }
-    printf("  --numa                attempt optimizations that help on some NUMA systems\n");
+    //printf("  --numa                attempt optimizations that help on some NUMA systems\n");
+    printf("  --numa TYPE           attempt optimizations that help on some NUMA systems\n");
+    printf("                          - distribute: spread execution evenly over all nodes\n");
+    printf("                          - isolate: only spawn threads on CPUs on the node that execution started on\n");
+    printf("                          - numactl: use the CPU map provided by numactl\n");
     printf("                        if run without this previously, it is recommended to drop the system page cache before using this\n");
     printf("                        see https://github.com/ggerganov/llama.cpp/issues/1437\n");
     if (llama_supports_gpu_offload()) {
@@ -1377,7 +1390,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "no_mmap: %s # default: false\n", !params.use_mmap ? "true" : "false");
     fprintf(stream, "no_mul_mat_q: %s # default: false\n", !params.mul_mat_q ? "true" : "false");
     fprintf(stream, "no_penalize_nl: %s # default: false\n", !sparams.penalize_nl ? "true" : "false");
-    fprintf(stream, "numa: %s # default: false\n", params.numa ? "true" : "false");
+    // fprintf(stream, "numa: %s # default: false\n", params.numa ? "true" : "false");
     fprintf(stream, "ppl_output_type: %d # default: 0\n", params.ppl_output_type);
     fprintf(stream, "ppl_stride: %d # default: 0\n", params.ppl_stride);
     fprintf(stream, "presence_penalty: %f # default: 0.0\n", sparams.penalty_present);

@@ -77,7 +77,7 @@ struct modelThread{
     volatile char isUnload = '_';
     int loaded = 0;
     int last_tokens = 0;
-    //int remain_tokens = 0;
+    int remain_tokens = 0;
     int consumed_tokens = 0;
     int past_tokens = 0;
     
@@ -161,6 +161,10 @@ struct modelThread{
         resultsStringPairs.pop_back();
     }
     
+    void switch_debug() {
+        newChat.switch_debug();
+    }
+    
     void displayResults(){
         Clear();
         
@@ -192,9 +196,11 @@ struct modelThread{
         std::cout << "isContinue   : " << isContinue << std::endl;
         std::cout << "Past         : " << past_tokens << std::endl;
         std::cout << "Consumed     : " << consumed_tokens << std::endl;
+        std::cout << "Remain       : " << remain_tokens << std::endl;
         std::cout << "Last         : " << last_tokens << std::endl;
-        std::cout << "Past-Last    : " << past_tokens - last_tokens << '\n' << std::endl;
-        std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
+        std::cout << "Past-Last    : " << past_tokens - last_tokens << std::endl;
+        std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << std::endl;
+        //std::cout << "n_past_last  : " << newChat.n_past_last << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
@@ -451,6 +457,7 @@ void getStats() {
     last_tokens = newChat.getLastTokens();
     consumed_tokens = newChat.getConsumedTokens();
     past_tokens = newChat.getPastTokens();
+    remain_tokens = newChat.getRemainTokens();
 }
 
 void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
@@ -476,6 +483,8 @@ void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
             last_tokens = newChat.getLastTokens();
             
             getTimigsPre();
+            newChat.capture_lasts();
+            
             if (streaming == true) display();
             
             while (isContinue != 'i'){
@@ -530,7 +539,7 @@ void getResultAsyncStringFull3() {
             past_tokens = newChat.getPastTokens();
             
             getTimigsPre();
-            
+            newChat.capture_lasts();
             
             while (isContinue != 'i'){
         
@@ -1018,6 +1027,7 @@ struct configurableChat{
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
         aChat.params.sparams.penalty_repeat = params.sparams.penalty_repeat;
+        aChat.params.sparams.penalty_threshold = params.sparams.penalty_threshold;
         aChat.params.sparams.penalty_freq = params.sparams.penalty_freq;
         aChat.params.sparams.penalty_present = params.sparams.penalty_present;
         aChat.params.sparams.mirostat = params.sparams.mirostat;
@@ -1147,12 +1157,14 @@ struct configurableChat{
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) modelConfig[model]["typical_p"] = params.sparams.typical_p;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["frequency_penalty"] = params.sparams.penalty_freq;
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) modelConfig[model]["presence_penalty"] = params.sparams.penalty_present;
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) modelConfig[model]["mirostat"] = params.sparams.mirostat;
         if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.sparams.mirostat_tau;
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sparams.mirostat_eta;
         if (params.sparams.cfg_scale != paramsDefault.sparams.cfg_scale) modelConfig[model]["cfg-scale"] = params.sparams.cfg_scale;
+        if (params.sparams.min_keep != paramsDefault.sparams.min_keep) modelConfig[model]["min_keep"] = params.sparams.min_keep;
         if (params.n_ctx != paramsDefault.n_ctx) modelConfig[model]["ctx-size"] = params.n_ctx;
         if (params.grp_attn_n != paramsDefault.grp_attn_n) modelConfig[model]["grp_attn_n"] = params.grp_attn_n;
         if (params.grp_attn_w != paramsDefault.grp_attn_w) modelConfig[model]["grp_attn_w"] = params.grp_attn_w;
@@ -1231,6 +1243,7 @@ struct configurableChat{
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) newCard["repeat_penalty"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) newCard["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) newCard["frequency_penalty"] = params.sparams.penalty_freq;
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) newCard["presence_penalty"] = params.sparams.penalty_present;
@@ -1238,6 +1251,7 @@ struct configurableChat{
         if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) newCard["mirostat_tau"] = params.sparams.mirostat_tau;
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) newCard["mirostat_eta"] = params.sparams.mirostat_eta;
         if (params.sparams.cfg_scale != paramsDefault.sparams.cfg_scale) newCard["cfg-scale"] = params.sparams.cfg_scale;
+        if (params.sparams.min_keep != paramsDefault.sparams.min_keep) newCard["min_keep"] = params.sparams.min_keep;
         if (params.n_ctx != paramsDefault.n_ctx) newCard["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
