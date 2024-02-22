@@ -101,6 +101,7 @@ extern "C" {
         LLAMA_FTYPE_MOSTLY_Q3_K_XS       = 22, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_IQ3_XXS       = 23, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_IQ1_S         = 24, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_IQ4_NL        = 25, // except 1d tensors
 
         LLAMA_FTYPE_GUESSED = 1024, // not specified in the model file
     };
@@ -754,7 +755,7 @@ extern "C" {
                            float   penalty_repeat,
                            float   penalty_freq,
                            float   penalty_present,
-                           float   penalty_threshold);
+                           float   penalty_threshhold);
 
     /// @details Apply classifier-free guidance to the logits as described in academic paper "Stay on topic with Classifier-Free Guidance" https://arxiv.org/abs/2306.17806
     /// @param logits Logits extracted from the original generation context.
