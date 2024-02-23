@@ -509,7 +509,6 @@ static std::map<llm_arch, std::map<llm_tensor, std::string>> LLM_TENSOR_NAMES = 
         {
             { LLM_TENSOR_TOKEN_EMBD,      "token_embd" },
             { LLM_TENSOR_OUTPUT_NORM,     "output_norm" },
-            { LLM_TENSOR_OUTPUT,          "output" },
             { LLM_TENSOR_ATTN_NORM,       "blk.%d.attn_norm" },
             { LLM_TENSOR_FFN_NORM,        "blk.%d.ffn_norm" },
             { LLM_TENSOR_ATTN_QKV,        "blk.%d.attn_qkv" },
@@ -4062,7 +4061,12 @@ static bool llm_load_tensors(
                     // output
                     {
                         model.output_norm   = ml.create_tensor(ctx_output,       tn(LLM_TENSOR_OUTPUT_NORM, "weight"), {n_embd});
-                        model.output        = ml.create_tensor(ctx_output_split, tn(LLM_TENSOR_OUTPUT,      "weight"), {n_embd, n_vocab});
+                        model.output_norm_b = ml.create_tensor(ctx_output,       tn(LLM_TENSOR_OUTPUT_NORM, "bias"),   {n_embd}, false);
+                        
+                        // same as tok_embd, duplicated to allow offloading
+                        model.output        = ml.create_tensor(ctx_output_split, tn(LLM_TENSOR_TOKEN_EMBD,  "weight"), {n_embd, n_vocab});
+                        ml.n_created--; // artificial tensor
+                        ml.size_data += ggml_nbytes(model.output);
                     }
 
                     for (int i = 0; i < n_layer; ++i) {
@@ -9639,6 +9643,34 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     }
 }
 
+void llama_sample_p_step(struct llama_context * ctx, llama_token_data_array * candidates, float step, size_t min_keep) {
+    if (step <= 0.0f || candidates->size <= 1) {
+        return;
+    }
+
+    llama_sample_softmax(nullptr, candidates);
+
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    bool step_found = false;
+
+    for (size_t i = 1; i < candidates->size; ++i) {
+        if (!step_found && candidates->data[i].p < step * candidates->data[i - 1].p) {
+            step_found = true;
+        }
+
+        if (step_found && i >= min_keep) {
+            // Resize the output vector to keep only the tokens before the step
+            candidates->size = i;
+            break;
+        }
+    }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
 void llama_sample_tail_free(struct llama_context * ctx, llama_token_data_array * candidates, float z, size_t min_keep) {
     if (z >= 1.0f || candidates->size <= 2) {
         return;
@@ -10575,7 +10607,10 @@ static ggml_type get_k_quant_type(quantize_state_internal & qs, ggml_type new_ty
         return std::make_pair(i_layer, n_layer);
     };
 
-    if (name == tn(LLM_TENSOR_OUTPUT, "weight")) {
+    // for arches that share the same tensor between the token embeddings and the output, we quantize the token embeddings
+    // with the quantization of the output tensor
+    if (name == tn(LLM_TENSOR_OUTPUT, "weight") ||
+        (LLM_TENSOR_NAMES.at(arch).find(LLM_TENSOR_OUTPUT) == LLM_TENSOR_NAMES.at(arch).end() && name == "token_embd.weight")) {
         int nx = tensor->ne[0];
         if (arch == LLM_ARCH_FALCON || nx % QK_K != 0) {
             new_type = GGML_TYPE_Q8_0;

@@ -133,6 +133,7 @@ void sampler_queue(
     const float       min_p             = params.min_p;
     const float       tfs_z             = params.tfs_z;
     const float       typical_p         = params.typical_p;
+    const float       p_step            = params.p_step;
     const std::string samplers_sequence = params.samplers_sequence;
                       
     for (auto s : samplers_sequence){
@@ -142,6 +143,7 @@ void sampler_queue(
             case 'y': llama_sample_typical  (ctx_main, &cur_p, typical_p, min_keep); break;
             case 'p': llama_sample_top_p    (ctx_main, &cur_p, top_p,     min_keep); break;
             case 'm': llama_sample_min_p    (ctx_main, &cur_p, min_p,     min_keep); break;
+            case 's': llama_sample_p_step   (ctx_main, &cur_p, p_step,    min_keep); break;
             case 't': {
                 if (dynatemp_range>0)
                 {

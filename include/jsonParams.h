@@ -251,6 +251,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
+    if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
     if (checkJNum(config, "penalty_threshold")) params.sparams.penalty_threshold = config["penalty_threshold"];

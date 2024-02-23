@@ -979,6 +979,8 @@ public:
         // number of tokens to keep when resetting context
         if (params.n_keep < 0 || params.n_keep > (int) embd_inp.size() || params.instruct) {
             params.n_keep = (int)embd_inp.size();
+        } else {
+            params.n_keep += add_bos; // always keep the BOS token
         }
 
         // prefix & suffix for instruct mode
@@ -1084,14 +1086,14 @@ public:
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
         if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) > n_ctx) {
             printf("....");
-            const int n_left    = n_past - params.n_keep - 1;
+            const int n_left    = n_past - params.n_keep;
             const int n_discard = n_left/2;
 
             // always keep the first token - BOS
             //n_past = std::max(1, params.n_keep);
             //n_past_guidance = std::max(1, params.n_keep + guidance_offset);
-            llama_kv_cache_seq_rm   (ctx, 0, params.n_keep + 1            , params.n_keep + n_discard + 1);
-            llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
+            llama_kv_cache_seq_rm   (ctx, 0, params.n_keep            , params.n_keep + n_discard);
+            llama_kv_cache_seq_shift(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
 
             // insert n_left/2 tokens at the start of embd from last_n_tokens
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
@@ -1121,11 +1123,11 @@ public:
                     // break;
                 // }
                 
-                const int n_left    = n_past - params.n_keep - 1;
+                const int n_left    = n_past - params.n_keep;
                 const int n_discard = n_left/2;
                 
-                llama_kv_cache_seq_rm   (ctx, 0, params.n_keep + 1            , params.n_keep + n_discard + 1);
-                llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
+                llama_kv_cache_seq_rm   (ctx, 0, params.n_keep            , params.n_keep + n_discard);
+                llama_kv_cache_seq_shift(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
                 
                 n_past -= n_discard;
                 n_last_message_past -= n_discard;

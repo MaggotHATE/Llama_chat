@@ -359,6 +359,7 @@ struct modelThread{
     
     void unload(){
         newChat.clear();
+        lastResult = "";
         resultsStringPairs.clear();
         isContinue = '_';
         isPregen = '_';
@@ -368,6 +369,7 @@ struct modelThread{
     
     void unloadSoft(){
         newChat.clearSoft();
+        lastResult = "";
         resultsStringPairs.clear();
         isContinue = '_';
         isPregen = '_';
@@ -1026,6 +1028,7 @@ struct configurableChat{
         aChat.params.sparams.min_p = params.sparams.min_p;
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
+        aChat.params.sparams.p_step = params.sparams.p_step;
         aChat.params.sparams.penalty_repeat = params.sparams.penalty_repeat;
         aChat.params.sparams.penalty_threshold = params.sparams.penalty_threshold;
         aChat.params.sparams.penalty_freq = params.sparams.penalty_freq;
@@ -1155,7 +1158,7 @@ struct configurableChat{
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
-        if (params.sparams.typical_p != paramsDefault.sparams.typical_p) modelConfig[model]["typical_p"] = params.sparams.typical_p;
+        if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["frequency_penalty"] = params.sparams.penalty_freq;
@@ -1243,6 +1246,7 @@ struct configurableChat{
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
+        if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) newCard["repeat_penalty"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) newCard["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) newCard["frequency_penalty"] = params.sparams.penalty_freq;

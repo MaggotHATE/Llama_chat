@@ -21,6 +21,7 @@ typedef struct llama_sampling_params {
     float       temp                  = 0.80f;    // 1.0 = disabled
     float       temp_smoothing        = 5.00f;    // 0.0 = disabled
     float       dynatemp_range        = 0.00f;    // 0.0 = disabled
+    float       p_step                = 0.00f;    // 0.0 = disabled
     int32_t     penalty_last_n        = 64;       // last n tokens to penalize (0 = disable penalty, -1 = context size)
     float       penalty_repeat        = 1.00f;    // 1.0 = disabled
     float       penalty_freq          = 0.00f;    // 0.0 = disabled
