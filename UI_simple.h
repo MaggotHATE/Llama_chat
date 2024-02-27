@@ -442,6 +442,27 @@ static void sliderTypicalP(float& typical_p, float& default_typical_p){
     } ImGui::SameLine(); HelpMarker(("Locally typical sampling, parameter p. Promotes the generation of contextually coherent and diverse text by sampling tokens that are typical or expected based on the surrounding context. Default: " + std::to_string(default_typical_p)).c_str());
 }
 
+static void sliderPStep(float& p_step, float& default_p_step){
+    {
+        if (ImGui::Button(" -##p_step")) {
+            p_step -= 0.001f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##p_step")) {
+            p_step += 0.001f;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderFloat("p_step", &p_step, 0.5f, 1.0f);
+    if (ImGui::BeginPopupContextItem("p_step"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            p_step = default_p_step;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker(("P-Step Truncation Sampling. Discards all tokens after the first step in the probability distribution, keeping more tokens. Default: " + std::to_string(default_p_step)).c_str());
+}
+
 static void sliderMirostat(int& mirostat, int& default_mirostat){
     {
         if (ImGui::Button(" -##mirostat")) {
@@ -604,6 +625,8 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
         sliderTfsZ(params.sparams.tfs_z, paramsDefault.sparams.tfs_z);
         
         sliderTypicalP(params.sparams.typical_p, paramsDefault.sparams.typical_p);
+        
+        sliderPStep(params.sparams.p_step, paramsDefault.sparams.p_step);
         
         sliderMirostat(params.sparams.mirostat, paramsDefault.sparams.mirostat);
         
@@ -2691,6 +2714,7 @@ struct chatUI{
         newChat.isUnload = 'y';
         newChat.loaded = 0;
         tokens_this_session = 0;
+        regen_cycles = 0;
         //copiedDialog = false;
         //copiedSettings = false;
         //copiedTimings = false;
@@ -2707,6 +2731,7 @@ struct chatUI{
     void pauseAndUnload() {
         newChat.loaded = 0;
         tokens_this_session = 0;
+        regen_cycles = 0;
         // copiedDialog = false;
         // copiedSettings = false;
         // copiedTimings = false;

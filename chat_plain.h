@@ -487,6 +487,7 @@ public:
                     case 'k': result += "top_k "; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "= " + std::to_string(params.sparams.top_k); break;
                     case 'f': result += "tfs_z "; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("= {:.2f}",params.sparams.tfs_z); break;
                     case 'y': result += "typical_p "; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("= {:.2f}",params.sparams.typical_p); break;
+                    case 's': result += "p_step "; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("= {:.2f}",params.sparams.p_step); break;
                     case 'p': result += "top_p "; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("= {:.2f}",params.sparams.top_p); break;
                     case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("= {:.2f}",params.sparams.min_p); break;
                     case 't': {
@@ -1093,7 +1094,7 @@ public:
             //n_past = std::max(1, params.n_keep);
             //n_past_guidance = std::max(1, params.n_keep + guidance_offset);
             llama_kv_cache_seq_rm   (ctx, 0, params.n_keep            , params.n_keep + n_discard);
-            llama_kv_cache_seq_shift(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
+            llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
 
             // insert n_left/2 tokens at the start of embd from last_n_tokens
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
@@ -1127,7 +1128,7 @@ public:
                 const int n_discard = n_left/2;
                 
                 llama_kv_cache_seq_rm   (ctx, 0, params.n_keep            , params.n_keep + n_discard);
-                llama_kv_cache_seq_shift(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
+                llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
                 
                 n_past -= n_discard;
                 n_last_message_past -= n_discard;
@@ -1145,9 +1146,9 @@ public:
                 const int bd = (ga_w/ga_n)*(ga_n - 1);
                 const int dd = (ga_w/ga_n) - ib*bd - ga_w;
                 
-                llama_kv_cache_seq_shift(ctx, 0, ga_i,                n_past,              ib*bd);
+                llama_kv_cache_seq_add(ctx, 0, ga_i,                n_past,              ib*bd);
                 llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
-                llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+                llama_kv_cache_seq_add(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
                 
                 n_past -= bd;
                 n_last_message_past -= bd;

@@ -246,9 +246,9 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             std::string value(argv[i]);
-            /**/ if (value == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_NONE; }
-            else if (value == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_LINEAR; }
-            else if (value == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_YARN; }
+            /**/ if (value == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
+            else if (value == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
+            else if (value == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
             else { invalid_param = true; break; }
         } else if (arg == "--rope-scale") {
             if (++i >= argc) {
@@ -286,6 +286,12 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.yarn_beta_slow = std::stof(argv[i]);
+        } else if (arg == "--defrag-thold" || arg == "-dt") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.defrag_thold = std::stof(argv[i]);
         } else if (arg == "-ctk" || arg == "--cache-type-k") {
             params.cache_type_k = argv[++i];
         } else if (arg == "-ctv" || arg == "--cache-type-v") {
@@ -538,11 +544,11 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
             }
             std::string arg_next = argv[i];
             if (arg_next == "none") {
-                params.split_mode = LLAMA_SPLIT_NONE;
+                params.split_mode = LLAMA_SPLIT_MODE_NONE;
             } else if (arg_next == "layer") {
-                params.split_mode = LLAMA_SPLIT_LAYER;
+                params.split_mode = LLAMA_SPLIT_MODE_LAYER;
             } else if (arg_next == "row") {
-                params.split_mode = LLAMA_SPLIT_ROW;
+                params.split_mode = LLAMA_SPLIT_MODE_ROW;
             } else {
                 invalid_param = true;
                 break;
@@ -961,6 +967,7 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.yarn_beta_fast    = params.yarn_beta_fast;
     cparams.yarn_beta_slow    = params.yarn_beta_slow;
     cparams.yarn_orig_ctx     = params.yarn_orig_ctx;
+    cparams.defrag_thold      = params.defrag_thold;
     
     cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);

@@ -1199,9 +1199,9 @@ struct configurableChat{
         if (params.yarn_attn_factor != paramsDefault.yarn_attn_factor) modelConfig[model]["yarn_attn_factor"] = params.yarn_attn_factor;
         
         if (params.rope_scaling_type != paramsDefault.rope_scaling_type) {
-            if (params.rope_scaling_type == LLAMA_ROPE_SCALING_NONE) modelConfig[model]["rope_scaling_type"] = "none";
-            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_LINEAR) modelConfig[model]["rope_scaling_type"] = "linear";
-            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_YARN) modelConfig[model]["rope_scaling_type"] = "yarn";
+            if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_NONE) modelConfig[model]["rope_scaling_type"] = "none";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_LINEAR) modelConfig[model]["rope_scaling_type"] = "linear";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_YARN) modelConfig[model]["rope_scaling_type"] = "yarn";
         }
         
         modelConfig[model]["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;
@@ -1279,9 +1279,9 @@ struct configurableChat{
         if (params.yarn_attn_factor != paramsDefault.yarn_attn_factor) newCard["yarn_attn_factor"] = params.yarn_attn_factor;
         
         if (params.rope_scaling_type != paramsDefault.rope_scaling_type) {
-            if (params.rope_scaling_type == LLAMA_ROPE_SCALING_NONE) newCard["rope_scaling_type"] = "none";
-            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_LINEAR) newCard["rope_scaling_type"] = "linear";
-            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_YARN) newCard["rope_scaling_type"] = "yarn";
+            if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_NONE) newCard["rope_scaling_type"] = "none";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_LINEAR) newCard["rope_scaling_type"] = "linear";
+            else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_YARN) newCard["rope_scaling_type"] = "yarn";
         }
         
         newCard["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;

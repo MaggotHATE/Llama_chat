@@ -280,9 +280,9 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "yarn_beta_slow")) params.yarn_beta_slow = config["yarn_beta_slow"];
     
     if (checkJString(config, "rope_scaling_type")) {
-        if (config["rope_scaling_type"] == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_NONE; }
-        else if (config["rope_scaling_type"] == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_LINEAR; }
-        else if (config["rope_scaling_type"] == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_YARN; }
+        if (config["rope_scaling_type"] == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
+        else if (config["rope_scaling_type"] == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
+        else if (config["rope_scaling_type"] == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
     }
     
     std::cout << "headless: " << headless << std::endl;
