@@ -4902,8 +4902,8 @@ static struct ggml_tensor * llm_build_kqv(
         ggml_mul_mat_set_prec(kq, GGML_PREC_F32);
     }
 
-#if defined(GGML_USE_VULKAN) || defined(GGML_USE_KOMPUTE)
-#pragma message("TODO: ALiBi support in ggml_soft_max_ext is not implemented for Vulkan, and Kompute")
+#if defined(GGML_USE_KOMPUTE)
+#pragma message("TODO: ALiBi support in ggml_soft_max_ext is not implemented for Kompute")
 #pragma message("      Falling back to ggml_alibi(). Will become an error in Mar 2024")
 #pragma message("ref:  https://github.com/ggerganov/llama.cpp/pull/5488")
     if (hparams.f_max_alibi_bias > 0.0f) {
@@ -8947,10 +8947,10 @@ struct llm_tokenizer_wpm {
         std::vector<uint32_t> codepoints = codepoints_from_utf8(text);
         std::vector<uint32_t> nfd_codepoints;
         for (uint32_t code : codepoints) {
-            auto it = nfd_map.find(code);
-            if (it != nfd_map.end()) {
-                for (uint32_t c : it->second) {
-                    nfd_codepoints.push_back(c);
+            auto it = nfd_map.equal_range(code);
+            if (it.first != it.second) {
+                for (auto jt = it.first; jt != it.second; jt++) {
+                    nfd_codepoints.push_back(jt->second);
                 }
             } else {
                 nfd_codepoints.push_back(code);
@@ -9001,12 +9001,13 @@ struct llm_tokenizer_wpm {
     }
 
     uint32_t to_lower(uint32_t code) {
+        static const std::locale locale("en_US.UTF-8");
 #if defined(_WIN32)
         if (code > 0xFFFF) {
             return code;
         }
 #endif
-        return std::tolower(wchar_t(code), std::locale("en_US.UTF-8"));
+        return std::tolower(wchar_t(code), locale);
     }
 
     bool is_ascii_punct(uint32_t code) {
@@ -9799,6 +9800,65 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     }
 }
 
+
+void llama_sample_p_step(struct llama_context * ctx, llama_token_data_array * candidates, float step, size_t min_keep) {
+    if (step <= 0.0f || candidates->size <= 1) {
+        return;
+    }
+
+    llama_sample_softmax(nullptr, candidates);
+
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    bool step_found = false;
+    
+    // Variables to hold the external values
+    float randomizationFactor = 1.0f; // Default value of the randomization factor
+    bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
+    unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
+
+    // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
+    if (randomizationFactor > 0.0) {
+        // Create a random number generator
+        std::default_random_engine generator;
+        if (isTrueRNG) {
+            // Seed with a real random value, if available
+            std::random_device rd;
+            generator.seed(rd());
+        } else {
+            // Use a fixed seed for deterministic behavior
+            generator.seed(rngSeed);
+        }
+
+        // Create a Gaussian distribution with mean 0 and standard deviation of your choice
+        std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
+
+        // Apply Gaussian noise to each logit
+        for (size_t i = 0; i < candidates->size; ++i) {
+            // Add Gaussian noise to the logit
+            candidates->data[i].logit += distribution(generator);
+        }
+
+        candidates->sorted = false;
+    }
+
+    for (size_t i = 1; i < candidates->size; ++i) {
+        if (!step_found && candidates->data[i].p < step * candidates->data[i - 1].p) {
+            step_found = true;
+        }
+
+        if (step_found && i >= min_keep) {
+            // Resize the output vector to keep only the tokens before the step
+            candidates->size = i;
+            break;
+        }
+    }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
 void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * candidates, float p, size_t min_keep) {
     if (p <= 0.0f || !candidates->size) {
         return;
@@ -9837,13 +9897,12 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     
 
     // Variables to hold the external values
-    bool worstToken = false; // unused from earlier experiment, disregard
     float randomizationFactor = 1.0f; // Default value of the randomization factor
     bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
     unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
 
     // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0) {        
+    if (randomizationFactor > 0.0) {
         // Create a random number generator
         std::default_random_engine generator;
         if (isTrueRNG) {
@@ -10141,34 +10200,6 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
     }
 
     // Update timing in context if ctx is available
-    if (ctx) {
-        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
-    }
-}
-
-void llama_sample_p_step(struct llama_context * ctx, llama_token_data_array * candidates, float step, size_t min_keep) {
-    if (step <= 0.0f || candidates->size <= 1) {
-        return;
-    }
-
-    llama_sample_softmax(nullptr, candidates);
-
-    const int64_t t_start_sample_us = ggml_time_us();
-
-    bool step_found = false;
-
-    for (size_t i = 1; i < candidates->size; ++i) {
-        if (!step_found && candidates->data[i].p < step * candidates->data[i - 1].p) {
-            step_found = true;
-        }
-
-        if (step_found && i >= min_keep) {
-            // Resize the output vector to keep only the tokens before the step
-            candidates->size = i;
-            break;
-        }
-    }
-
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
@@ -12662,8 +12693,8 @@ size_t llama_copy_state_data(struct llama_context * ctx, uint8_t * dst) {
 }
 
 // Sets the state reading from the specified source address
-size_t llama_set_state_data(struct llama_context * ctx, uint8_t * src) {
-    uint8_t * inp = src;
+size_t llama_set_state_data(struct llama_context * ctx, const uint8_t * src) {
+    const uint8_t * inp = src;
 
     // set rng
     {
@@ -12672,7 +12703,7 @@ size_t llama_set_state_data(struct llama_context * ctx, uint8_t * src) {
 
         GGML_ASSERT(rng_size <= LLAMA_MAX_RNG_STATE);
 
-        std::string rng_str((char *)inp, rng_size); inp += rng_size;
+        std::string rng_str((const char *)inp, rng_size); inp += rng_size;
 
         std::istringstream rng_ss(rng_str);
         rng_ss >> ctx->rng;
