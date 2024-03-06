@@ -32,7 +32,7 @@ typedef struct llama_sampling_params {
     float       mirostat_eta          = 0.10f;    // learning rate
     bool        penalize_nl           = true;     // consider newlines as a repeatable token
     //std::string samplers_sequence     = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
-    std::string samplers_sequence     = "kfymt"; // top_k, tail_free, typical_p, top_p, min_p, temp
+    std::string samplers_sequence     = "kfysmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
 
     std::string grammar;  // optional BNF-like grammar to constrain sampling
 
