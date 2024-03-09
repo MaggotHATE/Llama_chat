@@ -419,7 +419,7 @@ o/vk_sampling.o: base/sampling.cpp base/sampling.h
 o/vk_common.o: base/common.cpp base/common.h o/vk_sampling.o
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-o/vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h
+o/vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
     
 o/vk_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
@@ -531,7 +531,7 @@ o/cl_sampling.o: base/sampling.cpp base/sampling.h
 o/cl_common.o: base/common.cpp base/common.h o/cl_sampling.o
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
-o/cl_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h
+o/cl_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
     
 o/cl_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
