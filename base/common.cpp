@@ -403,6 +403,12 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.n_batch = std::stoi(argv[i]);
+        } else if (arg == "-ub" || arg == "--ubatch-size") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.n_ubatch = std::stoi(argv[i]);
         } else if (arg == "--keep") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -953,6 +959,7 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
 
     cparams.n_ctx             = params.n_ctx;
     cparams.n_batch           = params.n_batch;
+    cparams.n_ubatch          = params.n_ubatch;
     cparams.n_threads         = params.n_threads;
     cparams.n_threads_batch   = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
     cparams.seed              = params.seed;
@@ -1041,6 +1048,7 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
         std::vector<llama_token> tmp = { llama_token_bos(model), llama_token_eos(model), };
         llama_decode(lctx, llama_batch_get_one(tmp.data(), std::min(tmp.size(), (size_t) params.n_batch), 0, 0));
         llama_kv_cache_clear(lctx);
+        llama_synchronize(lctx);
         llama_reset_timings(lctx);
     }
 

@@ -234,8 +234,9 @@ extern "C" {
     struct llama_context_params {
         uint32_t seed;              // RNG seed, -1 for random
         uint32_t n_ctx;             // text context, 0 = from model
-        uint32_t n_batch;           // prompt processing maximum batch size
-        uint32_t n_parallel;        // number of parallel sequences (i.e. distinct states for recurrent models)
+        uint32_t n_batch;           // logical maximum batch size that can be submitted to llama_decode
+        uint32_t n_ubatch;          // physical maximum batch size
+        uint32_t n_seq_max;         // max number of sequences (i.e. distinct states for recurrent models)
         uint32_t n_threads;         // number of threads to use for generation
         uint32_t n_threads_batch;   // number of threads to use for batch processing
 
@@ -377,7 +378,8 @@ extern "C" {
 
     LLAMA_API uint32_t llama_n_ctx      (const struct llama_context * ctx);
     LLAMA_API uint32_t llama_n_batch    (const struct llama_context * ctx);
-    LLAMA_API uint32_t llama_n_max_seq  (const struct llama_context * ctx);
+    LLAMA_API uint32_t llama_n_ubatch   (const struct llama_context * ctx);
+    LLAMA_API uint32_t llama_n_seq_max  (const struct llama_context * ctx);
 
     LLAMA_API enum llama_vocab_type llama_vocab_type(const struct llama_model * model);
     LLAMA_API enum llama_rope_type  llama_rope_type (const struct llama_model * model);
@@ -456,7 +458,7 @@ extern "C" {
         // Maximum number of sequences that can exist in a cell. It's not an error
         // if there are more sequences in a cell than this value, however they will
         // not be visible in the view cells_sequences.
-        int32_t n_max_seq;
+        int32_t n_seq_max;
 
         // Number of tokens in the cache. For example, if there are two populated
         // cells, the first with 1 sequence id in it and the second with 2 sequence
@@ -476,12 +478,12 @@ extern "C" {
         // Information for an individual cell.
         struct llama_kv_cache_view_cell * cells;
 
-        // The sequences for each cell. There will be n_max_seq items per cell.
+        // The sequences for each cell. There will be n_seq_max items per cell.
         llama_seq_id * cells_sequences;
     };
 
     // Create an empty KV cache view. (use only for debugging purposes)
-    LLAMA_API struct llama_kv_cache_view llama_kv_cache_view_init(const struct llama_context * ctx, int32_t n_max_seq);
+    LLAMA_API struct llama_kv_cache_view llama_kv_cache_view_init(const struct llama_context * ctx, int32_t n_seq_max);
 
     // Free a KV cache view. (use only for debugging purposes)
     LLAMA_API void llama_kv_cache_view_free(struct llama_kv_cache_view * view);
@@ -650,6 +652,11 @@ extern "C" {
     // Set abort callback
     LLAMA_API void llama_set_abort_callback(struct llama_context * ctx, ggml_abort_callback abort_callback, void * abort_callback_data);
 
+    // Wait until all computations are finished
+    // This is automatically done when using one of the functions below to obtain the computation results
+    // and is not necessary to call it explicitly in most cases
+    LLAMA_API void llama_synchronize(struct llama_context * ctx);
+
     // Token logits obtained from the last call to llama_decode()
     // The logits for the last token are stored in the last row
     // Logits for which llama_batch.logits[i] == 0 are undefined
@@ -708,7 +715,7 @@ extern "C" {
 
     /// @details Convert the provided text into tokens.
     /// @param tokens The tokens pointer must be large enough to hold the resulting tokens.
-    /// @return Returns the number of tokens on success, no more than n_max_tokens
+    /// @return Returns the number of tokens on success, no more than n_tokens_max
     /// @return Returns a negative number on failure - the number of tokens that would have been returned
     /// @param special Allow tokenizing special and/or control tokens which otherwise are not exposed and treated as plaintext.
     ///                Does not insert a leading space.
@@ -717,7 +724,7 @@ extern "C" {
                       const char * text,
                          int32_t   text_len,
                      llama_token * tokens,
-                         int32_t   n_max_tokens,
+                         int32_t   n_tokens_max,
                             bool   add_bos,
                             bool   special);
 
