@@ -29,16 +29,16 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <format>
+
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #include <signal.h>
 #include <unistd.h>
-#define DELIMINER '\r'
+//#define DELIMINER '\r'
 #elif defined (_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#define DELIMINER '\n'
+//#define DELIMINER '\n'
 #include <windows.h>
 #include <signal.h>
 #endif
@@ -198,6 +198,7 @@ private:
     std::vector<llama_token_data> candidates;
     //llama_sampling_context ctx_sampling;
     //llama_sampling_params & sparams;
+    std::vector<std::vector<llama_token>> antiprompt_ids;
     int n_vocab;
     bool cleared              = true;
         
@@ -679,6 +680,15 @@ public:
         }
         
         return 2;
+    }
+    
+    void tokenize_antiprompt() {
+        // tokenized antiprompts
+
+        antiprompt_ids.reserve(params.antiprompt.size());
+        for (const std::string & antiprompt : params.antiprompt) {
+            antiprompt_ids.emplace_back(::llama_tokenize(ctx, antiprompt, false, true));
+        }
     }
     
     int loadModel(){
@@ -1253,6 +1263,20 @@ public:
         }
     }
     
+    void check_antiprompt_tkns() {
+        // check for reverse prompt using special tokens
+        llama_token last_token = llama_sampling_last(ctx_sampling);
+        for (std::vector<llama_token> ids : antiprompt_ids) {
+            if (ids.size() == 1 && last_token == ids[0]) {
+                if (params.interactive) {
+                    is_interacting = true;
+                }
+                is_antiprompt = true;
+                break;
+            }
+        }
+    }
+    
     //checking already existing contex
     int checkEmb(){
         if (debug) printf("-ce");
@@ -1380,7 +1404,7 @@ public:
     }
     
     // checking antiprompts 
-    int checkAntiprompt(){
+    int checkAntiprompt() {
         // check for reverse prompt in the last n_prev tokens
         if (params.antiprompt.size()) {
             //std::string last_output;
@@ -1414,6 +1438,8 @@ public:
                 }
             }
         }
+        
+        check_antiprompt_tkns();
         
         return 1;
     }
@@ -1774,6 +1800,8 @@ public:
         //candidates.reserve(n_vocab);
         
         //ctx_sampling = llama_sampling_init(params.sparams);
+        
+        tokenize_antiprompt();
         
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
             

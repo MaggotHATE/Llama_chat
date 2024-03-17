@@ -35,10 +35,13 @@ extern char const *LLAMA_COMMIT;
 extern char const *LLAMA_COMPILER;
 extern char const *LLAMA_BUILD_TARGET;
 
+struct llama_control_vector_load_info;
+
+int32_t get_num_physical_cores();
+
 //
 // CLI argument parsing
 //
-int32_t get_num_physical_cores();
 
 struct gpt_params {
     uint32_t seed               = -1;   // RNG seed
@@ -94,6 +97,11 @@ struct gpt_params {
     std::string format_dialog     = "bpiedbs";                              // format for interacive
     std::string bos               = "";
     std::string eos               = "";
+
+    std::vector<llama_control_vector_load_info> control_vectors; // control vector with user defined scale
+
+    int32_t control_vector_layer_start = -1; // layer range for control vector
+    int32_t control_vector_layer_end   = -1; // layer range for control vector
 
     int  ppl_stride               = 0;     // stride for perplexity calculations. If left at 0, the pre-existing approach will be used.
     int  ppl_output_type   = 0;     // = 0 -> ppl output is as usual, = 1 -> ppl output is num_tokens, ppl, one per line
@@ -230,3 +238,24 @@ void dump_non_result_info_yaml(
 //
 
 void llama_embd_normalize(const float * inp, float * out, int n);
+
+//
+// Control vector utils
+//
+
+struct llama_control_vector_data {
+    int n_embd;
+
+    // stores data for layers [1, n_layer] where n_layer = data.size() / n_embd
+    std::vector<float> data;
+};
+
+struct llama_control_vector_load_info {
+    float strength;
+
+    std::string fname;
+};
+
+// Load control vectors, scale each by strength, and add them together.
+// On error, returns {-1, empty}
+llama_control_vector_data llama_control_vector_load(const std::vector<llama_control_vector_load_info> & load_infos);
