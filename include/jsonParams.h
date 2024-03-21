@@ -354,6 +354,13 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_threads")) params.n_threads = config["n_threads"];
     if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = config["n_threads_batch"];
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
+
+#ifdef GGML_USE_VULKAN
+    if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
+#elif defined(GGML_USE_CLBLAST)
+    if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
+#endif
+
     if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
     if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
     if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
@@ -400,6 +407,9 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
         else if (config["rope_scaling_type"] == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
         else if (config["rope_scaling_type"] == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
     }
+    
+    if (checkJNum(config, "cache_type_k")) params.cache_type_k = config["cache_type_k"];
+    if (checkJNum(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
     
     std::cout << "headless: " << headless << std::endl;
     
