@@ -396,7 +396,7 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
 
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_ggml-quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o o/vk_unicode.o
+OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_ggml-quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o o/vk_unicode.o o/vk_unicode-data.o
 
 o/vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h
 	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
@@ -417,6 +417,9 @@ o/vk_sampling.o: base/sampling.cpp base/sampling.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
 o/vk_unicode.o: base/unicode.cpp base/unicode.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+o/vk_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/vk_common.o: base/common.cpp base/common.h o/vk_sampling.o
@@ -462,7 +465,7 @@ o/vk2_grammar-parser.o: VULKAN2/grammar-parser.cpp VULKAN2/grammar-parser.h
 #####################################
 ################################ GGUF
 
-OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/ggml-backend.o o/llama.o o/sampling.o o/common.o o/ggml-quants.o o/grammar-parser.o o/unicode.o
+OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/ggml-backend.o o/llama.o o/sampling.o o/common.o o/ggml-quants.o o/grammar-parser.o o/unicode.o o/unicode-data.o
   
 o/ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
@@ -489,7 +492,10 @@ o/sampling.o: base/sampling.cpp base/sampling.h o/grammar-parser.o
     
 o/unicode.o: base/unicode.cpp base/unicode.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
+
+o/unicode-data.o: base/unicode-data.cpp base/unicode-data.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 o/common.o: base/common.cpp base/common.h o/sampling.o
 	$(CXX) $(CXXFLAGS) -c $< -o $@
     
@@ -513,7 +519,7 @@ CXXFLAGS_UI_CL += -lclblast -lOpenCL
 
 
 #OBJS_GGUF_CL    = o/cl_ggml-quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml.o o/cl_ggml-alloc.o o/cl_ggml-backend.o o/cl_llama.o o/cl_sampling.o o/cl_common.o o/cl_grammar-parser.o
-OBJS_GGUF_CL    = o/cl_ggml.o o/cl_ggml-quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml-alloc.o o/cl_ggml-backend.o o/cl_llama.o o/cl_sampling.o o/cl_common.o o/cl_grammar-parser.o o/cl_unicode.o
+OBJS_GGUF_CL    = o/cl_ggml.o o/cl_ggml-quants.o o/cl_ggml-opencl-gguf.o o/cl_ggml-alloc.o o/cl_ggml-backend.o o/cl_llama.o o/cl_sampling.o o/cl_common.o o/cl_grammar-parser.o o/cl_unicode.o o/cl_unicode-data.o
 
 o/cl_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
@@ -535,6 +541,9 @@ o/cl_sampling.o: base/sampling.cpp base/sampling.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/cl_unicode.o: base/unicode.cpp base/unicode.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+o/cl_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/cl_common.o: base/common.cpp base/common.h o/cl_sampling.o

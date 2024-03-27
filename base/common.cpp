@@ -41,12 +41,12 @@
 #pragma warning(disable: 4244 4267) // possible loss of data
 #endif
 
-#if (defined(GGML_USE_CUBLAS) || defined(GGML_USE_SYCL))
-#define GGML_USE_CUBLAS_SYCL
+#if (defined(GGML_USE_CUDA) || defined(GGML_USE_SYCL))
+#define GGML_USE_CUDA_SYCL
 #endif
 
-#if (defined(GGML_USE_CUBLAS) || defined(GGML_USE_SYCL)) || defined(GGML_USE_VULKAN)
-#define GGML_USE_CUBLAS_SYCL_VULKAN
+#if (defined(GGML_USE_CUDA) || defined(GGML_USE_SYCL)) || defined(GGML_USE_VULKAN)
+#define GGML_USE_CUDA_SYCL_VULKAN
 #endif
 
 int32_t get_num_physical_cores() {
@@ -568,9 +568,9 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.main_gpu = std::stoi(argv[i]);
-#ifndef GGML_USE_CUBLAS_SYCL
+#ifndef GGML_USE_CUDA_SYCL
             fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS/SYCL. Setting the main GPU has no effect.\n");
-#endif // GGML_USE_CUBLAS_SYCL
+#endif // GGML_USE_CUDA_SYCL
         } else if (arg == "--split-mode" || arg == "-sm") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -587,9 +587,9 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
-#ifndef GGML_USE_CUBLAS_SYCL
+#ifndef GGML_USE_CUDA_SYCL
             fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS/SYCL. Setting the split mode has no effect.\n");
-#endif // GGML_USE_CUBLAS_SYCL
+#endif // GGML_USE_CUDA_SYCL
         } else if (arg == "--tensor-split" || arg == "-ts") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -612,9 +612,9 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                     params.tensor_split[i] = 0.0f;
                 }
             }
-#ifndef GGML_USE_CUBLAS_SYCL_VULKAN
+#ifndef GGML_USE_CUDA_SYCL_VULKAN
             fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS/SYCL/Vulkan. Setting a tensor split has no effect.\n");
-#endif // GGML_USE_CUBLAS_SYCL
+#endif // GGML_USE_CUDA_SYCL
         } else if (arg == "--no-mmap") {
             params.use_mmap = false;
         } else if (arg == "--numa") {
@@ -1356,7 +1356,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cpu_has_avx512_vbmi: %s\n", ggml_cpu_has_avx512_vbmi() ? "true" : "false");
     fprintf(stream, "cpu_has_avx512_vnni: %s\n", ggml_cpu_has_avx512_vnni() ? "true" : "false");
     fprintf(stream, "cpu_has_blas: %s\n",        ggml_cpu_has_blas()        ? "true" : "false");
-    fprintf(stream, "cpu_has_cublas: %s\n",      ggml_cpu_has_cublas()      ? "true" : "false");
+    fprintf(stream, "cpu_has_cuda: %s\n",        ggml_cpu_has_cuda()        ? "true" : "false");
     fprintf(stream, "cpu_has_vulkan: %s\n",      ggml_cpu_has_vulkan()      ? "true" : "false");
     fprintf(stream, "cpu_has_clblast: %s\n",     ggml_cpu_has_clblast()     ? "true" : "false");
     fprintf(stream, "cpu_has_fma: %s\n",         ggml_cpu_has_fma()         ? "true" : "false");
