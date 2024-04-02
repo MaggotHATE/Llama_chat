@@ -2100,9 +2100,9 @@ struct llama_context {
             ggml_backend_free(backend);
         }
 
-#ifdef GGML_USE_VULKAN
-        ggml_vk_free_cpu_assist();
-#endif
+// #ifdef GGML_USE_VULKAN
+        // ggml_vk_free_cpu_assist();
+// #endif
 
         ggml_backend_buffer_free(buf_output);
     }
@@ -5523,8 +5523,10 @@ static void llm_build_kv_store(
     GGML_ASSERT(kv.size == n_ctx);
 
     // compute the transposed [n_tokens, n_embd] V matrix
-    struct ggml_tensor * v_cur_t = ggml_transpose(ctx, ggml_reshape_2d(ctx, v_cur, n_embd_v_gqa, n_tokens));
+    //struct ggml_tensor * v_cur_t = ggml_transpose(ctx, ggml_reshape_2d(ctx, v_cur, n_embd_v_gqa, n_tokens));
     //struct ggml_tensor * v_cur_t = ggml_transpose(ctx, v_cur); // TODO: reshape above is likely not needed
+    assert(v_cur->ne[0] == n_embd_v_gqa && v_cur->ne[1] == n_tokens);
+    struct ggml_tensor * v_cur_t = ggml_transpose(ctx, v_cur);
     cb(v_cur_t, "v_cur_t", il);
 
     struct ggml_tensor * k_cache_view = ggml_view_1d(ctx, kv.k_l[il], n_tokens*n_embd_k_gqa,
@@ -14120,7 +14122,20 @@ struct llama_context * llama_new_context_with_model(
             }
         }
 #elif defined(GGML_USE_VULKAN)
-        if (model->n_gpu_layers > 0) {
+        if (model->split_mode == LLAMA_SPLIT_MODE_ROW) {
+            LLAMA_LOG_ERROR("%s: Row split not supported. Failed to initialize Vulkan backend\n", __func__);
+            llama_free(ctx);
+            return nullptr;
+        }
+        if (model->split_mode == LLAMA_SPLIT_MODE_NONE) {
+            ggml_backend_t backend = ggml_backend_vk_init(0);
+            if (backend == nullptr) {
+                LLAMA_LOG_ERROR("%s: failed to initialize Vulkan backend\n", __func__);
+                llama_free(ctx);
+                return nullptr;
+            }
+            ctx->backends.push_back(backend);
+        } else {
             for (int device = 0; device < ggml_backend_vk_get_device_count(); ++device) {
                 ggml_backend_t backend = ggml_backend_vk_init(device);
                 if (backend == nullptr) {
