@@ -230,6 +230,28 @@ static void sliderTempSmoothing(float& temp_smoothing, float& default_temp_smoot
     } ImGui::SameLine(); HelpMarker( ("Add more smooth temperature rise for better creativity. Default: " + std::to_string(default_temp_smoothing)).c_str());
 }
 
+static void sliderTempSmoothingCurve(float& smoothing_curve, float& default_smoothing_curve)
+{
+    {
+        if (ImGui::Button(" -##smoothing_curve")) {
+            smoothing_curve -= 0.001f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##smoothing_curve")) {
+            smoothing_curve += 0.001f;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderFloat("smoothing_curve", &smoothing_curve, 0.0f, 10.0f);
+    if (ImGui::BeginPopupContextItem("smoothing_curve"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            smoothing_curve = default_smoothing_curve;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker( ("Controls the curve of smooth temperature. Default: " + std::to_string(default_smoothing_curve)).c_str());
+}
+
 static void sliderDynatemp_range(float& dynatemp_range, float& temp, float& default_dynatemp_range)
 {
     {
@@ -242,14 +264,14 @@ static void sliderDynatemp_range(float& dynatemp_range, float& temp, float& defa
         }
         ImGui::SameLine();
     }
-    ImGui::SliderFloat(std::format("dynatemp_range ({:.2f} - {:.2f})",temp > dynatemp_range ? temp - dynatemp_range : 0, temp + dynatemp_range).c_str(), &dynatemp_range, 0.0f, 5.0f);
+    ImGui::SliderFloat("dynatemp_range", &dynatemp_range, 0.0f, 5.0f);
     if (ImGui::BeginPopupContextItem("dynatemp_range"))
     {
         if (ImGui::Selectable("Reset to default")){
             dynatemp_range = default_dynatemp_range;
         }
         ImGui::EndPopup();
-    } ImGui::SameLine(); HelpMarker( ("Dynamically adjusts randomness in a range of temp +- dynatemp_range. Activated if dynatemp_range > 0. Default: " + std::to_string(default_dynatemp_range)).c_str());
+    } ImGui::SameLine(); HelpMarker( (std::format("Dynamically adjusts randomness in a range of temp +- dynatemp_range. Activated if dynatemp_range > 0. Default: {:.2f}. Current: ({:.2f} - {:.2f})",default_dynatemp_range, temp > dynatemp_range ? temp - dynatemp_range : 0, temp + dynatemp_range)).c_str());
 }
 
 static void sliderTopK(int& top_k, int& default_top_k)
@@ -604,7 +626,9 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
         sliderTemp(params.sparams.temp, paramsDefault.sparams.temp);
         
-        sliderTempSmoothing(params.sparams.temp_smoothing, paramsDefault.sparams.temp_smoothing);
+        sliderTempSmoothing(params.sparams.smoothing_factor, paramsDefault.sparams.smoothing_factor);
+        
+        sliderTempSmoothingCurve(params.sparams.smoothing_curve, paramsDefault.sparams.smoothing_curve);
         
         sliderDynatemp_range(params.sparams.dynatemp_range, params.sparams.temp, paramsDefault.sparams.dynatemp_range);
         
@@ -809,6 +833,7 @@ struct imagesArray {
 
     MyTextureData* get_image(std::string key) {
         if (data.count(key) > 0) {
+            printf("getting %s\n", key.c_str());
             return &data.at(key);
         } else return &default_image;
     }
@@ -825,7 +850,9 @@ struct imagesArray {
     
     void load_images() {
         for (auto img : data) {
+            printf("-> %s\n", img.first.c_str());
             bool ret = LoadTextureFromFile(img.first.c_str(), &img.second);
+            IM_ASSERT(ret);
         }
     }
     
@@ -897,7 +924,8 @@ struct chatUI{
     bool copiedTimings = false;
     bool initTokens = false;
     bool hasModel = false;
-    int totalThreads = get_num_physical_cores();
+    //int totalThreads = get_num_physical_cores();
+    int totalThreads = get_math_cpu_count();
     
     int n_ctx_idx = 0;
     int tokens_this_session = 0;
@@ -1093,20 +1121,20 @@ struct chatUI{
                 if (copiedSettings){
                     ImGui::TextWrapped( ("SEED: " + std::to_string(localSettings.params.seed)).c_str() );
                    //ImGui::BeginChild("PreData");
-                    ImGui::TextWrapped( ("Base (initial) prompt: " + localSettings.params.prompt).c_str() ); ImGui::SameLine(); HelpMarker("This serves as the basis for the dialog, providing context. Make sure it ends with the antiptrompt if you don't want the NN to converse endlessly.");
-                    ImGui::Separator();
+                    //ImGui::TextWrapped( ("Base (initial) prompt: " + localSettings.params.prompt).c_str() ); ImGui::SameLine(); HelpMarker("This serves as the basis for the dialog, providing context. Make sure it ends with the antiptrompt if you don't want the NN to converse endlessly.");
+                    //ImGui::Separator();
                    //ImGui::EndChild();
-                    ImGui::TextWrapped( ("Antiprompt: " + localSettings.params.antiprompt[0]).c_str() ); ImGui::SameLine(); HelpMarker("This serves as a stop-word for the NN to be able to end generation and wait for your input.");
+                    //ImGui::TextWrapped( ("Antiprompt: " + localSettings.params.antiprompt[0]).c_str() ); ImGui::SameLine(); HelpMarker("This serves as a stop-word for the NN to be able to end generation and wait for your input.");
                     ImGui::Separator();
-    #if GGML_OLD_FORMAT
-                    ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.cfg_negative_prompt).c_str() ); 
-    #elif GGML_USE_VULKAN2
-                    ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sampling_params.cfg_negative_prompt).c_str() ); 
-    #else
-                    ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sparams.cfg_negative_prompt).c_str() ); 
-    #endif
-                    ImGui::SameLine(); HelpMarker("If cfg_scale > 1.0, CFG negative prompt is used for additional guiding.");
-                    ImGui::Separator();
+    // #if GGML_OLD_FORMAT
+                    // ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.cfg_negative_prompt).c_str() ); 
+    // #elif GGML_USE_VULKAN2
+                    // ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sampling_params.cfg_negative_prompt).c_str() ); 
+    // #else
+                    // ImGui::TextWrapped( ("CFG (negative) prompt: " + localSettings.params.sparams.cfg_negative_prompt).c_str() ); 
+    // #endif
+                    // ImGui::SameLine(); HelpMarker("If cfg_scale > 1.0, CFG negative prompt is used for additional guiding.");
+                    // ImGui::Separator();
                     
                     if (localSettings.params.rope_freq_scale != paramsDefault.rope_freq_scale){
                         ImGui::TextWrapped( ("rope_freq_scale: " + std::to_string(localSettings.params.rope_freq_scale)).c_str() ); ImGui::SameLine(); HelpMarker("Specific paramenter to adjust for extra large context models - needs to be (base model n_ctx)/(this model n_ctx), for example, 0.25 for llama2 (4096) -based everythinglm-13b-16k (16384)");
@@ -2191,7 +2219,7 @@ struct chatUI{
                 modelToConfig(localSettings.modelsFromConfig[n].first);
                 
                 if (localSettings.localConfig[localSettings.modelName].contains("img")) {
-                    current_image = images.get_image(localSettings.localConfig[localSettings.modelName].get<std::string>());
+                    current_image = images.get_image(localSettings.localConfig[localSettings.modelName]["img"].get<std::string>());
                 }
             }
             ImGui::PopStyleColor();
@@ -3611,6 +3639,8 @@ struct chatUI{
                 images.add(tmp["img"].get<std::string>());
             }
         }
+        if (localSettings.localConfig[localSettings.modelName].contains("img")) 
+            images.add(localSettings.localConfig[localSettings.modelName]["img"].get<std::string>());
     }
     
 #if defined(SDL2)
@@ -3621,15 +3651,26 @@ struct chatUI{
         if (!images.data.empty() && images.data.size() == images.sizes.size()) {
             images.load_images(renderer);
         }
+
+        if (localSettings.localConfig[localSettings.modelName].contains("img")) {
+            current_image = images.get_image(localSettings.localConfig[localSettings.modelName]["img"].get<std::string>());
+        } else current_image = &images.default_image
+        
 #else
     void preloadImage() {
         // bool ret = LoadTextureFromFile("default.png", &my_texture);
         // IM_ASSERT(ret);
         images.load_image("default.png");
-        current_image = &images.default_image;
+
         if (!images.data.empty()) {
+            printf("Preloading images:");
             images.load_images();
         }
+
+        // if (localSettings.localConfig[localSettings.modelName].contains("img")) {
+            // current_image = images.get_image(localSettings.localConfig[localSettings.modelName]["img"].get<std::string>());
+        // } else 
+            current_image = &images.default_image;
 #endif
     }
     
@@ -3804,9 +3845,7 @@ struct chatUI{
             for (int n = 0; n < localSettings.modelsFromConfig.size(); n++){
                 if (localSettings.modelName == localSettings.modelsFromConfig[n].first) {
                     mdlIdx = n;
-                    if (localSettings.localConfig[localSettings.modelName].contains("img")) {
-                        current_image = images.get_image(localSettings.localConfig[localSettings.modelName].get<std::string>());
-                    }
+                    
                     break;
                 }
             }

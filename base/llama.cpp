@@ -12127,13 +12127,29 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float min_temp, float max_temp, float exponent_val) {
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float min_temp, float max_temp, float exponent_val, float smoothing_factor, float smoothing_curve) {
     const int64_t t_start_sample_us = ggml_time_us();
 
     // no need to do anything if there is only one (or zero) candidates
-    if(candidates_p->size <= 1) {
+    if (candidates_p->size <= 1) {
         return;
     }
+
+    // Apply smoothing if smoothing_factor is > 0. Do not change base implementation otherwise.
+    if (smoothing_factor > 0 && candidates_p->size > 1) {
+        llama_sample_softmax(ctx, candidates_p);
+        float h = candidates_p->data[0].logit; // Find the maximum logit for h to be added after the transformation
+
+        // Apply the modified quadratic transformation using the smoothing_factor and smoothing_curve
+        for (size_t i = 0; i < candidates_p->size; ++i) {
+            float logit_shifted = candidates_p->data[i].logit - h;
+            float k = (3 - smoothing_curve) / 2;
+            float s = (smoothing_curve - 1) / 2;
+            candidates_p->data[i].logit = -(k * smoothing_factor * logit_shifted * logit_shifted) + (s * smoothing_factor * logit_shifted * logit_shifted * logit_shifted) + h;
+        }
+        llama_sample_softmax(ctx, candidates_p);
+    }
+
 
     // Calculate maximum possible entropy
     float max_entropy = -logf(1.0f / candidates_p->size);
@@ -12194,7 +12210,7 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates, float temp, float smoothing_factor) {
+void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates, float temp, float smoothing_factor, float smoothing_curve) {
     // Get current time
     const int64_t t_start_sample_us = ggml_time_us();
 
@@ -12224,7 +12240,7 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
             float normalized_logit = (candidates->data[i].logit - min_logit) / (max_logit - min_logit);
 
             // Apply the sigmoid function to the normalized logits
-            float sigmoid_logit = 1.0f / (1.0f + expf(-smoothing_factor * (normalized_logit - 0.5f)));
+            float sigmoid_logit = smoothing_curve / (smoothing_curve + expf(-smoothing_factor * (normalized_logit - 0.5f)));
 
             // Update the logits with the smoothed values
             candidates->data[i].logit = sigmoid_logit * (max_logit - min_logit) + min_logit;

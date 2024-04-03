@@ -3,7 +3,6 @@
 #include <future>
 #include <chrono>
 #include <thread>
-#include <locale>
 #include <codecvt>
 
 
@@ -180,7 +179,8 @@ struct modelThread{
     
     std::string display(){
         Clear();
-        std::string summary = "ChatTest ";
+        getTimigsPre();
+        std::string summary = " ";
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
@@ -206,7 +206,7 @@ struct modelThread{
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
         //#endif
         //std::cout << lastTimings << std::endl;
-        std::cout << std::format("Eval speed: {:.3f} t/s", lastSpeedPrompt) << std::format("\n Gen speed: {:.3f} t/s", lastSpeed) << std::endl;
+        std::cout << std::format("Eval speed: {:.3f} t/s", lastSpeedPrompt) << std::format(" | Gen speed: {:.3f} t/s", lastSpeed) << std::endl;
         std::cout << "----------------------------------------\n"<< std::endl;
         
         for (auto r : resultsStringPairs){
@@ -1153,7 +1153,9 @@ struct configurableChat{
         
         if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
         if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) modelConfig[model]["dynatemp_range"] = params.sparams.dynatemp_range;
-        if (params.sparams.temp_smoothing != paramsDefault.sparams.temp_smoothing) modelConfig[model]["temp_smoothing"] = params.sparams.temp_smoothing;
+        if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) modelConfig[model]["temp_smoothing"] = params.sparams.smoothing_factor;
+        if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) modelConfig[model]["smoothing_factor"] = params.sparams.smoothing_factor;
+        if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) modelConfig[model]["smoothing_curve"] = params.sparams.smoothing_curve;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) modelConfig[model]["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
@@ -1240,7 +1242,9 @@ struct configurableChat{
         
         if (params.sparams.temp != paramsDefault.sparams.temp) newCard["temp"] = params.sparams.temp;
         if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) newCard["dynatemp_range"] = params.sparams.dynatemp_range;
-        if (params.sparams.temp_smoothing != paramsDefault.sparams.temp_smoothing) newCard["temp_smoothing"] = params.sparams.temp_smoothing;
+        if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) newCard["temp_smoothing"] = params.sparams.smoothing_factor;
+        if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) newCard["smoothing_factor"] = params.sparams.smoothing_factor;
+        if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) newCard["smoothing_curve"] = params.sparams.smoothing_curve;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) newCard["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) newCard["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;

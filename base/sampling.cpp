@@ -126,7 +126,8 @@ void sampler_queue(
                                  size_t & min_keep) {
 
     const float       temp              = params.temp;
-    const float       temp_smoothing    = params.temp_smoothing;
+    const float       smoothing_factor  = params.smoothing_factor;
+    const float       smoothing_curve   = params.smoothing_curve;
     const float       dynatemp_range    = params.dynatemp_range;
     const int32_t     top_k             = params.top_k;
     const float       top_p             = params.top_p;
@@ -153,11 +154,11 @@ void sampler_queue(
                     dynatemp_min = dynatemp_min<0?0:dynatemp_min;
                     dynatemp_max = dynatemp_max<0?0:dynatemp_max;
 
-                    llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f);
+                    llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f, smoothing_factor, smoothing_curve);
                 }
                 else
                 {
-                    llama_sample_temp(ctx_main, &cur_p, temp, temp_smoothing);
+                    llama_sample_temp(ctx_main, &cur_p, temp, smoothing_factor, smoothing_curve);
                 }
 
                 break;
@@ -177,7 +178,8 @@ llama_token llama_sampling_sample(
     const int n_vocab = llama_n_vocab(llama_get_model(ctx_main));
 
     const float   temp              = params.temp;
-    const float   temp_smoothing    = params.temp_smoothing;
+    const float   smoothing_factor  = params.smoothing_factor;
+    const float   smoothing_curve   = params.smoothing_curve;
     const float   dynatemp_range    = params.dynatemp_range;
     const int32_t penalty_last_n    = params.penalty_last_n < 0 ? params.n_prev : params.penalty_last_n;
     const float   penalty_repeat    = params.penalty_repeat;
@@ -258,9 +260,9 @@ llama_token llama_sampling_sample(
                 dynatemp_min = dynatemp_min<0?0:dynatemp_min;
                 dynatemp_max = dynatemp_max<0?0:dynatemp_max;
 
-                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f);
+                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f, smoothing_factor, smoothing_curve);
             } else {
-                llama_sample_temp(ctx_main, &cur_p, temp, temp_smoothing);
+                llama_sample_temp(ctx_main, &cur_p, temp, smoothing_factor, smoothing_curve);
             }
             id = llama_sample_token_mirostat(ctx_main, &cur_p, mirostat_tau, mirostat_eta, mirostat_m, &ctx_sampling->mirostat_mu);
         } else if (mirostat == 2) {
@@ -272,9 +274,9 @@ llama_token llama_sampling_sample(
                 dynatemp_min = dynatemp_min<0?0:dynatemp_min;
                 dynatemp_max = dynatemp_max<0?0:dynatemp_max;
 
-                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f);
+                llama_sample_entropy(ctx_main, &cur_p, dynatemp_min, dynatemp_max, 1.0f, smoothing_factor, smoothing_curve);
             } else {
-                llama_sample_temp(ctx_main, &cur_p, temp, temp_smoothing);
+                llama_sample_temp(ctx_main, &cur_p, temp, smoothing_factor, smoothing_curve);
             }
             id = llama_sample_token_mirostat_v2(ctx_main, &cur_p, mirostat_tau, mirostat_eta, &ctx_sampling->mirostat_mu);
         } else {

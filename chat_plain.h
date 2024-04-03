@@ -471,7 +471,7 @@ public:
             } else { 
                 result += "temp "; 
                 if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
-                result += std::format("/{:.2f}", params.sparams.temp_smoothing); 
+                result += std::format("/{:.2f}", params.sparams.smoothing_factor); 
             }
             result += "-> mirostat = " + std::to_string(params.sparams.mirostat); 
             result += std::format("; mirostat_tau =  {:.2f}", params.sparams.mirostat_tau); 
@@ -493,11 +493,12 @@ public:
                     case 'm': result += "min_p "; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("= {:.2f}",params.sparams.min_p); break;
                     case 't': {
                             if (params.sparams.dynatemp_range > 0) {
-                                result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); 
+                                result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
+                                if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
                             } else { 
                                 result += "temp "; 
                                 if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
-                                result += std::format("/{:.2f}", params.sparams.temp_smoothing); 
+                                result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
                             }
                             break;
                         }
