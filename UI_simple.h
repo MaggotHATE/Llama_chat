@@ -3633,10 +3633,12 @@ struct chatUI{
 
     void fillImagesData() {
         nlohmann::json tmp;
-        for (const auto& dirEntry : std::filesystem::recursive_directory_iterator("characters")) {
-            tmp = getJson(dirEntry.path().string());
-            if (tmp.contains("img") && tmp["img"].is_string()) {
-                images.add(tmp["img"].get<std::string>());
+        if (std::filesystem::exists("characters")){
+            for (const auto& dirEntry : std::filesystem::recursive_directory_iterator("characters")) {
+                tmp = getJson(dirEntry.path().string());
+                if (tmp.contains("img") && tmp["img"].is_string()) {
+                    images.add(tmp["img"].get<std::string>());
+                }
             }
         }
         if (localSettings.localConfig[localSettings.modelName].contains("img")) 

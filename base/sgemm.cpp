@@ -1,6 +1,3 @@
-// -*- mode:c++;indent-tabs-mode:nil;c-basic-offset:4;coding:utf-8 -*-
-// vi: set et ft=c++ ts=4 sts=4 sw=4 fenc=utf-8 :vi
-//
 // Copyright 2024 Mozilla Foundation
 //
 // Permission is hereby granted, free of charge, to any person obtaining
@@ -137,7 +134,7 @@ inline float hsum(float32x4_t x) {
 
 #if defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC) && !defined(_MSC_VER)
 inline float hsum(float16x8_t x) {
-    return vaddvq_f32(vaddq_f32(vcvt_f32_f16(vget_low_f16(x)), 
+    return vaddvq_f32(vaddq_f32(vcvt_f32_f16(vget_low_f16(x)),
                                 vcvt_f32_f16(vget_high_f16(x))));
 }
 #endif // __ARM_FEATURE_FP16_VECTOR_ARITHMETIC
@@ -208,6 +205,22 @@ template <> inline __m512 load(const half *p) {
     return _mm512_cvtph_ps(_mm256_loadu_si256((const __m256i *)p));
 }
 #endif // __AVX512F__
+
+// override intrinsic for avx support
+#if defined(__AVX2__)
+inline __m256i signepi8(__m256i a, __m256i b) {
+    return _mm256_sign_epi8(a, b);
+}
+#elif defined(__AVX__)
+inline __m256i signepi8(__m256i a, __m256i b) {
+    const __m128i a128_0 = _mm256_extractf128_si256(a, 0);
+    const __m128i a128_1 = _mm256_extractf128_si256(a, 1);
+    const __m128i b128_0 = _mm256_extractf128_si256(b, 0);
+    const __m128i b128_1 = _mm256_extractf128_si256(b, 1);
+    return MM256_SET_M128I(_mm_sign_epi8(a128_1, b128_1), _mm_sign_epi8(a128_0, b128_0));
+}
+#endif
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ABSTRACTIONS
@@ -637,7 +650,7 @@ class tinyBLAS_Q0_ARM {
 };
 #endif // __ARM_FEATURE_DOTPROD
 
-#if defined(__AVX2__) || defined(__AVX512F__)
+#if defined(__AVX2__) || defined(__AVX512F__) || defined (__AVX__)
 template <typename TA, typename TB, typename TC>
 class tinyBLAS_Q0_AVX2 {
   public:
@@ -718,11 +731,11 @@ class tinyBLAS_Q0_AVX2 {
             __m256 d20 = _mm256_set1_ps(da2 * db0);
             __m256 d30 = _mm256_set1_ps(da3 * db0);
             __m256i f0 = load(Bp0 + l);
-            __m256i u0 = _mm256_sign_epi8(f0, f0);
-            __m256i s00 = _mm256_sign_epi8(e0, f0);
-            __m256i s10 = _mm256_sign_epi8(e1, f0);
-            __m256i s20 = _mm256_sign_epi8(e2, f0);
-            __m256i s30 = _mm256_sign_epi8(e3, f0);
+            __m256i u0 = signepi8(f0, f0);
+            __m256i s00 = signepi8(e0, f0);
+            __m256i s10 = signepi8(e1, f0);
+            __m256i s20 = signepi8(e2, f0);
+            __m256i s30 = signepi8(e3, f0);
             c00 = madd(d00, updot(u0, s00), c00);
             c10 = madd(d10, updot(u0, s10), c10);
             c20 = madd(d20, updot(u0, s20), c20);
@@ -733,11 +746,11 @@ class tinyBLAS_Q0_AVX2 {
             __m256 d21 = _mm256_set1_ps(da2 * db1);
             __m256 d31 = _mm256_set1_ps(da3 * db1);
             __m256i f1 = load(Bp1 + l);
-            __m256i u1 = _mm256_sign_epi8(f1, f1);
-            __m256i s01 = _mm256_sign_epi8(e0, f1);
-            __m256i s11 = _mm256_sign_epi8(e1, f1);
-            __m256i s21 = _mm256_sign_epi8(e2, f1);
-            __m256i s31 = _mm256_sign_epi8(e3, f1);
+            __m256i u1 = signepi8(f1, f1);
+            __m256i s01 = signepi8(e0, f1);
+            __m256i s11 = signepi8(e1, f1);
+            __m256i s21 = signepi8(e2, f1);
+            __m256i s31 = signepi8(e3, f1);
             c01 = madd(d01, updot(u1, s01), c01);
             c11 = madd(d11, updot(u1, s11), c11);
             c21 = madd(d21, updot(u1, s21), c21);
@@ -748,11 +761,11 @@ class tinyBLAS_Q0_AVX2 {
             __m256 d22 = _mm256_set1_ps(da2 * db2);
             __m256 d32 = _mm256_set1_ps(da3 * db2);
             __m256i f2 = load(Bp2 + l);
-            __m256i u2 = _mm256_sign_epi8(f2, f2);
-            __m256i s02 = _mm256_sign_epi8(e0, f2);
-            __m256i s12 = _mm256_sign_epi8(e1, f2);
-            __m256i s22 = _mm256_sign_epi8(e2, f2);
-            __m256i s32 = _mm256_sign_epi8(e3, f2);
+            __m256i u2 = signepi8(f2, f2);
+            __m256i s02 = signepi8(e0, f2);
+            __m256i s12 = signepi8(e1, f2);
+            __m256i s22 = signepi8(e2, f2);
+            __m256i s32 = signepi8(e3, f2);
             c02 = madd(d02, updot(u2, s02), c02);
             c12 = madd(d12, updot(u2, s12), c12);
             c22 = madd(d22, updot(u2, s22), c22);
@@ -787,7 +800,7 @@ class tinyBLAS_Q0_AVX2 {
         for (int l = 0; l < k; ++l) {
             float db0 = unhalf(Bp[l].d);
             __m256i f = load(Bp + l);
-            __m256i u = _mm256_sign_epi8(f, f);
+            __m256i u = signepi8(f, f);
             __m256 d0 = _mm256_set1_ps(unhalf(Ap0[l].d) * db0);
             __m256 d1 = _mm256_set1_ps(unhalf(Ap1[l].d) * db0);
             __m256 d2 = _mm256_set1_ps(unhalf(Ap2[l].d) * db0);
@@ -796,10 +809,10 @@ class tinyBLAS_Q0_AVX2 {
             __m256i e1 = load(Ap1 + l);
             __m256i e2 = load(Ap2 + l);
             __m256i e3 = load(Ap3 + l);
-            __m256i s0 = _mm256_sign_epi8(e0, f);
-            __m256i s1 = _mm256_sign_epi8(e1, f);
-            __m256i s2 = _mm256_sign_epi8(e2, f);
-            __m256i s3 = _mm256_sign_epi8(e3, f);
+            __m256i s0 = signepi8(e0, f);
+            __m256i s1 = signepi8(e1, f);
+            __m256i s2 = signepi8(e2, f);
+            __m256i s3 = signepi8(e3, f);
             __m256 g0 = updot(u, s0);
             __m256 g1 = updot(u, s1);
             __m256 g2 = updot(u, s2);
@@ -830,15 +843,15 @@ class tinyBLAS_Q0_AVX2 {
         for (int l = 0; l < k; ++l) {
             float da0 = unhalf(Ap[l].d);
             __m256i f = load(Ap + l);
-            __m256i u = _mm256_sign_epi8(f, f);
+            __m256i u = signepi8(f, f);
             __m256 d0 = _mm256_set1_ps(unhalf(Bp0[l].d) * da0);
             __m256 d1 = _mm256_set1_ps(unhalf(Bp1[l].d) * da0);
             __m256 d2 = _mm256_set1_ps(unhalf(Bp2[l].d) * da0);
             __m256 d3 = _mm256_set1_ps(unhalf(Bp3[l].d) * da0);
-            __m256 g0 = updot(u, _mm256_sign_epi8(load(Bp0 + l), f));
-            __m256 g1 = updot(u, _mm256_sign_epi8(load(Bp1 + l), f));
-            __m256 g2 = updot(u, _mm256_sign_epi8(load(Bp2 + l), f));
-            __m256 g3 = updot(u, _mm256_sign_epi8(load(Bp3 + l), f));
+            __m256 g0 = updot(u, signepi8(load(Bp0 + l), f));
+            __m256 g1 = updot(u, signepi8(load(Bp1 + l), f));
+            __m256 g2 = updot(u, signepi8(load(Bp2 + l), f));
+            __m256 g3 = updot(u, signepi8(load(Bp3 + l), f));
             c0 = madd(d0, g0, c0);
             c1 = madd(d1, g1, c1);
             c2 = madd(d2, g2, c2);
@@ -860,7 +873,7 @@ class tinyBLAS_Q0_AVX2 {
             __m256 d = _mm256_set1_ps(unhalf(Ap[l].d) * unhalf(Bp[l].d));
             __m256i e = load(Ap + l);
             __m256i f = load(Bp + l);
-            __m256 g = updot(_mm256_sign_epi8(e, e), _mm256_sign_epi8(f, e));
+            __m256 g = updot(signepi8(e, e), signepi8(f, e));
             c = madd(d, g, c);
         }
         C[ldc * j + i] = hsum(c);
@@ -872,14 +885,25 @@ class tinyBLAS_Q0_AVX2 {
     }
 
     inline __m256i load(const block_q4_0 *b) {
+#if defined(__AVX2__)
         return _mm256_sub_epi8(denibble(b->qs), _mm256_set1_epi8(8));
+#elif defined(__AVX__)
+        const __m128i denibble128_0 = _mm256_extractf128_si256(denibble(b->qs), 0);
+        const __m128i denibble128_1 = _mm256_extractf128_si256(denibble(b->qs), 1);
+        return MM256_SET_M128I(_mm_sub_epi8(denibble128_1, _mm_set1_epi8(8)), _mm_sub_epi8(denibble128_0, _mm_set1_epi8(8)));
+#endif
     }
 
     inline __m256 updot(__m256i u, __m256i s) {
         __m256i res;
 #if defined(__AVXVNNI__) || (defined(__AVX512VNNI__) && defined(__AVX512VL__))
         res = _mm256_dpbusd_epi32(_mm256_setzero_si256(), u, s);
-#else
+#elif defined(__AVX__)
+        const __m128i u_s_maddubs0 = _mm_maddubs_epi16(_mm256_extractf128_si256(u, 0), _mm256_extractf128_si256(s, 0));
+        const __m128i u_s_maddubs1 = _mm_maddubs_epi16(_mm256_extractf128_si256(u, 1), _mm256_extractf128_si256(s, 1));
+        const __m128i onefill = _mm_set1_epi16(1);
+        res = MM256_SET_M128I(_mm_madd_epi16(onefill, u_s_maddubs1), _mm_madd_epi16(onefill, u_s_maddubs0));
+#else // avx2
         res = _mm256_madd_epi16(_mm256_set1_epi16(1), _mm256_maddubs_epi16(u, s));
 #endif
         return _mm256_cvtepi32_ps(res);
@@ -887,9 +911,15 @@ class tinyBLAS_Q0_AVX2 {
 
     static inline __m256i denibble(const uint8_t *p) {
         const __m128i tmp = _mm_loadu_si128((const __m128i *)p);
+#if defined(__AVX2__)
         const __m256i bytes = MM256_SET_M128I(_mm_srli_epi16(tmp, 4), tmp);
         const __m256i lowMask = _mm256_set1_epi8(15);
         return _mm256_and_si256(lowMask, bytes);
+#elif defined(__AVX__)
+        const __m128i maskedLow = _mm_and_si128(_mm_set1_epi8(15), tmp);
+        const __m128i maskedHigh = _mm_and_si128(_mm_set1_epi8(15), _mm_srli_epi16(tmp, 4));
+        return MM256_SET_M128I(maskedHigh, maskedLow);
+#endif
     }
 
     const TA *const A;
@@ -1032,25 +1062,22 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             ith, nth};
         tb.matmul(m, n);
         return true;
-#elif defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC) && !defined(_MSC_VER)
-        if (n < 4)
-            return false;
-        if (k % 8)
-            return false;
-        if (Btype != GGML_TYPE_F16)
-            return false;
-        if (task != GGML_TASK_TYPE_COMPUTE)
-            return true;
-        tinyBLAS<8, float16x8_t, half, half, float> tb{
-            k, (const half *)A, lda,
-            (const half *)B, ldb,
-            (float *)C, ldc,
-            ith, nth};
-        tb.matmul(m, n);
-        return true;
 #elif defined(__ARM_NEON) && !defined(_MSC_VER)
         if (n < 4)
             return false;
+#if defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+        if (Btype == GGML_TYPE_F16 && !(k % 8)) {
+            if (task != GGML_TASK_TYPE_COMPUTE)
+                return true;
+            tinyBLAS<8, float16x8_t, half, half, float> tb{
+                k, (const half *)A, lda,
+                (const half *)B, ldb,
+                (float *)C, ldc,
+                ith, nth};
+            tb.matmul(m, n);
+            return true;
+        }
+#endif
         if (k % 4)
             return false;
         if (Btype != GGML_TYPE_F32)
@@ -1070,7 +1097,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
     }
 
     case GGML_TYPE_Q8_0: {
-#if defined(__AVX2__) || defined(__AVX512F__)
+#if defined(__AVX2__) || defined(__AVX512F__) || defined(__AVX__)
         if (k % 32)
             return false;
         if (Btype != GGML_TYPE_Q8_0)
@@ -1104,7 +1131,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
     }
 
     case GGML_TYPE_Q4_0: {
-#if defined(__AVX2__) || defined(__AVX512F__)
+#if defined(__AVX2__) || defined(__AVX512F__) || defined(__AVX__)
         if (k % 32)
             return false;
         if (Btype != GGML_TYPE_Q8_0)

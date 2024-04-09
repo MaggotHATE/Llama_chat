@@ -869,7 +869,7 @@ public:
                 
                 session_tokens.resize(n_ctx);
                 size_t n_token_count_out = 0;
-                if (!llama_load_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.capacity(), &n_token_count_out)) {
+                if (!llama_state_load_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.capacity(), &n_token_count_out)) {
                     fprintf(stderr, "%s: error: failed to load session file '%s'\n", __func__, path_session.c_str());
                     return 1;
                 }
@@ -1316,7 +1316,7 @@ public:
         // optionally save the session on first sample (for faster prompt loading next time)
         if (!path_session.empty() && need_to_save_session && !params.prompt_cache_ro) {
             need_to_save_session = false;
-            llama_save_session_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
+            llama_state_save_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
         }
         
         

@@ -260,3 +260,5 @@ struct llama_control_vector_load_info {
 // Load control vectors, scale each by strength, and add them together.
 // On error, returns {-1, empty}
 llama_control_vector_data llama_control_vector_load(const std::vector<llama_control_vector_load_info> & load_infos);
+
+bool validate_file_name(const std::string & filename);
