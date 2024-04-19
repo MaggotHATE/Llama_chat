@@ -214,7 +214,7 @@ endif
 CFLAGS = $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 
 #for all chatTest
-CXXFLAGS = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG -march=native -mtune=native -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -DGGML_USE_LLAMAFILE -w -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
@@ -396,110 +396,87 @@ o/old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
 
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_ggml-quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o o/vk_unicode.o o/vk_unicode-data.o
+OBJS_VK = o/vk_ggml.o o/vk_ggml-alloc.o o/vk_ggml-backend.o o/vk_llama.o o/vk_sampling.o o/vk_common.o o/vk_ggml-quants.o o/vk_grammar-parser.o o/vk_ggml-vulkan.o o/vk_unicode.o o/vk_unicode-data.o o/vk_sgemm.o
 
-o/vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h
-	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
-    
-o/vk_ggml-backend.o: base/ggml-backend.c base/ggml.h VULKAN/ggml-backend.h
+o/vk_ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
-
-o/vk_ggml.o: base/ggml.c GGML/ggml.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
-    
+	
 o/vk_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+	
+o/vk_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+	
+o/vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
 
-o/vk_llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-    
-o/vk_sampling.o: base/sampling.cpp base/sampling.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-
+o/vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
+	$(CC) $(CFLAGS_VK)    -c $< -o $@
+	
 o/vk_unicode.o: base/unicode.cpp base/unicode.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
 o/vk_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+	
+o/vk_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+	
+VK_COMMON_H_DEPS = base/common.h base/sampling.h
+VK_COMMON_DEPS   = o/vk_common.o o/vk_sampling.o o/vk_grammar-parser.o
 
-o/vk_common.o: base/common.cpp base/common.h o/vk_sampling.o
+o/vk_common.o: base/common.cpp $(VK_COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+	
+o/vk_sampling.o: base/sampling.cpp $(VK_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-o/vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
-	$(CC) $(CFLAGS)    -c $< -o $@
+	
+o/vk_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
 o/vk_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-    
-#VULKAN2
-
-OBJS_VK2 = o/vk2_ggml.o o/vk2_llama.o o/vk2_common.o o/vk2_sampling.o o/vk2_grammar-parser.o o/vk2_ggml-vulkan.o o/vk2_ggml-alloc.o o/vk2_ggml-backend.o o/vk2_ggml-quants.o
-
-o/vk2_ggml-vulkan.o: VULKAN2/ggml-vulkan.cpp VULKAN2/ggml-vulkan.h
-	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
-    
-o/vk2_ggml-backend.o: VULKAN2/ggml-backend.c VULKAN2/ggml.h VULKAN2/ggml-backend.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
-
-o/vk2_ggml.o: VULKAN2/ggml.c GGML/ggml.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
-    
-o/vk2_ggml-alloc.o: VULKAN2/ggml-alloc.c VULKAN2/ggml.h VULKAN2/ggml-alloc.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
-
-o/vk2_llama.o: VULKAN2/llama.cpp VULKAN2/ggml.h VULKAN2/ggml-alloc.h VULKAN2/ggml-backend.h VULKAN2/llama.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-    
-o/vk2_sampling.o: VULKAN2/sampling.cpp VULKAN2/sampling.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-
-o/vk2_common.o: VULKAN2/common.cpp VULKAN2/common.h o/vk2_sampling.o
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
-    
-o/vk2_ggml-quants.o: VULKAN2/ggml-quants.c VULKAN2/ggml.h VULKAN2/ggml-quants.h
-	$(CC) $(CFLAGS)    -c $< -o $@
-    
-o/vk2_grammar-parser.o: VULKAN2/grammar-parser.cpp VULKAN2/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
   
 #####################################
 ################################ GGUF
 
 OBJS_GGUF = o/ggml.o o/ggml-alloc.o o/ggml-backend.o o/llama.o o/sampling.o o/common.o o/ggml-quants.o o/grammar-parser.o o/unicode.o o/unicode-data.o o/sgemm.o
-  
-o/ggml.o: base/ggml.c base/ggml.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
     
 o/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
-    
-    
+
+o/ggml.o: base/ggml.c base/ggml.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+	
 o/ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
-    
+	
 o/ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
-    
-o/ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h
+
+o/ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
-
-#base/threadpool.h
-o/llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/sampling.o: base/sampling.cpp base/sampling.h o/grammar-parser.o
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
+	
 o/unicode.o: base/unicode.cpp base/unicode.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 o/unicode-data.o: base/unicode-data.cpp base/unicode-data.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
+	
+o/llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+COMMON_H_DEPS = base/common.h base/sampling.h
+COMMON_DEPS   = o/common.o o/sampling.o o/grammar-parser.o
 
-o/common.o: base/common.cpp base/common.h o/sampling.o
+o/common.o: base/common.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+o/sampling.o: base/sampling.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+o/sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
     
 o/grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
@@ -527,38 +504,39 @@ OBJS_GGUF_CL    = o/cl_ggml.o o/cl_ggml-quants.o o/cl_ggml-opencl-gguf.o o/cl_gg
 o/cl_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
+o/cl_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
 o/cl_ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS_CL)   -c $< -o $@
-    
+	
 o/cl_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	$(CC)  $(CFLAGS_CL)   -c $< -o $@
-    
+	
 o/cl_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
-
-#base/threadpool.h
-o/cl_llama.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-o/cl_sampling.o: base/sampling.cpp base/sampling.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/cl_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/cl_unicode.o: base/unicode.cpp base/unicode.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/cl_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-o/cl_common.o: base/common.cpp base/common.h o/cl_sampling.o
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
+	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+	
 o/cl_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
-    
-o/cl_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
+	
+o/cl_unicode.o: base/unicode.cpp base/unicode.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+o/cl_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
+o/cl_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
+CL_COMMON_H_DEPS = base/common.h base/sampling.h
+
+o/cl_common.o: base/common.cpp $(CL_COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
+o/cl_sampling.o: base/sampling.cpp $(CL_COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
+o/cl_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
 # pre-backend
@@ -656,6 +634,9 @@ demo: $(EXE)
 demo_cl: $(EXE_CL)
 	@echo Build $(EXE_CL) complete for $(ECHO_MESSAGE)
     
+demo_mini: $(EXE)_mini
+	@echo Build $(EXE)_mini complete for $(ECHO_MESSAGE)
+    
 demo_cl_mini: $(EXE_CL)_mini
 	@echo Build $(EXE_CL)_mini complete for $(ECHO_MESSAGE)
     
@@ -714,6 +695,9 @@ all_ggml: $(EXE_GGML) chatTest_ggml
     
 $(EXE): $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h UI.h llama_chat1.res
 	 $(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
+     
+$(EXE)_mini: $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
+	 $(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS) $(LIBS)
     
 chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@

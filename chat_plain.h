@@ -467,21 +467,17 @@ public:
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
             if (params.sparams.dynatemp_range > 0) {
-                result += std::format("dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range); 
-            } else { 
-                result += "temp "; 
-                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
-                result += std::format("/{:.2f}", params.sparams.smoothing_factor); 
-            }
+				result += std::format("-> dynatemp_range ({:.2f} - {:.2f})",params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
+				if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
+			} else { 
+				result += "temp "; 
+				if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
+				result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
+			}
             result += "-> mirostat = " + std::to_string(params.sparams.mirostat); 
             result += std::format("; mirostat_tau =  {:.2f}", params.sparams.mirostat_tau); 
             result += std::format("; mirostat_eta = {:.2f}", params.sparams.mirostat_eta);
         } else {
-            // if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "\n top_k = " + std::to_string(params.sparams.top_k);
-            // if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result +="\n tfs_z = " + std::to_string(params.sparams.tfs_z); 
-            // if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += "\n typical_p = " + std::to_string(params.sparams.typical_p); 
-            // if (params.sparams.top_p != paramsDefault.sparams.top_p) result += "\n top_p = " + std::to_string(params.sparams.top_p);
-            // if (params.sparams.min_p != paramsDefault.sparams.min_p) result += "\n min_p = " + std::to_string(params.sparams.min_p);
             for (auto s : params.sparams.samplers_sequence){
                 result += "-> ";
                 switch (s){

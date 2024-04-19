@@ -15,18 +15,56 @@ std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
 
+struct Lineup {
+    bool run = false;
+    
+    char process(std::string& choice) {
+        if (choice == "restart") {
+            return 't';
+        } else if (choice == "regen") {
+            return 'r';
+        } else if (choice == "regens") {
+            run = true;
+            return 'R';
+        } else if (choice == "units") {
+            return 'u';
+        } else if (choice == "save") {
+            return 's';
+        } else if (choice == "cycle") {
+            run = true;
+            return 'c';
+        } else if (choice == "unicycle") {
+            run = true;
+            return 'i';
+        } else if (choice == "test") {
+            run = true;
+            return 'T';
+        } else {
+            return 'I';
+        }
+
+        return 0;
+    }
+    
+};
+
 int main(int argc, char ** argv) {
     std::string test_char_descr = "";
     wildcardGen Card;
     presetTest Test;
     std::string inputPrompt;
     std::string filename;
-    bool busy = false;
+    //bool busy = false;
     int regens = 0;
     bool regen = false;
     
+    
+    nlohmann::json queue;
+    queue["choices"] = {"stop", "input"};
+    Lineup queue_logic;
+    
     std::setlocale(LC_CTYPE, ".UTF8");
-    SetConsoleCP(CP_UTF8);
+    //SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
     //SetConsoleOutputCP(1251);
     //SetConsoleCP(1251);
@@ -69,6 +107,8 @@ int main(int argc, char ** argv) {
     modelThread threadedChat;
     //threadedChat.switch_debug();
     
+    std::string window_title = "ChatTest";
+   
     
     if (filename.rfind(".json") != filename.npos){
         SetConsoleTitle("Loading a json file...");
@@ -93,8 +133,16 @@ int main(int argc, char ** argv) {
     } else if (filename.rfind(".txt") != filename.npos) {
         SetConsoleTitle("Loading a text file...");
         std::cout << "Opening text file " << filename << std::endl;
+        window_title = "ChatTest: TXT ";
         inputPrompt = getText(filename);
-        busy = true;
+        //busy = true;
+        queue_logic.run = true;
+        if (filename.rfind("regens.txt") != filename.npos) {
+            regens = 20;
+            queue["choices"].push_back("regens");
+            //queue["choices"].push_back("input1");
+            //threadedChat.externalData = "Cycles left: " + std::to_string(regens);
+        }
     }
     
     std::cout << settings.modelConfig.dump(3) << std::endl; 
@@ -112,7 +160,15 @@ int main(int argc, char ** argv) {
     std::string input1;
     bool cycling = 0;
     
-    SetConsoleTitle("ChatTest ");
+    // if (threadedChat.isContinue != 'i') {
+        // SetConsoleTitle("Ready...");
+        // std::cout << "Loading finished!" << filename << std::endl;
+    // }
+    
+    // std::getline(std::cin, input1);
+    
+    SetConsoleTitle(window_title.c_str());
+    
     bool running = true;
       while (running) {
         //std::cout << "Loaded " << std::to_string(loaded) << std::endl;
@@ -121,7 +177,7 @@ int main(int argc, char ** argv) {
             //else 
             std::this_thread::sleep_for(std::chrono::milliseconds(latency));
             if (threadedChat.isContinue == 'w') {
-                SetConsoleTitle(threadedChat.display().c_str());
+			SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display()).c_str());
             }
             //if (threadedChat.loaded == 9) threadedChat.display();
         } else {
@@ -136,167 +192,139 @@ int main(int argc, char ** argv) {
                      std::cout << threadedChat.newChat.params.antiprompt[0] << threadedChat.newChat.params.input_prefix;
                 else std::cout << threadedChat.newChat.params.input_prefix;
                 
-                //std::cout << threadedChat.newChat.params.input_prefix << ">";
                 std::string input;
-                if (!busy){
-                    if (filename.rfind("regens.txt") != filename.npos) {
-                        input = "regens";
-                    } else 
-                        std::getline(std::cin, input);
-                } else {
-                    if (regens > 0) {
-                        threadedChat.writeTextFile("tales/",std::to_string(regens));
+                
+                // if (queue_logic.run == false){
+                    // if (filename.rfind("regens.txt") != filename.npos) {
+                        // window_title = "ChatTest: Regens TXT ";
+                        // input = "regens";
+                    // } else 
+                        // std::getline(std::cin, input);
+                // } else {
+                    // if (regens > 0) {
+                        // threadedChat.writeTextFile("tales/",std::to_string(regens));
+                        // --regens;
+                        // threadedChat.externalData = "Cycles left: " + std::to_string(regens);
+                        // input = "regen";
+                        // if (regens == 1) {
+                            // queue_logic.run = false;
+                        // }
+                    // } else if (!inputPrompt.empty()) {
+                        // input = inputPrompt;
+                        // inputPrompt.clear();
+                        // queue_logic.run = false;
+                    // }
+                // }
+                if (queue["choices"].back() == "regens") {
+                    if (regens >= 1) {
+                        if (regens < 20) {
+                            threadedChat.writeTextFile("tales/",std::to_string(regens));
+                            input = "regen";
+                            threadedChat.externalData = "Cycles left: " + std::to_string(regens);
+                        }
                         --regens;
                         threadedChat.externalData = "Cycles left: " + std::to_string(regens);
-                        input = "regen";
-                        if (regens == 1) {
-                            busy = false;
-                        }
-                    } else if (Card.cycles >= 0) {
-                        std::cout << "Card cycles " << std::to_string(Card.cycles) << std::endl;
-                        if(cycling == 1){
-                            threadedChat.writeTextFileFull(Card.saveFolder + '/', std::to_string(Card.seed) + "-" + Card.subname + "-" + std::to_string(Card.cycles));
-                            if (Card.cycles == 0) {
-                                return 0;
-                            } else {
-                                cycling = 0;
-                                input = "restart";
-                                settings.modelConfig["card"] = Card.preset;
-                                //threadedChat.unload();
-                                //threadedChat.load(settings.modelConfig, false);
-                            }
-                        } else {
-                            --Card.cycles;
-                            threadedChat.externalData = Card.preset + "\nCycles left: " + std::to_string(Card.cycles);
-                            Card.getPrompt();
-                            input = Card.prompt;
-                            cycling = 1;
-                        }
-                    } else if (Test.cycle < Test.presetsNames.size()) {
-                        std::cout << "Test cycle " << std::to_string(Test.cycle) << std::endl;
-                        if(cycling == 1){
-                            std::string name = Test.presetsNames[Test.cycle];
-                            
-                            size_t slash = Test.presetsNames[Test.cycle].rfind('/');
-                            if (slash != Test.presetsNames[Test.cycle].npos) name = Test.presetsNames[Test.cycle].substr(slash+1);
-                            
-                            name = std::to_string(Test.seed) + "-" + name;
-                            std::cout << "Writing into " << name << std::endl;
-                            
-                            threadedChat.writeTextFileFull(Test.saveFolder + '/', name);
-                            Test.cycle++;
-                            
-                            if (Test.cycle == Test.presetsNames.size()) {
-                                return 0;
-                            } else {
-                                cycling = 0;
-                                input = "restart";
-                                //threadedChat.unload();
-                                settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
-                                settings.modelConfig["seed"] = Test.seed;
-                                threadedChat.externalData = Test.presetsNames[Test.cycle] + "(" + std::to_string(Test.cycle + 1) + "/" + std::to_string(Test.presetsNames.size()) + ")";
-                                //threadedChat.load(settings.modelConfig, false);
-                            }
-                        } else {
-                            input = Test.prompt;
-                            cycling = 1;
-                        }
-                    } else if (!inputPrompt.empty()) {
-                        input = inputPrompt;
-                        inputPrompt.clear();
-                        busy = false;
-                    }
-                }
+                    } else queue["choices"].erase("regens");
+                } else if (queue["choices"].back() != "input") input = queue["choices"].back();
+                else std::getline(std::cin, input);
                 
-                if (input == "restart") {
-                    threadedChat.unload();
-                    threadedChat.load(settings.modelConfig, false);
-                } else if (input == "regen") {
-                    threadedChat.clear_last();
-                    threadedChat.display();
-                    threadedChat.startGen();
-                    //threadedChat.getResultAsyncStringFull2(true, false);
-                    threadedChat.getResultAsyncStringFull3();
-                } else if (input == "regens") {
-                    regens = 20;
-                    threadedChat.externalData = "Cycles left: " + std::to_string(regens);
-                    busy = true;
-                } else if (input == "units") {
-                    std::cout << test_char_descr << std::endl; 
-                    std::string input2;
-                    std::getline(std::cin, input2);
-                    input2 = test_char_descr + "\n" + input2;
-                    threadedChat.appendQuestion(input2);
-                    threadedChat.display();
-                    threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(true, true);
-                } else if (input == "save") {
-                    threadedChat.writeTextFile();
-                } else if (input == "cycle") {
-                     threadedChat.unload();
-                     std::cout << "Write a filename for .json or a prompt: " << std::endl; 
-                     std::string input2;
-                     std::getline(std::cin, input2);
-                     auto wildcardsDB = getJson(input2);
-                     
-                     if (wildcardsDB.contains("prompts")) Card.cycle(wildcardsDB, settings, threadedChat);
-                     else {
-                        Card.promptsDB.push_back(input2); 
-                        auto wildcardsDB = getJson("wildcards.json");
-                        Card.cycle(wildcardsDB, settings, threadedChat);
-                     }
-                     
-                     //Card.init(input2);
-                     //Card.getPrompt();
-                     
-                     // if (Card.preset.empty()){
-                         // threadedChat.appendQuestion(Card.prompt);
-                         // threadedChat.display();
-                         // threadedChat.startGen();
-                         // threadedChat.getResultAsyncStringFull2(true, true);
-                         // cycling = 1;
-                         // --Card.cycles;
+                
+                
+                char choice = queue_logic.process(input);
+                
+                switch (choice) {
+                    case 't': {
+                        threadedChat.unload();
+                        threadedChat.load(settings.modelConfig, false);
+                        break;
+                    }
+                    case 'r': {
+                        window_title = "ChatTest: Regen ";
+                        threadedChat.clear_last();
+                        threadedChat.display();
+                        threadedChat.startGen();
+                        //threadedChat.getResultAsyncStringFull2(true, false);
+                        threadedChat.getResultAsyncStringFull3();
+                        break;
+                    }
+                    case 'R': {
+                        window_title = "ChatTest: Regens ";
+                        regens = 20;
+                        queue["choices"].push_back("regens");
+                        threadedChat.externalData = "Cycles left: " + std::to_string(regens);
+                        break;
+                    }
+                    case 'u': {
+                        window_title = "ChatTest: Units ";
+                        std::cout << test_char_descr << std::endl; 
+                        std::string input2;
+                        std::getline(std::cin, input2);
+                        input2 = test_char_descr + "\n" + input2;
+                        threadedChat.appendQuestion(input2);
+                        threadedChat.display();
+                        threadedChat.startGen();
+                        threadedChat.getResultAsyncStringFull2(true, true);
+                        break;
+                    }
+                    case 's': {
+                        threadedChat.writeTextFile();
+                        break;
+                    }
+                    case 'c': {
+                         window_title = "ChatTest: Cycle ";
+                         threadedChat.unload();
+                         std::cout << "Write a filename for .json or a prompt: " << std::endl; 
+                         std::string input2;
+                         std::getline(std::cin, input2);
+                         auto wildcardsDB = getJson(input2);
                          
-                     // } else {
-                         // threadedChat.unload();
-                         // settings.modelConfig["card"] = Card.preset;
-                         // threadedChat.load(settings.modelConfig, false);
-                     // }
-                     
-                     busy = true;
-                } else if (input == "unicycle") {
-                     threadedChat.unload();
-                     auto wildcardsDB = getJson(test_char_descr);
-                     
-                     if (wildcardsDB.contains("prompts")) Card.cycle(wildcardsDB, settings, threadedChat);
-                     else {
-                        Card.promptsDB.push_back(test_char_descr); 
-                        auto wildcardsDB = getJson("wildcards.json");
-                        Card.cycle(wildcardsDB, settings, threadedChat);
-                     }
-                     
-                     busy = true;
-                } else if (input == "test") {
-                     std::cout << "Write a filename for test .json or a prompt, or skip to use default presetsTest.json: " << std::endl; 
-                     std::string input2;
-                     std::getline(std::cin, input2);
-                    
-                     Test.init(input2);
-                     threadedChat.unload();
-                     settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
-                     settings.modelConfig["seed"] = Test.seed;
-                     threadedChat.load(settings.modelConfig, false);
-                     busy = true;
-                } else {
-                    threadedChat.appendQuestion(input);
-                    threadedChat.display();
-                    threadedChat.startGen();
-                    //threadedChat.getResultAsyncStringFull2(true, true);
-                    threadedChat.getResultAsyncStringFull3();
-
-                    
-                    
+                         if (wildcardsDB.contains("prompts")) Card.cycle(wildcardsDB, settings, threadedChat);
+                         else {
+                            Card.promptsDB.push_back(input2); 
+                            auto wildcardsDB = getJson("wildcards.json");
+                            Card.cycle(wildcardsDB, settings, threadedChat);
+                         }
+                        break;
+                    }
+                    case 'i': {
+                         window_title = "ChatTest: Unicycle ";
+                         threadedChat.unload();
+                         auto wildcardsDB = getJson(test_char_descr);
+                         
+                         if (wildcardsDB.contains("prompts")) Card.cycle(wildcardsDB, settings, threadedChat);
+                         else {
+                            Card.promptsDB.push_back(test_char_descr); 
+                            auto wildcardsDB = getJson("wildcards.json");
+                            Card.cycle(wildcardsDB, settings, threadedChat);
+                         }
+                        break;
+                    }
+                    case 'T': {
+                         window_title = "ChatTest: Test ";
+                         std::cout << "Write a filename for test .json or a prompt, or skip to use default presetsTest.json: " << std::endl; 
+                         std::string input2;
+                         std::getline(std::cin, input2);
+                        
+                         Test.init(input2);
+                         threadedChat.unload();
+                         settings.modelConfig["card"] = Test.presetsNames[Test.cycle];
+                         settings.modelConfig["seed"] = Test.seed;
+                         threadedChat.load(settings.modelConfig, false);
+                        break;
+                    }
+                    case 'I': {
+                        window_title = "ChatTest: Input ";
+                        if (!input.empty()) inputPrompt = input;
+                        threadedChat.appendQuestion(inputPrompt);
+                        threadedChat.display();
+                        threadedChat.startGen();
+                        //threadedChat.getResultAsyncStringFull2(true, true);
+                        threadedChat.getResultAsyncStringFull3();
+                        break;
+                    }
+                    default: break;
                 }
+
         }
         
         
