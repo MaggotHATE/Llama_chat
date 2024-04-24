@@ -797,7 +797,7 @@ struct imagesArray {
     SDL_Texture* default_image;
     int my_image_width, my_image_height;
     std::map<std::string, SDL_Texture*> data;
-    std::map<std::string, std::pair<float, float>> sizes;
+    std::map<std::string, std::pair<int, int>> sizes;
     
     SDL_Texture* get_image(std::string key) {
         if (data.count(key) > 0) {
@@ -807,7 +807,7 @@ struct imagesArray {
     
     void load_image(SDL_Renderer* renderer, std::string key) {
         if (data.count(key) > 0) {
-            bool ret = LoadTextureFromFile(key.c_str(), &data.at(key), sizes.second.first, sizes.second.second, renderer);
+            bool ret = LoadTextureFromFile(key.c_str(), &data.at(key), sizes.at(key).first, sizes.at(key).second, renderer);
         } else {
             bool ret = LoadTextureFromFile("default.png", &default_image, my_image_width, my_image_height, renderer);
         }
@@ -815,16 +815,17 @@ struct imagesArray {
     
     void load_images(SDL_Renderer* renderer) {
         for (auto img : data) {
-            bool ret = LoadTextureFromFile(img.first.c_str(), &img.second, sizes.fisrt, sizes.fisrt, renderer);
+            bool ret = LoadTextureFromFile(img.first.c_str(), &img.second, sizes.at(img.first).first, sizes.at(img.first).second, renderer);
         }
     }
     
     void add(std::string image_name) {
-        data.emplace(image_name, SDL_Texture* new_image);
-        sizes.emplace(image_name, std::pair<float, float>{1,1});
+        SDL_Texture* new_image;
+        data.emplace(image_name, new_image);
+        sizes.emplace(image_name, std::pair<int, int>{1,1});
     }
     
-    std::pair<float, float> get_sizes () {
+    std::pair<int, int> get_sizes () {
         
     }
 #else
@@ -3656,7 +3657,7 @@ struct chatUI{
 
         if (localSettings.localConfig[localSettings.modelName].contains("img")) {
             current_image = images.get_image(localSettings.localConfig[localSettings.modelName]["img"].get<std::string>());
-        } else current_image = &images.default_image
+        } else current_image = images.default_image;
         
 #else
     void preloadImage() {

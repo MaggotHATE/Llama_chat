@@ -1446,7 +1446,8 @@ public:
         //if (last_n_tokens.back() == llama_token_eos(ctx)) {
         //if (last_tokens.back() == llama_token_eos(ctx)) {
         //if (ctx_sampling->prev.back() == llama_token_eos(ctx)) {
-        if (llama_sampling_last(ctx_sampling) == llama_token_eos(model)) {
+        //if (llama_sampling_last(ctx_sampling) == llama_token_eos(model)) {
+        if (llama_token_is_eog(model, llama_sampling_last(ctx_sampling))) {
             if (params.interactive) {
                 if (params.antiprompt.size() != 0) {
                     // tokenize and inject first reverse prompt
