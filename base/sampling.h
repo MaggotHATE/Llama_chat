@@ -8,6 +8,24 @@
 #include <vector>
 #include <unordered_map>
 
+// sampling function
+typedef struct llama_sampling_param_func {
+    float p_min = -1.0f;
+    float p_max = -1.0f;
+    float p_add = 0.0f;
+    float p_mul = 1.0f;
+    bool p_dir = true;
+
+    bool operator==(const llama_sampling_param_func& other) const {
+        return p_min == other.p_min && p_max == other.p_max && p_add == other.p_add && p_mul == other.p_mul;
+    }
+
+    bool operator!=(const llama_sampling_param_func& other) const {
+        return p_min != other.p_min || p_max != other.p_max || p_add != other.p_add || p_mul != other.p_mul;
+    }
+
+} llama_sampling_param_func;
+
 // sampling parameters
 typedef struct llama_sampling_params {
     int32_t     n_prev                = 64;       // number of previous tokens to remember
@@ -19,10 +37,13 @@ typedef struct llama_sampling_params {
     float       tfs_z                 = 1.00f;    // 1.0 = disabled
     float       typical_p             = 1.00f;    // 1.0 = disabled
     float       temp                  = 0.80f;    // 1.0 = disabled
+    llama_sampling_param_func temp_func;
     float       smoothing_factor      = 0.00f;    // 0.0 = disabled
     float       smoothing_curve       = 1.00f;    // 1.0 = flat
     float       dynatemp_range        = 0.00f;    // 0.0 = disabled
+    llama_sampling_param_func dynatemp_range_func;
     float       p_step                = 0.00f;    // 0.0 = disabled
+    llama_sampling_param_func p_step_func;
     int32_t     penalty_last_n        = 64;       // last n tokens to penalize (0 = disable penalty, -1 = context size)
     float       penalty_repeat        = 1.00f;    // 1.0 = disabled
     float       penalty_freq          = 0.00f;    // 0.0 = disabled

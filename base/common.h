@@ -180,6 +180,8 @@ void llama_batch_add(
 // Vocab utils
 //
 
+std::string string_strip(const std::string & str);
+
 // tokenizes a string into a vector of tokens
 // should work similar to Python's `tokenizer.encode`
 std::vector<llama_token> llama_tokenize(

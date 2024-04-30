@@ -86,6 +86,7 @@ struct modelThread{
     std::string lastResult = "";
     std::string shortModelName = "";
     std::string sparamsList = "";
+    std::string sparamsListShort = "";
     std::string externalData = "";
 
     // ~modelThread(){
@@ -109,6 +110,7 @@ struct modelThread{
     void getSparamsList(){
         //sparamsList = newChat.getSparams();
         sparamsList = newChat.getSparamsChanged();
+        sparamsListShort = newChat.getSparamsChanged(false);
     }
     
     void appendFirstPrompt(){
@@ -180,11 +182,14 @@ struct modelThread{
     std::string display(){
         Clear();
         getTimigsPre();
+        getSparamsList();
         std::string summary = " ";
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
-        std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << "\n----------------------------------------" << std::endl;
+        std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << std::endl;
+        std::cout << "batch size: " << std::to_string(newChat.params.n_batch) << std::endl;
+        std::cout << "ubatch size: " << std::to_string(newChat.params.n_ubatch) << "\n----------------------------------------" << std::endl;
         if (newChat.params.antiprompt.size()) std::cout << "Antiprompt: " << newChat.params.antiprompt[0] << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << "\n----------------------------------------" << std::endl;
@@ -223,9 +228,9 @@ struct modelThread{
             if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
         if (isContinue == 'w') {
-            summary +=  std::format("| Msg: {}t | Total: {}t | at {:.3f}t/s |", last_tokens, past_tokens, lastSpeed);
+            summary +=  std::format("| Msg: {}t | Total: {}t | at {:.3f}t/s | {}", last_tokens, past_tokens, lastSpeed, sparamsListShort);
             std::cout << lastResult;
-            std::cout << "\n---------------------------------------------------------------------------\n" << summary;
+            std::cout << "\n--------------------------------------------------------------------------------------------------\n" << summary;
         }
         //if (last_tokens > 0) std::cout << "Generated: " << last_tokens << std::endl;
         //std::cout<< DELIMINER;
@@ -1133,6 +1138,8 @@ struct configurableChat{
     }
     
     void fillLocalJson(std::string& model, bool clear = true){
+        std::cout << "fillLocalJson... " << std::endl;
+        
         if (clear) modelConfig.clear();
         
         modelConfig["model"] = model;
@@ -1150,9 +1157,25 @@ struct configurableChat{
         if (params.use_mmap != paramsDefault.use_mmap) modelConfig[model]["use_mmap"] = params.use_mmap;
         if (!params.lora_adapter.empty()) modelConfig[model]["lora"] = std::get<0>(params.lora_adapter[0]);
         
+        if (params.sparams.temp_func != paramsDefault.sparams.temp_func) {
+            std::cout << "Need to create an object: temp" << std::endl;
+            modelConfig[model]["temp"]["value"] = params.sparams.temp;
+            modelConfig[model]["temp"]["p_min"] = params.sparams.temp_func.p_min;
+            modelConfig[model]["temp"]["p_max"] = params.sparams.temp_func.p_max;
+            modelConfig[model]["temp"]["p_add"] = params.sparams.temp_func.p_add;
+            modelConfig[model]["temp"]["p_mul"] = params.sparams.temp_func.p_mul;
+            std::cout << "Object created! " << std::endl;
+        } else if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
         
-        if (params.sparams.temp != paramsDefault.sparams.temp) modelConfig[model]["temp"] = params.sparams.temp;
-        if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) modelConfig[model]["dynatemp_range"] = params.sparams.dynatemp_range;
+        if (params.sparams.dynatemp_range_func != paramsDefault.sparams.dynatemp_range_func) {
+            std::cout << "Need to create an object: dynatemp_range" << std::endl;
+            modelConfig[model]["dynatemp_range"]["value"] = params.sparams.dynatemp_range;
+            modelConfig[model]["dynatemp_range"]["p_min"] = params.sparams.dynatemp_range_func.p_min;
+            modelConfig[model]["dynatemp_range"]["p_max"] = params.sparams.dynatemp_range_func.p_max;
+            modelConfig[model]["dynatemp_range"]["p_add"] = params.sparams.dynatemp_range_func.p_add;
+            modelConfig[model]["dynatemp_range"]["p_mul"] = params.sparams.dynatemp_range_func.p_mul;
+            std::cout << "Object created! " << std::endl;
+        } else if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) modelConfig[model]["dynatemp_range"] = params.sparams.dynatemp_range;
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) modelConfig[model]["temp_smoothing"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) modelConfig[model]["smoothing_factor"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) modelConfig[model]["smoothing_curve"] = params.sparams.smoothing_curve;
@@ -1160,7 +1183,17 @@ struct configurableChat{
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
-        if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
+        
+        if (params.sparams.p_step_func != paramsDefault.sparams.p_step_func) {
+            std::cout << "Need to create an object: p_step" << std::endl;
+            modelConfig[model]["p_step"]["value"] = params.sparams.p_step;
+            modelConfig[model]["p_step"]["p_min"] = params.sparams.p_step_func.p_min;
+            modelConfig[model]["p_step"]["p_max"] = params.sparams.p_step_func.p_max;
+            modelConfig[model]["p_step"]["p_add"] = params.sparams.p_step_func.p_add;
+            modelConfig[model]["p_step"]["p_mul"] = params.sparams.p_step_func.p_mul;
+            std::cout << "Object created! " << std::endl;
+        } else if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
+        
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["frequency_penalty"] = params.sparams.penalty_freq;
@@ -1175,6 +1208,7 @@ struct configurableChat{
         if (params.grp_attn_w != paramsDefault.grp_attn_w) modelConfig[model]["grp_attn_w"] = params.grp_attn_w;
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
+        if (params.n_ubatch != paramsDefault.n_ubatch) modelConfig[model]["n_ubatch"] = params.n_ubatch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
         
         if (params.format_instruct != paramsDefault.format_instruct) modelConfig[model]["format_instruct"] = params.format_instruct;
@@ -1240,7 +1274,15 @@ struct configurableChat{
         if (!params.lora_adapter.empty()) newCard["lora"] = std::get<0>(params.lora_adapter[0]);
         
         
-        if (params.sparams.temp != paramsDefault.sparams.temp) newCard["temp"] = params.sparams.temp;
+        if (params.sparams.temp_func != paramsDefault.sparams.temp_func) {
+            std::cout << "Need to create an object: temp" << std::endl;
+            newCard["temp"]["value"] = params.sparams.temp;
+            newCard["temp"]["p_min"] = params.sparams.temp_func.p_min;
+            newCard["temp"]["p_max"] = params.sparams.temp_func.p_max;
+            newCard["temp"]["p_add"] = params.sparams.temp_func.p_add;
+            newCard["temp"]["p_mul"] = params.sparams.temp_func.p_mul;
+            std::cout << "Object created! " << std::endl;
+        } else if (params.sparams.temp != paramsDefault.sparams.temp) newCard["temp"] = params.sparams.temp;
         if (params.sparams.dynatemp_range != paramsDefault.sparams.dynatemp_range) newCard["dynatemp_range"] = params.sparams.dynatemp_range;
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) newCard["temp_smoothing"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) newCard["smoothing_factor"] = params.sparams.smoothing_factor;
@@ -1263,6 +1305,7 @@ struct configurableChat{
         if (params.n_ctx != paramsDefault.n_ctx) newCard["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
+        if (params.n_ubatch != paramsDefault.n_ubatch) newCard["n_ubatch"] = params.n_ubatch;
         if (params.n_threads != paramsDefault.n_threads) newCard["n_threads"] = params.n_threads;
         
         //#if GGML_EXPERIMENTAL1

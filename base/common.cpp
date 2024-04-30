@@ -1186,6 +1186,18 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
 // Vocab utils
 //
 
+std::string string_strip(const std::string & str) {
+    size_t start = 0;
+    size_t end = str.size();
+    while (start < end && std::isspace(str[start])) {
+        start++;
+    }
+    while (end > start && std::isspace(str[end - 1])) {
+        end--;
+    }
+    return str.substr(start, end - start);
+}
+
 std::vector<llama_token> llama_tokenize(
   const struct llama_context * ctx,
            const std::string & text,

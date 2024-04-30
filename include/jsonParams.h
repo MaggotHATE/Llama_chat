@@ -12,6 +12,7 @@
 #include <vector>
 #include <random>
 #include <format>
+#include <chrono>
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #define DELIMINER '\r'
@@ -104,6 +105,14 @@ static bool checkJString(nlohmann::json& config, std::string name){
 static bool checkJNum(nlohmann::json& config, std::string name){
     if(config.contains(name)){
         if(config[name].is_number()) return true;
+    }
+    
+    return false;
+}
+
+static bool checkJObj(nlohmann::json& config, std::string name){
+    if(config.contains(name)){
+        if(config[name].is_object()) return true;
     }
     
     return false;
@@ -276,6 +285,23 @@ static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
     }
 }
 
+static void load_param_func(nlohmann::json& config, std::string param_name, float& param, llama_sampling_param_func& param_func) {
+    if (checkJObj(config, param_name)) {
+        std::cout << "Found object: " << param_name << std::endl;
+        if (checkJNum(config[param_name], "value")) param = config[param_name]["value"];
+        if (checkJNum(config[param_name], "p_min")) param_func.p_min = config[param_name]["p_min"];
+        if (checkJNum(config[param_name], "p_max")) param_func.p_max = config[param_name]["p_max"];
+        if (checkJNum(config[param_name], "p_add")) param_func.p_add = config[param_name]["p_add"];
+        if (checkJNum(config[param_name], "p_mul")) param_func.p_mul = config[param_name]["p_mul"];
+        std::cout << "Object loaded! " << std::endl;
+    }
+}
+
+static void load_param_num(nlohmann::json& config, std::string param_name, float& param, llama_sampling_param_func& param_func) {
+    if (checkJObj(config, param_name)) load_param_func(config, param_name, param, param_func);
+    else if (checkJNum(config, param_name)) param = config[param_name];
+}
+
 static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "file")) {
@@ -355,20 +381,17 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = config["n_threads_batch"];
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
 
-#ifdef GGML_USE_VULKAN
-    if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
-#elif defined(GGML_USE_CLBLAST)
-    if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
-#endif
-
     if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
     if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
     if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
     if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
     if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
-    if (checkJNum(config, "temp")) params.sparams.temp = config["temp"];
-    if (checkJNum(config, "dynatemp_range")) params.sparams.dynatemp_range = config["dynatemp_range"];
+    if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
+    
+    load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
+    load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
+
     if (checkJNum(config, "temp_smoothing")) params.sparams.smoothing_factor = config["temp_smoothing"];
     if (checkJNum(config, "smoothing_factor")) params.sparams.smoothing_factor = config["smoothing_factor"];
     if (checkJNum(config, "smoothing_curve")) params.sparams.smoothing_curve = config["smoothing_curve"];
@@ -376,7 +399,8 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
-    if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
+    //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
+    load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
     if (checkJNum(config, "penalty_threshold")) params.sparams.penalty_threshold = config["penalty_threshold"];
@@ -431,6 +455,16 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
         
         // getParamsFromJson(preset, params, hasFile, headless);
     // }
+    
+#ifdef GGML_USE_VULKAN
+    if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
+    if (checkJNum(config, "n_threads_vk")) params.n_threads = config["n_threads_vk"];
+    if (checkJNum(config, "n_threads_batch_vk")) params.n_threads_batch = config["n_threads_batch_vk"];
+#elif defined(GGML_USE_CLBLAST)
+    if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
+    if (checkJNum(config, "n_threads_clblast")) params.n_threads = config["n_threads_clblast"];
+    if (checkJNum(config, "n_threads_batch_clblast")) params.n_threads_batch = config["n_threads_batch_clblast"];
+#endif
 }
 
 static void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
@@ -613,8 +647,9 @@ static unsigned int getRand(){
     //std::random_device rd;
     //return rd();
     
+    uint32_t seed = static_cast<uint32_t>(std::chrono::system_clock::now().time_since_epoch().count());
     std::random_device rd;
-    std::seed_seq sseq ({rd()%1000,rd()%10000,rd()%100000});
+    std::seed_seq sseq ({rd()%1000,rd()%10000,rd()%seed});
     std::knuth_b kr(sseq);
     
     return kr();
