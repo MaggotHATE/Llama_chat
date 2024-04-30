@@ -125,6 +125,7 @@ struct gpt_params {
     bool multiline_input          = false; // reverse the usage of `\`
     bool simple_io                = false; // improves compatibility with subprocesses and limited consoles
     bool cont_batching            = false; // insert new sequences for decoding on-the-fly
+    bool flash_attn               = false; // flash attention
 
     bool input_prefix_bos         = false; // prefix BOS to user inputs, preceding input_prefix
     bool ignore_eos               = false; // ignore generated EOS tokens
@@ -134,6 +135,7 @@ struct gpt_params {
     bool use_mlock                = false; // use mlock to keep model in memory
     bool verbose_prompt           = false; // print prompt tokens before generation
     bool infill                   = false; // use infill mode
+    bool no_kv_offload            = false; // disable KV offloading
 
     std::string cache_type_k      = "f16"; // KV cache data type for the K
     std::string cache_type_v      = "f16"; // KV cache data type for the V

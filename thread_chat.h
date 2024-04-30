@@ -1155,6 +1155,8 @@ struct configurableChat{
         
         if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) modelConfig[model]["penalize_nl"] = params.sparams.penalize_nl;
         if (params.use_mmap != paramsDefault.use_mmap) modelConfig[model]["use_mmap"] = params.use_mmap;
+        if (params.flash_attn != paramsDefault.flash_attn) modelConfig[model]["flash_attn"] = params.flash_attn;
+        if (params.no_kv_offload != paramsDefault.no_kv_offload) modelConfig[model]["no_kv_offload"] = params.no_kv_offload;
         if (!params.lora_adapter.empty()) modelConfig[model]["lora"] = std::get<0>(params.lora_adapter[0]);
         
         if (params.sparams.temp_func != paramsDefault.sparams.temp_func) {

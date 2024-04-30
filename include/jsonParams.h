@@ -412,6 +412,8 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     //if (config["color"].is_boolean()) params.use_color = config["color"];
     if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
     if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
+    if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
+    if (config["no_kv_offload"].is_boolean()) params.no_kv_offload = config["no_kv_offload"];
     if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = config["input_prefix_bos"];
     
     if (checkJString(config, "grammar")) params.sparams.grammar = config["grammar"];

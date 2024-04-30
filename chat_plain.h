@@ -1415,7 +1415,7 @@ public:
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past + comp, -1);
         embd_inp.erase(embd_inp.begin() + n_consumed - comp, embd_inp.end());
         //n_remain += last_tokens_count;
-        n_past -= n_last_message_past + comp;
+        n_past -= n_last_message_past - comp;
         
         
         clearLastTokens();

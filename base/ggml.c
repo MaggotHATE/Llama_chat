@@ -951,7 +951,7 @@ ggml_type_traits_t ggml_internal_get_type_traits(enum ggml_type type) {
     #define GGML_F16_VEC_ZERO           GGML_F16x8_ZERO
     #define GGML_F16_VEC_SET1           GGML_F16x8_SET1
     #define GGML_F16_VEC_LOAD(p, i)     GGML_F16x8_LOAD(p)
-    #define GGML_F16_VEC_STORE(p, r, i) GGML_F16x8_STORE(p, r[i])
+    #define GGML_F16_VEC_STORE(p, r, i) GGML_F16x8_STORE((ggml_fp16_internal_t *)(p), r[i])
     #define GGML_F16_VEC_FMA            GGML_F16x8_FMA
     #define GGML_F16_VEC_ADD            GGML_F16x8_ADD
     #define GGML_F16_VEC_MUL            GGML_F16x8_MUL
@@ -977,7 +977,7 @@ ggml_type_traits_t ggml_internal_get_type_traits(enum ggml_type type) {
     #define GGML_F16_VEC_ZERO           GGML_F32Cx4_ZERO
     #define GGML_F16_VEC_SET1           GGML_F32Cx4_SET1
     #define GGML_F16_VEC_LOAD(p, i)     GGML_F32Cx4_LOAD(p)
-    #define GGML_F16_VEC_STORE(p, r, i) GGML_F32Cx4_STORE(p, r[i])
+    #define GGML_F16_VEC_STORE(p, r, i) GGML_F32Cx4_STORE((ggml_fp16_internal_t *)(p), r[i])
     #define GGML_F16_VEC_FMA            GGML_F32Cx4_FMA
     #define GGML_F16_VEC_ADD            GGML_F32Cx4_ADD
     #define GGML_F16_VEC_MUL            GGML_F32Cx4_MUL
@@ -1046,7 +1046,7 @@ do {                                                                  \
 
 // unlike  _mm256_cvt intrinsics that require F16C, _mm512_cvt is defined in AVX512F
 // so F16C guard isn't required
-#define GGML_F32Cx16_LOAD(x)     _mm512_cvtph_ps(_mm256_loadu_si256((__m256i *)(x)))
+#define GGML_F32Cx16_LOAD(x)     _mm512_cvtph_ps(_mm256_loadu_si256((const __m256i *)(x)))
 #define GGML_F32Cx16_STORE(x, y) _mm256_storeu_si256((__m256i *)(x), _mm512_cvtps_ph(y, 0))
 
 #define GGML_F32Cx16_FMA(a, b, c) _mm512_fmadd_ps(b, c, a)
@@ -1144,7 +1144,7 @@ do {                                                              \
 
 #if defined(__F16C__)
 // the  _mm256_cvt intrinsics require F16C
-#define GGML_F32Cx8_LOAD(x)     _mm256_cvtph_ps(_mm_loadu_si128((__m128i *)(x)))
+#define GGML_F32Cx8_LOAD(x)     _mm256_cvtph_ps(_mm_loadu_si128((const __m128i *)(x)))
 #define GGML_F32Cx8_STORE(x, y) _mm_storeu_si128((__m128i *)(x), _mm256_cvtps_ph(y, 0))
 #else
 static inline __m256 __avx_f32cx8_load(ggml_fp16_t *x) {
@@ -1469,359 +1469,6 @@ static inline void __sse_f16x4_store(ggml_fp16_t *x, __m128 y) {
 #endif
 
 //
-// ggml context
-//
-
-struct ggml_context {
-    size_t mem_size;
-    void* mem_buffer;
-    bool   mem_buffer_owned;
-    bool   no_alloc;
-    bool   no_alloc_save; // this is used to save the no_alloc state when using scratch buffers
-
-    int    n_objects;
-
-    struct ggml_object* objects_begin;
-    struct ggml_object* objects_end;
-
-    struct ggml_scratch scratch;
-    struct ggml_scratch scratch_save;
-};
-
-struct ggml_context_container {
-    bool used;
-
-    struct ggml_context context;
-};
-
-//
-// NUMA support
-//
-
-#define GGML_NUMA_MAX_NODES 8
-#define GGML_NUMA_MAX_CPUS 512
-
-struct ggml_numa_node {
-    uint32_t cpus[GGML_NUMA_MAX_CPUS]; // hardware threads on this node
-    uint32_t n_cpus;
-};
-
-struct ggml_numa_nodes {
-    enum ggml_numa_strategy numa_strategy;
-    struct ggml_numa_node nodes[GGML_NUMA_MAX_NODES];
-    uint32_t n_nodes;
-    uint32_t total_cpus; // hardware threads on system
-    uint32_t current_node; // node on which main process is execting
-#if defined(__gnu_linux__)
-    cpu_set_t cpuset; // cpuset from numactl
-#else
-    uint32_t cpuset; // no NUMA support outside of Linux at this time. Use a portable datatype
-#endif
-};
-
-//
-// ggml state
-//
-
-struct ggml_state {
-    struct ggml_context_container contexts[GGML_MAX_CONTEXTS];
-    struct ggml_numa_nodes numa;
-};
-
-// global state
-static struct ggml_state g_state;
-static atomic_int g_state_barrier = 0;
-
-// barrier via spin lock
-inline static void ggml_critical_section_start(void) {
-    int processing = atomic_fetch_add(&g_state_barrier, 1);
-
-    while (processing > 0) {
-        // wait for other threads to finish
-        atomic_fetch_sub(&g_state_barrier, 1);
-        sched_yield(); // TODO: reconsider this
-        processing = atomic_fetch_add(&g_state_barrier, 1);
-    }
-}
-
-// TODO: make this somehow automatically executed
-//       some sort of "sentry" mechanism
-inline static void ggml_critical_section_end(void) {
-    atomic_fetch_sub(&g_state_barrier, 1);
-}
-
-#if defined(__gnu_linux__)
-static cpu_set_t ggml_get_numa_affinity(void) {
-    cpu_set_t cpuset;
-    pthread_t thread;
-    thread = pthread_self();
-    CPU_ZERO(&cpuset);
-    pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
-    return cpuset;
-}
-#else
-static uint32_t ggml_get_numa_affinity(void) {
-    return 0; // no NUMA support
-}
-#endif
-
-void ggml_numa_init(enum ggml_numa_strategy numa_flag) {
-    if (g_state.numa.n_nodes > 0) {
-        fprintf(stderr, "ggml_numa_init: NUMA already initialized\n");
-
-        return;
-    }
-
-#if defined(__gnu_linux__)
-    struct stat st;
-    char path[256];
-    int rv;
-
-    // set numa scheme
-    g_state.numa.numa_strategy = numa_flag;
-
-    GGML_PRINT_DEBUG("numa strategy %u\n", g_state.numa.numa_strategy);
-
-    g_state.numa.cpuset = ggml_get_numa_affinity();
-
-    // enumerate nodes
-    while (g_state.numa.n_nodes < GGML_NUMA_MAX_NODES) {
-        rv = snprintf(path, sizeof(path), "/sys/devices/system/node/node%u", g_state.numa.n_nodes);
-        GGML_ASSERT(rv > 0 && (unsigned)rv < sizeof(path));
-        if (stat(path, &st) != 0) { break; }
-        ++g_state.numa.n_nodes;
-    }
-
-    // enumerate CPUs
-    while (g_state.numa.total_cpus < GGML_NUMA_MAX_CPUS) {
-        rv = snprintf(path, sizeof(path), "/sys/devices/system/cpu/cpu%u", g_state.numa.total_cpus);
-        GGML_ASSERT(rv > 0 && (unsigned)rv < sizeof(path));
-        if (stat(path, &st) != 0) { break; }
-        ++g_state.numa.total_cpus;
-    }
-
-    GGML_PRINT_DEBUG("found %u numa nodes, %u CPUs\n", g_state.numa.n_nodes, g_state.numa.total_cpus);
-
-    // figure out which node we're on
-    uint current_cpu;
-    int getcpu_ret = 0;
-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 28)
-    getcpu_ret = getcpu(&current_cpu, &g_state.numa.current_node);
-#else
-    // old glibc doesn't have a wrapper for this call. Fall back on direct syscall
-#   if !defined(SYS_getcpu) && defined(SYS_get_cpu)
-#       define SYS_getcpu SYS_get_cpu // some older glibc versions use this name
-#   endif
-    getcpu_ret = syscall(SYS_getcpu, &current_cpu, &g_state.numa.current_node);
-#endif
-
-    if (g_state.numa.n_nodes < 1 || g_state.numa.total_cpus < 1 || getcpu_ret != 0) {
-        g_state.numa.n_nodes = 0;
-        return;
-    }
-
-    GGML_PRINT_DEBUG("found our process on numa node %u, CPU %u\n", g_state.numa.current_node, current_cpu);
-
-    for (uint32_t n = 0; n < g_state.numa.n_nodes; ++n) {
-        struct ggml_numa_node* node = &g_state.numa.nodes[n];
-        GGML_PRINT_DEBUG("CPUs on node %u:", n);
-        node->n_cpus = 0;
-        for (uint32_t c = 0; c < g_state.numa.total_cpus; ++c) {
-            rv = snprintf(path, sizeof(path), "/sys/devices/system/node/node%u/cpu%u", n, c);
-            GGML_ASSERT(rv > 0 && (unsigned)rv < sizeof(path));
-            if (stat(path, &st) == 0) {
-                node->cpus[node->n_cpus++] = c;
-                GGML_PRINT_DEBUG(" %u", c);
-            }
-        }
-        GGML_PRINT_DEBUG("\n");
-    }
-
-    if (ggml_is_numa()) {
-        FILE* fptr = fopen("/proc/sys/kernel/numa_balancing", "r");
-        if (fptr != NULL) {
-            char buf[42];
-            if (fgets(buf, sizeof(buf), fptr) && strncmp(buf, "0\n", sizeof(buf)) != 0) {
-                GGML_PRINT("WARNING: /proc/sys/kernel/numa_balancing is enabled, this has been observed to impair performance\n");
-            }
-            fclose(fptr);
-        }
-    }
-#else
-    GGML_UNUSED(numa_flag);
-    // TODO
-#endif
-}
-
-bool ggml_is_numa(void) {
-    return g_state.numa.n_nodes > 1;
-}
-
-struct ggml_compute_state_shared {
-    const struct ggml_cgraph* cgraph;
-    const struct ggml_cplan* cplan;
-
-    int64_t perf_node_start_cycles;
-    int64_t perf_node_start_time_us;
-
-    const int n_threads;
-
-    // synchronization primitives
-    atomic_int n_active;  // num active threads
-    atomic_int node_n;    // active graph node
-    atomic_int node_task; // active graph node task phase
-
-    ggml_abort_callback abort_callback; // abort ggml_graph_compute when true
-    void* abort_callback_data;
-
-    atomic_int current_chunk; // currently processing chunk during Mat_Mul, shared between all the threads.
-};
-
-//
-// thread data
-//
-// synchronization is done via busy loops
-// I tried using spin locks, but not sure how to use them correctly - the things I tried were slower than busy loops
-//
-
-#ifdef __APPLE__
-
-//#include <os/lock.h>
-//
-//typedef os_unfair_lock ggml_lock_t;
-//
-//#define ggml_lock_init(x)    UNUSED(x)
-//#define ggml_lock_destroy(x) UNUSED(x)
-//#define ggml_lock_lock       os_unfair_lock_lock
-//#define ggml_lock_unlock     os_unfair_lock_unlock
-//
-//#define GGML_LOCK_INITIALIZER OS_UNFAIR_LOCK_INIT
-
-typedef int ggml_lock_t;
-
-#define ggml_lock_init(x)    UNUSED(x)
-#define ggml_lock_destroy(x) UNUSED(x)
-#define ggml_lock_lock(x)    UNUSED(x)
-#define ggml_lock_unlock(x)  UNUSED(x)
-
-#define GGML_LOCK_INITIALIZER 0
-
-typedef pthread_t ggml_thread_t;
-
-#define ggml_thread_create pthread_create
-#define ggml_thread_join   pthread_join
-
-#else
-
-//typedef pthread_spinlock_t ggml_lock_t;
-
-//#define ggml_lock_init(x) pthread_spin_init(x, PTHREAD_PROCESS_PRIVATE)
-//#define ggml_lock_destroy pthread_spin_destroy
-//#define ggml_lock_lock    pthread_spin_lock
-//#define ggml_lock_unlock  pthread_spin_unlock
-
-typedef int ggml_lock_t;
-
-#define ggml_lock_init(x)    UNUSED(x)
-#define ggml_lock_destroy(x) UNUSED(x)
-#if defined(__x86_64__) || (defined(_MSC_VER) && defined(_M_AMD64))
-#define ggml_lock_lock(x)    _mm_pause()
-#else
-#define ggml_lock_lock(x)    UNUSED(x)
-#endif
-#define ggml_lock_unlock(x)  UNUSED(x)
-
-#define GGML_LOCK_INITIALIZER 0
-
-typedef pthread_t ggml_thread_t;
-
-#define ggml_thread_create pthread_create
-#define ggml_thread_join   pthread_join
-
-#endif
-
-// Android's libc implementation "bionic" does not support setting affinity
-#if defined(__gnu_linux__)
-static void set_numa_thread_affinity(int thread_n) {
-    if (!ggml_is_numa()) {
-        return;
-    }
-
-    int node_num;
-    int rv;
-    size_t setsize = CPU_ALLOC_SIZE(g_state.numa.total_cpus);
-
-    switch (g_state.numa.numa_strategy) {
-    case GGML_NUMA_STRATEGY_DISTRIBUTE:
-        // run thread on node_num thread_n / (threads per node)
-        node_num = thread_n % g_state.numa.n_nodes;
-        break;
-    case GGML_NUMA_STRATEGY_ISOLATE:
-        // run thread on current_node
-        node_num = g_state.numa.current_node;
-        break;
-    case GGML_NUMA_STRATEGY_NUMACTL:
-        // use the cpuset that numactl gave us
-        rv = pthread_setaffinity_np(pthread_self(), setsize, &g_state.numa.cpuset);
-        if (rv) {
-            fprintf(stderr, "warning: pthread_setaffinity_np() failed: %s\n", strerror(rv));
-        }
-        return;
-    default:
-        return;
-    }
-
-    struct ggml_numa_node* node = &g_state.numa.nodes[node_num];
-
-    cpu_set_t* cpus = CPU_ALLOC(g_state.numa.total_cpus);
-    CPU_ZERO_S(setsize, cpus);
-    for (size_t i = 0; i < node->n_cpus; ++i) {
-        CPU_SET_S(node->cpus[i], setsize, cpus);
-    }
-
-    rv = pthread_setaffinity_np(pthread_self(), setsize, cpus);
-    if (rv) {
-        fprintf(stderr, "warning: pthread_setaffinity_np() failed: %s\n", strerror(rv));
-    }
-
-    CPU_FREE(cpus);
-}
-
-static void clear_numa_thread_affinity(void) {
-    if (!ggml_is_numa()) {
-        return;
-    }
-
-    size_t setsize = CPU_ALLOC_SIZE(g_state.numa.total_cpus);
-
-    cpu_set_t* cpus = CPU_ALLOC(g_state.numa.total_cpus);
-    CPU_ZERO_S(setsize, cpus);
-    for (unsigned i = 0; i < g_state.numa.total_cpus; ++i) {
-        CPU_SET_S(i, setsize, cpus);
-    }
-
-    int rv = pthread_setaffinity_np(pthread_self(), setsize, cpus);
-    if (rv) {
-        fprintf(stderr, "warning: pthread_setaffinity_np() failed: %s\n", strerror(rv));
-    }
-
-    CPU_FREE(cpus);
-}
-#else
-// TODO: Windows etc.
-// (the linux implementation may also work on BSD, someone should test)
-static void set_numa_thread_affinity(int thread_n) { UNUSED(thread_n); }
-static void clear_numa_thread_affinity(void) {}
-#endif
-
-struct ggml_compute_state {
-    ggml_thread_t thrd;
-    int ith;
-    struct ggml_compute_state_shared* shared;
-    enum ggml_status ec;
-};
-
-//
 // fundamental operations
 //
 
@@ -2015,6 +1662,37 @@ inline static void ggml_vec_mad_f32(const int n, float * restrict y, const float
 #endif
 }
 
+inline static void ggml_vec_mad_f16(const int n, ggml_fp16_t * restrict y, const ggml_fp16_t * restrict x, const float v) {
+#if defined(GGML_SIMD)
+    const int np = (n & ~(GGML_F16_STEP - 1));
+
+    GGML_F16_VEC vx = GGML_F16_VEC_SET1(v);
+
+    GGML_F16_VEC ax[GGML_F16_ARR];
+    GGML_F16_VEC ay[GGML_F16_ARR];
+
+    for (int i = 0; i < np; i += GGML_F16_STEP) {
+        for (int j = 0; j < GGML_F16_ARR; j++) {
+            ax[j] = GGML_F16_VEC_LOAD(x + i + j*GGML_F16_EPR, j);
+            ay[j] = GGML_F16_VEC_LOAD(y + i + j*GGML_F16_EPR, j);
+            ay[j] = GGML_F16_VEC_FMA(ay[j], ax[j], vx);
+
+            GGML_F16_VEC_STORE(y + i + j*GGML_F16_EPR, ay, j);
+        }
+    }
+
+    // leftovers
+    for (int i = np; i < n; ++i) {
+        y[i] = GGML_FP32_TO_FP16(GGML_FP16_TO_FP32(y[i]) + GGML_FP16_TO_FP32(x[i])*v);
+    }
+#else
+    // scalar
+    for (int i = 0; i < n; ++i) {
+        y[i] = GGML_FP32_TO_FP16(GGML_FP16_TO_FP32(y[i]) + GGML_FP16_TO_FP32(x[i])*v);
+    }
+#endif
+}
+
 // xs and vs are byte strides of x and v
 inline static void ggml_vec_mad_f32_unroll(const int n, const int xs, const int vs, float * restrict y, const float * restrict xv, const float * restrict vv) {
 
@@ -2095,6 +1773,35 @@ inline static void ggml_vec_scale_f32(const int n, float * y, const float   v) {
     // scalar
     for (int i = 0; i < n; ++i) {
         y[i] *= v;
+    }
+#endif
+}
+
+inline static void ggml_vec_scale_f16(const int n, ggml_fp16_t * y, const float v) {
+#if defined(GGML_SIMD)
+    const int np = (n & ~(GGML_F16_STEP - 1));
+
+    GGML_F16_VEC vx = GGML_F16_VEC_SET1(v);
+
+    GGML_F16_VEC ay[GGML_F16_ARR];
+
+    for (int i = 0; i < np; i += GGML_F16_STEP) {
+        for (int j = 0; j < GGML_F16_ARR; j++) {
+            ay[j] = GGML_F16_VEC_LOAD(y + i + j*GGML_F16_EPR, j);
+            ay[j] = GGML_F16_VEC_MUL(ay[j], vx);
+
+            GGML_F16_VEC_STORE(y + i + j*GGML_F16_EPR, ay, j);
+        }
+    }
+
+    // leftovers
+    for (int i = np; i < n; ++i) {
+        y[i] = GGML_FP32_TO_FP16(GGML_FP16_TO_FP32(y[i])*v);
+    }
+#else
+    // scalar
+    for (int i = 0; i < n; ++i) {
+        y[i] = GGML_FP32_TO_FP16(GGML_FP16_TO_FP32(y[i])*v);
     }
 #endif
 }
@@ -2353,6 +2060,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "LEAKY_RELU",
 
     "FLASH_ATTN",
+    "FLASH_ATTN_EXT",
     "FLASH_FF",
     "FLASH_ATTN_BACK",
     "SSM_CONV",
@@ -2379,7 +2087,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "CROSS_ENTROPY_LOSS_BACK",
 };
 
-static_assert(GGML_OP_COUNT == 76, "GGML_OP_COUNT != 76");
+static_assert(GGML_OP_COUNT == 77, "GGML_OP_COUNT != 77");
 
 static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "none",
@@ -2443,6 +2151,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "leaky_relu(x)",
 
     "flash_attn(x)",
+    "flash_attn_ext(x)",
     "flash_ff(x)",
     "flash_attn_back(x)",
     "ssm_conv(x)",
@@ -2469,7 +2178,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "cross_entropy_loss_back(x,y)",
 };
 
-static_assert(GGML_OP_COUNT == 76, "GGML_OP_COUNT != 76");
+static_assert(GGML_OP_COUNT == 77, "GGML_OP_COUNT != 77");
 
 static_assert(GGML_OP_POOL_COUNT == 2, "GGML_OP_POOL_COUNT != 2");
 
@@ -2529,6 +2238,195 @@ static void ggml_setup_op_has_task_pass(void) {
 
         p[GGML_OP_CROSS_ENTROPY_LOSS     ] = true;
     }
+}
+
+//
+// ggml context
+//
+
+struct ggml_context {
+    size_t mem_size;
+    void * mem_buffer;
+    bool   mem_buffer_owned;
+    bool   no_alloc;
+    bool   no_alloc_save; // this is used to save the no_alloc state when using scratch buffers
+
+    int    n_objects;
+
+    struct ggml_object * objects_begin;
+    struct ggml_object * objects_end;
+
+    struct ggml_scratch scratch;
+    struct ggml_scratch scratch_save;
+};
+
+struct ggml_context_container {
+    bool used;
+
+    struct ggml_context context;
+};
+
+//
+// NUMA support
+//
+
+#define GGML_NUMA_MAX_NODES 8
+#define GGML_NUMA_MAX_CPUS 512
+
+struct ggml_numa_node {
+    uint32_t cpus[GGML_NUMA_MAX_CPUS]; // hardware threads on this node
+    uint32_t n_cpus;
+};
+
+struct ggml_numa_nodes {
+    enum ggml_numa_strategy numa_strategy;
+    struct ggml_numa_node nodes[GGML_NUMA_MAX_NODES];
+    uint32_t n_nodes;
+    uint32_t total_cpus; // hardware threads on system
+    uint32_t current_node; // node on which main process is execting
+#if defined(__gnu_linux__)
+    cpu_set_t cpuset; // cpuset from numactl
+#else
+    uint32_t cpuset; // no NUMA support outside of Linux at this time. Use a portable datatype
+#endif
+};
+
+//
+// ggml state
+//
+
+struct ggml_state {
+    struct ggml_context_container contexts[GGML_MAX_CONTEXTS];
+    struct ggml_numa_nodes numa;
+};
+
+// global state
+static struct ggml_state g_state;
+static atomic_int g_state_barrier = 0;
+
+// barrier via spin lock
+inline static void ggml_critical_section_start(void) {
+    int processing = atomic_fetch_add(&g_state_barrier, 1);
+
+    while (processing > 0) {
+        // wait for other threads to finish
+        atomic_fetch_sub(&g_state_barrier, 1);
+        sched_yield(); // TODO: reconsider this
+        processing = atomic_fetch_add(&g_state_barrier, 1);
+    }
+}
+
+// TODO: make this somehow automatically executed
+//       some sort of "sentry" mechanism
+inline static void ggml_critical_section_end(void) {
+    atomic_fetch_sub(&g_state_barrier, 1);
+}
+
+#if defined(__gnu_linux__)
+static cpu_set_t ggml_get_numa_affinity(void) {
+    cpu_set_t cpuset;
+    pthread_t thread;
+    thread = pthread_self();
+    CPU_ZERO(&cpuset);
+    pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+    return cpuset;
+}
+#else
+static uint32_t ggml_get_numa_affinity(void) {
+    return 0; // no NUMA support
+}
+#endif
+
+void ggml_numa_init(enum ggml_numa_strategy numa_flag) {
+    if (g_state.numa.n_nodes > 0) {
+        fprintf(stderr, "ggml_numa_init: NUMA already initialized\n");
+
+        return;
+    }
+
+#if defined(__gnu_linux__)
+    struct stat st;
+    char path[256];
+    int rv;
+
+    // set numa scheme
+    g_state.numa.numa_strategy = numa_flag;
+
+    GGML_PRINT_DEBUG("numa strategy %u\n",g_state.numa.numa_strategy);
+
+    g_state.numa.cpuset = ggml_get_numa_affinity();
+
+    // enumerate nodes
+    while (g_state.numa.n_nodes < GGML_NUMA_MAX_NODES) {
+        rv = snprintf(path, sizeof(path), "/sys/devices/system/node/node%u", g_state.numa.n_nodes);
+        GGML_ASSERT(rv > 0 && (unsigned)rv < sizeof(path));
+        if (stat(path, &st) != 0) { break; }
+        ++g_state.numa.n_nodes;
+    }
+
+    // enumerate CPUs
+    while (g_state.numa.total_cpus < GGML_NUMA_MAX_CPUS) {
+        rv = snprintf(path, sizeof(path), "/sys/devices/system/cpu/cpu%u", g_state.numa.total_cpus);
+        GGML_ASSERT(rv > 0 && (unsigned)rv < sizeof(path));
+        if (stat(path, &st) != 0) { break; }
+        ++g_state.numa.total_cpus;
+    }
+
+    GGML_PRINT_DEBUG("found %u numa nodes, %u CPUs\n", g_state.numa.n_nodes, g_state.numa.total_cpus);
+
+    // figure out which node we're on
+    uint current_cpu;
+    int getcpu_ret = 0;
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 28)
+    getcpu_ret = getcpu(&current_cpu, &g_state.numa.current_node);
+#else
+    // old glibc doesn't have a wrapper for this call. Fall back on direct syscall
+#   if !defined(SYS_getcpu) && defined(SYS_get_cpu)
+#       define SYS_getcpu SYS_get_cpu // some older glibc versions use this name
+#   endif
+    getcpu_ret = syscall(SYS_getcpu, &current_cpu, &g_state.numa.current_node);
+#endif
+
+    if (g_state.numa.n_nodes < 1 || g_state.numa.total_cpus < 1 || getcpu_ret != 0) {
+        g_state.numa.n_nodes = 0;
+        return;
+    }
+
+    GGML_PRINT_DEBUG("found our process on numa node %u, CPU %u\n", g_state.numa.current_node, current_cpu);
+
+    for (uint32_t n = 0; n < g_state.numa.n_nodes; ++n) {
+        struct ggml_numa_node * node = &g_state.numa.nodes[n];
+        GGML_PRINT_DEBUG("CPUs on node %u:", n);
+        node->n_cpus = 0;
+        for (uint32_t c = 0; c < g_state.numa.total_cpus; ++c) {
+            rv = snprintf(path, sizeof(path), "/sys/devices/system/node/node%u/cpu%u", n, c);
+            GGML_ASSERT(rv > 0 && (unsigned)rv < sizeof(path));
+            if (stat(path, &st) == 0) {
+                node->cpus[node->n_cpus++] = c;
+                GGML_PRINT_DEBUG(" %u", c);
+            }
+        }
+        GGML_PRINT_DEBUG("\n");
+    }
+
+    if (ggml_is_numa()) {
+        FILE *fptr = fopen("/proc/sys/kernel/numa_balancing", "r");
+        if (fptr != NULL) {
+            char buf[42];
+            if (fgets(buf, sizeof(buf), fptr) && strncmp(buf, "0\n", sizeof(buf)) != 0) {
+                GGML_PRINT("WARNING: /proc/sys/kernel/numa_balancing is enabled, this has been observed to impair performance\n");
+            }
+            fclose(fptr);
+        }
+    }
+#else
+    GGML_UNUSED(numa_flag);
+    // TODO
+#endif
+}
+
+bool ggml_is_numa(void) {
+    return g_state.numa.n_nodes > 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4723,6 +4621,8 @@ struct ggml_tensor * ggml_mul_mat(
 void ggml_mul_mat_set_prec(
         struct ggml_tensor * a,
         enum ggml_prec       prec) {
+    GGML_ASSERT(a->op == GGML_OP_MUL_MAT);
+
     const int32_t prec_i32 = (int32_t) prec;
 
     ggml_set_op_params_i32(a, 0, prec_i32);
@@ -5561,15 +5461,21 @@ static struct ggml_tensor * ggml_soft_max_impl(
     GGML_ASSERT(ggml_is_contiguous(a));
 
     if (mask) {
+        GGML_ASSERT(mask->type == GGML_TYPE_F16 || mask->type == GGML_TYPE_F32);
         GGML_ASSERT(ggml_is_contiguous(mask));
         GGML_ASSERT(ggml_is_matrix(mask));
-        GGML_ASSERT(ggml_can_repeat_rows(mask, a));
+        GGML_ASSERT(mask->ne[0] == a->ne[0]);
+        GGML_ASSERT(mask->ne[1] >= a->ne[1]);
     }
 
     if (pos) {
         GGML_ASSERT(ggml_is_vector(pos));
-        GGML_ASSERT(pos->type == GGML_TYPE_F32);
+        GGML_ASSERT(pos->type == GGML_TYPE_F16 || pos->type == GGML_TYPE_F32);
         GGML_ASSERT(pos->ne[0] == a->ne[0]);
+    }
+
+    if (pos && mask) {
+        GGML_ASSERT(pos->type == mask->type);
     }
 
     if (max_bias > 0.0f) {
@@ -6378,6 +6284,59 @@ struct ggml_tensor * ggml_flash_attn(
     result->src[2] = v;
 
     return result;
+}
+
+// ggml_flash_attn_ext
+
+struct ggml_tensor * ggml_flash_attn_ext(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * q,
+        struct ggml_tensor  * k,
+        struct ggml_tensor  * v,
+        struct ggml_tensor  * mask,
+        float                 scale) {
+    GGML_ASSERT(ggml_can_mul_mat(k, q));
+    // TODO: check if vT can be multiplied by (k*qT)
+    if (mask) {
+        GGML_ASSERT(ggml_is_contiguous(mask));
+        GGML_ASSERT(mask->ne[2] == 1);
+        GGML_ASSERT(mask->ne[3] == 1);
+        GGML_ASSERT(mask->ne[1] >= GGML_PAD(q->ne[1], GGML_KQ_MASK_PAD) &&
+                "the Flash-Attention kernel requires the mask to be padded to GGML_KQ_MASK_PAD and at least n_queries big");
+        //GGML_ASSERT(ggml_can_repeat_rows(mask, qk));
+    }
+
+    bool is_node = false;
+
+    if (q->grad || k->grad || v->grad) {
+        is_node = true;
+    }
+
+    // permute(0, 2, 1, 3)
+    int64_t ne[4] = { q->ne[0], q->ne[2], q->ne[1], q->ne[3] };
+    struct ggml_tensor * result = ggml_new_tensor(ctx, GGML_TYPE_F32, 4, ne);
+
+    float params[] = { scale };
+    ggml_set_op_params(result, params, sizeof(params));
+
+    result->op   = GGML_OP_FLASH_ATTN_EXT;
+    result->grad = is_node ? ggml_dup_tensor(ctx, result) : NULL;
+    result->src[0] = q;
+    result->src[1] = k;
+    result->src[2] = v;
+    result->src[3] = mask;
+
+    return result;
+}
+
+void ggml_flash_attn_ext_set_prec(
+        struct ggml_tensor * a,
+        enum ggml_prec       prec) {
+    GGML_ASSERT(a->op == GGML_OP_FLASH_ATTN_EXT);
+
+    const int32_t prec_i32 = (int32_t) prec;
+
+    ggml_set_op_params_i32(a, 1, prec_i32); // scale is on first pos
 }
 
 // ggml_flash_ff
@@ -10854,101 +10813,9 @@ static bool ggml_compute_forward_mul_mat_use_blas(struct ggml_tensor * dst) {
 }
 #endif
 
-static void ggml_compute_forward_mul_mat_one_chunk(
-    const struct ggml_compute_params* params,
-    struct ggml_tensor* dst,
-    const int64_t num_rows_per_vec_dot,
-    const int64_t ir0_start,
-    const int64_t ir0_end,
-    const int64_t ir1_start,
-    const int64_t ir1_end) {
-
-    const struct ggml_tensor* src0 = dst->src[0];
-    const struct ggml_tensor* src1 = dst->src[1];
-
-    GGML_TENSOR_BINARY_OP_LOCALS
-
-    const enum ggml_type type = src0->type;
-
-    const bool src1_cont = ggml_is_contiguous(src1);
-
-    ggml_vec_dot_t    const vec_dot = type_traits[type].vec_dot;
-    enum ggml_type    const vec_dot_type = type_traits[type].vec_dot_type;
-
-    // broadcast factors
-    const int64_t r2 = ne12 / ne02;
-    const int64_t r3 = ne13 / ne03;
-
-    //printf("ir010 = %6lld, ir011 = %6lld, ir110 = %6lld, ir111 = %6lld\n", ir010, ir011, ir110, ir111);
-
-    // threads with no work simply yield (not sure if it helps)
-    if (ir0_start >= ir0_end || ir1_start >= ir1_end) {
-        return;
-    }
-
-    const void* wdata = (src1->type == vec_dot_type) ? src1->data : params->wdata;
-    const size_t row_size = ggml_row_size(vec_dot_type, ne10);
-
-    assert(ne12 % ne02 == 0);
-    assert(ne13 % ne03 == 0);
-
-    // block-tiling attempt
-    const int64_t blck_0 = 16;
-    const int64_t blck_1 = 16;
-
-    const size_t src1_col_stride = src1_cont || src1->type != vec_dot_type ? row_size : nb11;
-
-    // attempt to reduce false-sharing (does not seem to make a difference)
-    // 16 * 2, accounting for mmla kernels
-    float tmp[32];
-
-    for (int64_t iir1 = ir1_start; iir1 < ir1_end; iir1 += blck_1) {
-        for (int64_t iir0 = ir0_start; iir0 < ir0_end; iir0 += blck_0) {
-            for (int64_t ir1 = iir1; ir1 < iir1 + blck_1 && ir1 < ir1_end; ir1 += num_rows_per_vec_dot) {
-                const int64_t i13 = (ir1 / (ne12 * ne1));
-                const int64_t i12 = (ir1 - i13 * ne12 * ne1) / ne1;
-                const int64_t i11 = (ir1 - i13 * ne12 * ne1 - i12 * ne1);
-
-                // broadcast src0 into src1
-                const int64_t i03 = i13 / r3;
-                const int64_t i02 = i12 / r2;
-
-                const int64_t i1 = i11;
-                const int64_t i2 = i12;
-                const int64_t i3 = i13;
-
-                const char* src0_row = (const char*)src0->data + (0 + i02 * nb02 + i03 * nb03);
-
-                // desc: when src1 is not a contiguous memory block we have to calculate the offset using the strides
-                //       if it is, then we have either copied the data to params->wdata and made it contiguous or we are using
-                //       the original src1 data pointer, so we should index using the indices directly
-                // TODO: this is a bit of a hack, we should probably have a better way to handle this
-                const char* src1_col = (const char*)wdata +
-                    (src1_cont || src1->type != vec_dot_type
-                        ? (i11 + i12 * ne11 + i13 * ne12 * ne11) * row_size
-                        : (i11 * nb11 + i12 * nb12 + i13 * nb13));
-                float* dst_col = (float*)((char*)dst->data + (i1 * nb1 + i2 * nb2 + i3 * nb3));
-
-                //for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir011; ++ir0) {
-                //    vec_dot(ne00, &dst_col[ir0], src0_row + ir0*nb01, src1_col);
-                //}
-
-                for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ir0 += num_rows_per_vec_dot) {
-                    vec_dot(ne00, &tmp[ir0 - iir0], (num_rows_per_vec_dot > 1 ? 16 : 0), src0_row + ir0 * nb01, (num_rows_per_vec_dot > 1 ? nb01 : 0), src1_col, (num_rows_per_vec_dot > 1 ? src1_col_stride : 0), num_rows_per_vec_dot);
-                }
-
-                for (int cn = 0; cn < num_rows_per_vec_dot; ++cn) {
-                    memcpy(&dst_col[iir0 + cn * nb1 / nb0], tmp + (cn * 16), (MIN(iir0 + blck_0, ir0_end) - iir0) * sizeof(float));
-                }
-            }
-        }
-    }
-}
-
 static void ggml_compute_forward_mul_mat(
         const struct ggml_compute_params * params,
-              struct ggml_tensor * dst,
-              struct ggml_compute_state * state) {
+              struct ggml_tensor * dst) {
 
     const struct ggml_tensor * src0 = dst->src[0];
     const struct ggml_tensor * src1 = dst->src[1];
@@ -10965,6 +10832,7 @@ static void ggml_compute_forward_mul_mat(
 
     const bool src1_cont = ggml_is_contiguous(src1);
 
+    ggml_vec_dot_t    const vec_dot               = type_traits[type].vec_dot;
     enum ggml_type    const vec_dot_type          = type_traits[type].vec_dot_type;
     ggml_from_float_t const from_float_to_vec_dot = type_traits[vec_dot_type].from_float;
     int64_t           const vec_dot_num_rows      = type_traits[type].nrows;
@@ -11093,7 +10961,6 @@ UseGgmlGemm1:;
         if (ith != 0) {
             return;
         }
-        atomic_store(&state->shared->current_chunk, 0);
         if (src1->type != vec_dot_type) {
             char * wdata = params->wdata;
             const size_t row_size = ggml_row_size(vec_dot_type, ne10);
@@ -11143,63 +11010,98 @@ UseGgmlGemm1:;
 UseGgmlGemm2:;
 #endif
 
-    int chunk_size = 16;
-#ifdef GGML_PERF
-    int chunks_executed = 0;
-    UNUSED(chunks_executed);
-#endif
+    const int64_t nr0 = ne01;          // src0 rows
+    const int64_t nr1 = ne1*ne12*ne13; // src1 rows
 
-    //This is the size of the first dimension of the result, so we can iterate that way. (see the ASSERT above, these are the same numbers)
-    const int64_t nr0 = ne0;
+    //printf("nr0 = %lld, nr1 = %lld\n", nr0, nr1);
 
-    //This is the size of the rest of the dimensions of the result
-    const int64_t nr1 = ne1 * ne2 * ne3;
+    // distribute the thread work across the inner or outer loop based on which one is larger
+
+    const int64_t nth0 = nr0 > nr1 ? nth : 1; // parallelize by src0 rows
+    const int64_t nth1 = nr0 > nr1 ? 1 : nth; // parallelize by src1 rows
+
+    const int64_t ith0 = ith % nth0;
+    const int64_t ith1 = ith / nth0;
+
+    const int64_t dr0 = (nr0 + nth0 - 1)/nth0;
+    const int64_t dr1 = (nr1 + nth1 - 1)/nth1;
+
+    const int64_t ir010 = dr0*ith0;
+    const int64_t ir011 = MIN(ir010 + dr0, nr0);
+
+    const int64_t ir110 = dr1*ith1;
+    const int64_t ir111 = MIN(ir110 + dr1, nr1);
+
+    //printf("ir010 = %6lld, ir011 = %6lld, ir110 = %6lld, ir111 = %6lld\n", ir010, ir011, ir110, ir111);
+
+    // threads with no work simply yield (not sure if it helps)
+    if (ir010 >= ir011 || ir110 >= ir111) {
+        sched_yield();
+        return;
+    }
+
+    assert(ne12 % ne02 == 0);
+    assert(ne13 % ne03 == 0);
+
+    // block-tiling attempt
+    const int64_t blck_0 = 16;
+    const int64_t blck_1 = 16;
 
     // dot kernels can handle 1 row and col at a time, but mmla kernels can process 2 rows and cols
-    int64_t num_rows_per_vec_dot = vec_dot_num_rows;
+    int64_t nrc = vec_dot_num_rows;
     // TODO: currently the mmla kernels support only even numbered rows/cols.
     // this check can be removed once they are extended to support odd numbered rows/cols too
     if ((nr0 % 2 != 0) || (ne11 % 2 != 0)) {
-        num_rows_per_vec_dot = 1;
+        nrc = 1;
     }
 
-    // distribute the work across the inner or outer loop based on which one is larger
-    //The number of chunks in the 0/1 dim.
-    //CEIL(nr0/chunk_size)
-    const int64_t nchunk0 = (nr0 + chunk_size - 1) / chunk_size;
-    //Chunk in both directions.
-    const int64_t nchunk1 = (nr1 + chunk_size - 1) / chunk_size;
+    const size_t src1_col_stride = src1_cont || src1->type != vec_dot_type ? row_size : nb11;
 
-    int current_chunk = atomic_fetch_add(&state->shared->current_chunk, 1);
+    // attempt to reduce false-sharing (does not seem to make a difference)
+    // 16 * 2, accounting for mmla kernels
+    float tmp[32];
 
-    while (current_chunk < nchunk0 * nchunk1)
-    {
-        const int64_t ith0 = current_chunk % nchunk0;
-        const int64_t ith1 = current_chunk / nchunk0;
+    for (int64_t iir1 = ir110; iir1 < ir111; iir1 += blck_1) {
+        for (int64_t iir0 = ir010; iir0 < ir011; iir0 += blck_0) {
+            for (int64_t ir1 = iir1; ir1 < iir1 + blck_1 && ir1 < ir111; ir1 += nrc) {
+                const int64_t i13 = (ir1/(ne12*ne1));
+                const int64_t i12 = (ir1 - i13*ne12*ne1)/ne1;
+                const int64_t i11 = (ir1 - i13*ne12*ne1 - i12*ne1);
 
-        const int64_t dr0 = (nr0 + nchunk0 - 1) / nchunk0;
-        const int64_t dr1 = (nr1 + nchunk1 - 1) / nchunk1;
+                // broadcast src0 into src1
+                const int64_t i03 = i13/r3;
+                const int64_t i02 = i12/r2;
 
-        const int64_t ir0_start = dr0 * ith0;
-        const int64_t ir0_end = MIN(ir0_start + dr0, nr0);
+                const int64_t i1 = i11;
+                const int64_t i2 = i12;
+                const int64_t i3 = i13;
 
-        const int64_t ir1_start = dr1 * ith1;
-        const int64_t ir1_end = MIN(ir1_start + dr1, nr1);
+                const char * src0_row = (const char *) src0->data + (0 + i02*nb02 + i03*nb03);
 
-        ggml_compute_forward_mul_mat_one_chunk(params, dst, num_rows_per_vec_dot, ir0_start, ir0_end, ir1_start, ir1_end);
+                // desc: when src1 is not a contiguous memory block we have to calculate the offset using the strides
+                //       if it is, then we have either copied the data to params->wdata and made it contiguous or we are using
+                //       the original src1 data pointer, so we should index using the indices directly
+                // TODO: this is a bit of a hack, we should probably have a better way to handle this
+                const char * src1_col = (const char *) wdata +
+                    (src1_cont || src1->type != vec_dot_type
+                     ? (i11      + i12*ne11 + i13*ne12*ne11)*row_size
+                     : (i11*nb11 + i12*nb12 + i13*nb13));
+                float * dst_col = (float *) ((char *) dst->data + (i1*nb1 + i2*nb2 + i3*nb3));
 
-        current_chunk = atomic_fetch_add(&state->shared->current_chunk, 1);
-#ifdef GGML_PERF
-        chunks_executed++;
-#endif
+                //for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir011; ++ir0) {
+                //    vec_dot(ne00, &dst_col[ir0], src0_row + ir0*nb01, src1_col);
+                //}
+
+                for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir011; ir0 += nrc) {
+                    vec_dot(ne00, &tmp[ir0 - iir0], (nrc>1 ? 16 : 0), src0_row + ir0*nb01, (nrc>1 ? nb01 : 0), src1_col, (nrc>1 ? src1_col_stride : 0), nrc);
+                }
+
+                for (int cn = 0; cn < nrc; ++cn) {
+                    memcpy(&dst_col[iir0 + cn*nb1/nb0], tmp + (cn*16), (MIN(iir0 + blck_0, ir011) - iir0)*sizeof(float));
+                }
+            }
+        }
     }
-
-#ifdef GGML_PERF
-    // These numbers are useful when trying to measure how well the threading scheduling works.
-    //int64_t workSize = (ne01 * ne11 * ne12 * ne13 * ne00) / nchunk0 / nchunk1;
-    //float time = (ggml_perf_time_us() - t0);
-    //printf("MUL_MAT = %f ms, [%d, %d, %d, %d] x [%d, %d, %d, %d] = %I64u, %f ops/usec in %d chunks.\n", time / 1000.0, ne00, ne01, ne02, ne03, ne10, ne11, ne12, ne13, workSize, (float)workSize/time, chunks_executed);
-#endif
 }
 
 // ggml_compute_forward_mul_mat_id
@@ -12476,7 +12378,7 @@ static void ggml_compute_forward_soft_max_f32(
 
     GGML_TENSOR_UNARY_OP_LOCALS
 
-    const int64_t ne11 = src1 ? src1->ne[1] : 1;
+    //const int64_t ne11 = src1 ? src1->ne[1] : 1;
 
     // TODO: is this supposed to be ceil instead of floor?
     //       https://huggingface.co/mosaicml/mpt-7b/blob/main/attention.py#L370
@@ -12499,19 +12401,31 @@ static void ggml_compute_forward_soft_max_f32(
     float * wp = (float *) params->wdata + (nc + CACHE_LINE_SIZE_F32) * ith;
 
     // when max_bias <= 0.0f, src2 is not used and we default it to src0 to avoid branching
-    float * pos = src2 ? (float *) src2->data : src0->data;
+    ggml_fp16_t * pos_f16 = src2 ? (ggml_fp16_t *) src2->data : src0->data;
+    float       * pos_f32 = src2 ? (float       *) src2->data : src0->data;
+
+    const bool use_f16 = (src1 && src1->type == GGML_TYPE_F16) || (src2 && src2->type == GGML_TYPE_F16);
 
     for (int i1 = ir0; i1 < ir1; i1++) {
         float * sp = (float *)((char *) src0->data + i1*src0->nb[1]);
         float * dp = (float *)((char *)  dst->data +  i1*dst->nb[1]);
 
         // broadcast the mask across rows
-        float * mp = src1 ? (float *)((char *) src1->data + (i1%ne11)*src1->nb[1]) : NULL;
+        ggml_fp16_t * mp_f16 = src1 ? (ggml_fp16_t *)((char *) src1->data) + (i1%ne01)*ne00 : NULL;
+        float       * mp_f32 = src1 ? (float       *)((char *) src1->data) + (i1%ne01)*ne00 : NULL;
 
         ggml_vec_cpy_f32  (nc, wp, sp);
         ggml_vec_scale_f32(nc, wp, scale);
-        if (mp) {
-            ggml_vec_acc_f32(nc, wp, mp);
+        if (mp_f32) {
+            if (use_f16) {
+                for (int i = 0; i < nc; ++i) {
+                    wp[i] += GGML_FP16_TO_FP32(mp_f16[i]);
+                }
+            } else {
+                for (int i = 0; i < nc; ++i) {
+                    wp[i] += mp_f32[i];
+                }
+            }
         }
 
         // ALiBi bias
@@ -12519,8 +12433,14 @@ static void ggml_compute_forward_soft_max_f32(
             const uint32_t h  = (i1/ne01)%ne02; // head
             const float slope = h < n_head_log2 ? powf(m0, h + 1) : powf(m1, 2*(h - n_head_log2) + 1);
 
-            for (int i = 0; i < nc; i++) {
-                wp[i] = wp[i] + slope*pos[i];
+            if (use_f16) {
+                for (int i = 0; i < nc; ++i) {
+                    wp[i] += slope*GGML_FP16_TO_FP32(pos_f16[i]);
+                }
+            } else {
+                for (int i = 0; i < nc; ++i) {
+                    wp[i] += slope*pos_f32[i];
+                }
             }
         }
 
@@ -14790,6 +14710,198 @@ static void ggml_compute_forward_flash_attn(
     }
 }
 
+// ggml_compute_forward_flash_attn_ext
+
+static void ggml_compute_forward_flash_attn_ext_f16(
+        const struct ggml_compute_params * params,
+        const struct ggml_tensor * q,
+        const struct ggml_tensor * k,
+        const struct ggml_tensor * v,
+        const struct ggml_tensor * mask,
+        struct ggml_tensor * dst) {
+    int64_t t0 = ggml_perf_time_us();
+    UNUSED(t0);
+
+    GGML_TENSOR_LOCALS(int64_t, neq, q,   ne)
+    GGML_TENSOR_LOCALS(size_t,  nbq, q,   nb)
+    GGML_TENSOR_LOCALS(int64_t, nek, k,   ne)
+    GGML_TENSOR_LOCALS(size_t,  nbk, k,   nb)
+    GGML_TENSOR_LOCALS(int64_t, nev, v,   ne)
+    GGML_TENSOR_LOCALS(size_t,  nbv, v,   nb)
+    GGML_TENSOR_LOCALS(int64_t, ne,  dst, ne)
+    GGML_TENSOR_LOCALS(size_t,  nb,  dst, nb)
+
+    const int ith = params->ith;
+    const int nth = params->nth;
+
+    const int64_t D = neq0;
+    const int64_t N = neq1;
+
+    GGML_ASSERT(ne0 == D);
+    GGML_ASSERT(ne2 == N);
+
+    GGML_ASSERT(nbq0 == sizeof(float));
+    GGML_ASSERT(nbk0 == sizeof(ggml_fp16_t));
+    GGML_ASSERT(nbv0 == sizeof(ggml_fp16_t));
+
+    GGML_ASSERT(neq0 == D);
+    GGML_ASSERT(nek0 == D);
+    GGML_ASSERT(nev0 == D);
+
+    GGML_ASSERT(neq1 == N);
+    GGML_ASSERT(nev0 == D);
+
+    // dst cannot be transposed or permuted
+    GGML_ASSERT(nb0 == sizeof(float));
+    GGML_ASSERT(nb0 <= nb1);
+    GGML_ASSERT(nb1 <= nb2);
+    GGML_ASSERT(nb2 <= nb3);
+
+    // broadcast factors
+    const int64_t rk2 = neq2/nek2;
+    const int64_t rk3 = neq3/nek3;
+
+    const int64_t rv2 = neq2/nev2;
+    const int64_t rv3 = neq3/nev3;
+
+    if (params->type == GGML_TASK_TYPE_INIT) {
+        return;
+    }
+
+    if (params->type == GGML_TASK_TYPE_FINALIZE) {
+        return;
+    }
+
+    // parallelize by q rows using ggml_vec_dot_f32
+
+    // total rows in q
+    const int nr = neq1*neq2*neq3;
+
+    // rows per thread
+    const int dr = (nr + nth - 1)/nth;
+
+    // row range for this thread
+    const int ir0 = dr*ith;
+    const int ir1 = MIN(ir0 + dr, nr);
+
+    float scale = 1.0f;
+    memcpy(&scale, (float *) dst->op_params + 0, sizeof(float));
+
+    // loop over n_batch and n_head
+    for (int ir = ir0; ir < ir1; ++ir) {
+        // q indices
+        const int iq3 = ir/(neq2*neq1);
+        const int iq2 = (ir - iq3*neq2*neq1)/neq1;
+        const int iq1 = (ir - iq3*neq2*neq1 - iq2*neq1);
+
+        float S = 0.0f;
+        float M = -INFINITY;
+
+        float       * V32 = (float       *) params->wdata + ith*(2*D + CACHE_LINE_SIZE_F32);
+        ggml_fp16_t * Q16 = (ggml_fp16_t *) (V32); // reuse memory
+        ggml_fp16_t * V16 = (ggml_fp16_t *) (V32 + D);
+
+        memset(V16, 0, D*sizeof(ggml_fp16_t));
+
+        const ggml_fp16_t * mp = mask ? (ggml_fp16_t *)((char *) mask->data + iq1*mask->nb[1]) : NULL;
+
+        // k indices
+        const int ik3 = iq3 / rk3;
+        const int ik2 = iq2 / rk2;
+
+        // v indices
+        const int iv3 = iq3 / rv3;
+        const int iv2 = iq2 / rv2;
+
+        // online softmax / attention
+        // loop over n_kv and n_head_kv
+        // ref: https://arxiv.org/pdf/2112.05682.pdf
+        for (int64_t ic = 0; ic < nek1; ++ic) {
+            const float mv = mp ? GGML_FP16_TO_FP32(mp[ic]) : 0.0f;
+            if (mv == -INFINITY) {
+                continue;
+            }
+
+            float s;
+
+            // convert Q to F16 in V32
+            {
+                const float * pq = (const float *) ((char *) q->data + (iq1*nbq1 + iq2*nbq2 + iq3*nbq3));
+
+                for (int64_t d = 0; d < D; ++d) {
+                    Q16[d] = GGML_FP32_TO_FP16(pq[d]);
+                }
+            }
+
+            ggml_vec_dot_f16(D,
+                    &s, 0,
+                    (ggml_fp16_t *) ((char *) k->data + ( ic*nbk1 + ik2*nbk2 + ik3*nbk3)), 0,
+                    Q16, 0, 1);
+
+            s = s*scale + mv;
+
+            const float Mold = M;
+
+            float ms = 1.0f;
+            float vs = 1.0f;
+
+            if (s > M) {
+                M = s;
+                ms = expf(Mold - M);
+
+                // V = V*expf(Mold - M)
+                ggml_vec_scale_f16(D, V16, ms);
+            } else {
+                vs = expf(s - M);
+            }
+
+            const ggml_fp16_t * v16 = (const ggml_fp16_t *) ((char *) v->data + (ic*nbv1 + iv2*nbv2 + iv3*nbv3));
+
+            // V += v*expf(s - M)
+            ggml_vec_mad_f16(D, V16, v16, vs);
+
+            S = S*ms + vs;
+        }
+
+        // V /= S
+        for (int64_t d = 0; d < D; ++d) {
+            V32[d] = GGML_FP16_TO_FP32(V16[d])/S;
+        }
+
+        // dst indices
+        const int i1 = iq1;
+        const int i2 = iq2;
+        const int i3 = iq3;
+
+        // original
+        //memcpy((char *) dst->data + (i1*nb1 + i2*nb2 + i3*nb3), V, nev0*sizeof(float));
+
+        // permute(0, 2, 1, 3)
+        memcpy((char *) dst->data + (i3*ne2*ne1 + i2 + i1*ne1)*nb1, V32, nb1);
+    }
+}
+
+static void ggml_compute_forward_flash_attn_ext(
+        const struct ggml_compute_params * params,
+        const struct ggml_tensor * q,
+        const struct ggml_tensor * k,
+        const struct ggml_tensor * v,
+        const struct ggml_tensor * mask,
+        struct ggml_tensor * dst) {
+    switch (dst->op_params[1]) {
+        case GGML_PREC_DEFAULT:
+        case GGML_PREC_F32:
+            {
+                // uses F32 accumulators
+                ggml_compute_forward_flash_attn_ext_f16(params, q, k, v, mask, dst);
+            } break;
+        default:
+            {
+                GGML_ASSERT(false);
+            } break;
+    }
+}
+
 // ggml_compute_forward_flash_ff
 
 static void ggml_compute_forward_flash_ff_f16(
@@ -16362,7 +16474,7 @@ static void ggml_compute_forward_cross_entropy_loss_back(
 
 /////////////////////////////////
 
-static void ggml_compute_forward(struct ggml_compute_params * params, struct ggml_tensor * tensor, struct ggml_compute_state * state) {
+static void ggml_compute_forward(struct ggml_compute_params * params, struct ggml_tensor * tensor) {
     GGML_ASSERT(params);
 
     if (tensor->op == GGML_OP_NONE || ggml_is_empty(tensor)) {
@@ -16460,7 +16572,7 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
             } break;
         case GGML_OP_MUL_MAT:
             {
-                ggml_compute_forward_mul_mat(params, tensor, state);
+                ggml_compute_forward_mul_mat(params, tensor);
             } break;
         case GGML_OP_MUL_MAT_ID:
             {
@@ -16596,6 +16708,10 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
                 GGML_ASSERT(t == 0 || t == 1);
                 const bool masked = t != 0;
                 ggml_compute_forward_flash_attn(params, masked, tensor);
+            } break;
+        case GGML_OP_FLASH_ATTN_EXT:
+            {
+                ggml_compute_forward_flash_attn_ext(params, tensor->src[0], tensor->src[1], tensor->src[2], tensor->src[3], tensor);
             } break;
         case GGML_OP_FLASH_FF:
             {
@@ -17609,6 +17725,7 @@ static void ggml_compute_backward(struct ggml_context * ctx, struct ggml_tensor 
                 GGML_ASSERT(false); // TODO: not implemented
             } break;
         case GGML_OP_FLASH_ATTN:
+        case GGML_OP_FLASH_ATTN_EXT:
             {
                 struct ggml_tensor * flash_grad = NULL;
                 if (src0->grad || src1->grad || tensor->src[2]->grad) {
@@ -18046,6 +18163,168 @@ void ggml_graph_clear(struct ggml_cgraph * cgraph) {
     memset(cgraph->visited_hash_table.keys, 0, cgraph->visited_hash_table.size * sizeof(struct ggml_tensor *));
 }
 
+//
+// thread data
+//
+// synchronization is done via busy loops
+// I tried using spin locks, but not sure how to use them correctly - the things I tried were slower than busy loops
+//
+
+#ifdef __APPLE__
+
+//#include <os/lock.h>
+//
+//typedef os_unfair_lock ggml_lock_t;
+//
+//#define ggml_lock_init(x)    UNUSED(x)
+//#define ggml_lock_destroy(x) UNUSED(x)
+//#define ggml_lock_lock       os_unfair_lock_lock
+//#define ggml_lock_unlock     os_unfair_lock_unlock
+//
+//#define GGML_LOCK_INITIALIZER OS_UNFAIR_LOCK_INIT
+
+typedef int ggml_lock_t;
+
+#define ggml_lock_init(x)    UNUSED(x)
+#define ggml_lock_destroy(x) UNUSED(x)
+#define ggml_lock_lock(x)    UNUSED(x)
+#define ggml_lock_unlock(x)  UNUSED(x)
+
+#define GGML_LOCK_INITIALIZER 0
+
+typedef pthread_t ggml_thread_t;
+
+#define ggml_thread_create pthread_create
+#define ggml_thread_join   pthread_join
+
+#else
+
+//typedef pthread_spinlock_t ggml_lock_t;
+
+//#define ggml_lock_init(x) pthread_spin_init(x, PTHREAD_PROCESS_PRIVATE)
+//#define ggml_lock_destroy pthread_spin_destroy
+//#define ggml_lock_lock    pthread_spin_lock
+//#define ggml_lock_unlock  pthread_spin_unlock
+
+typedef int ggml_lock_t;
+
+#define ggml_lock_init(x)    UNUSED(x)
+#define ggml_lock_destroy(x) UNUSED(x)
+#if defined(__x86_64__) || (defined(_MSC_VER) && defined(_M_AMD64))
+#define ggml_lock_lock(x)    _mm_pause()
+#else
+#define ggml_lock_lock(x)    UNUSED(x)
+#endif
+#define ggml_lock_unlock(x)  UNUSED(x)
+
+#define GGML_LOCK_INITIALIZER 0
+
+typedef pthread_t ggml_thread_t;
+
+#define ggml_thread_create pthread_create
+#define ggml_thread_join   pthread_join
+
+#endif
+
+// Android's libc implementation "bionic" does not support setting affinity
+#if defined(__gnu_linux__)
+static void set_numa_thread_affinity(int thread_n) {
+    if (!ggml_is_numa()) {
+        return;
+    }
+
+    int node_num;
+    int rv;
+    size_t setsize = CPU_ALLOC_SIZE(g_state.numa.total_cpus);
+
+    switch(g_state.numa.numa_strategy) {
+        case GGML_NUMA_STRATEGY_DISTRIBUTE:
+            // run thread on node_num thread_n / (threads per node)
+            node_num = thread_n % g_state.numa.n_nodes;
+            break;
+        case GGML_NUMA_STRATEGY_ISOLATE:
+            // run thread on current_node
+            node_num = g_state.numa.current_node;
+            break;
+        case GGML_NUMA_STRATEGY_NUMACTL:
+            // use the cpuset that numactl gave us
+            rv = pthread_setaffinity_np(pthread_self(), setsize, &g_state.numa.cpuset);
+            if (rv) {
+                fprintf(stderr, "warning: pthread_setaffinity_np() failed: %s\n",strerror(rv));
+            }
+            return;
+        default:
+            return;
+    }
+
+    struct ggml_numa_node * node = &g_state.numa.nodes[node_num];
+
+    cpu_set_t * cpus = CPU_ALLOC(g_state.numa.total_cpus);
+    CPU_ZERO_S(setsize, cpus);
+    for (size_t i = 0; i < node->n_cpus; ++i) {
+        CPU_SET_S(node->cpus[i], setsize, cpus);
+    }
+
+    rv = pthread_setaffinity_np(pthread_self(), setsize, cpus);
+    if (rv) {
+            fprintf(stderr, "warning: pthread_setaffinity_np() failed: %s\n", strerror(rv));
+    }
+
+    CPU_FREE(cpus);
+}
+
+static void clear_numa_thread_affinity(void) {
+    if (!ggml_is_numa()) {
+        return;
+    }
+
+    size_t setsize = CPU_ALLOC_SIZE(g_state.numa.total_cpus);
+
+    cpu_set_t * cpus = CPU_ALLOC(g_state.numa.total_cpus);
+    CPU_ZERO_S(setsize, cpus);
+    for (unsigned i = 0; i < g_state.numa.total_cpus; ++i) {
+        CPU_SET_S(i, setsize, cpus);
+    }
+
+    int rv = pthread_setaffinity_np(pthread_self(), setsize, cpus);
+    if (rv) {
+        fprintf(stderr, "warning: pthread_setaffinity_np() failed: %s\n", strerror(rv));
+    }
+
+    CPU_FREE(cpus);
+}
+#else
+// TODO: Windows etc.
+// (the linux implementation may also work on BSD, someone should test)
+static void set_numa_thread_affinity(int thread_n) { UNUSED(thread_n);  }
+static void clear_numa_thread_affinity(void) {}
+#endif
+
+struct ggml_compute_state_shared {
+    const struct ggml_cgraph * cgraph;
+    const struct ggml_cplan  * cplan;
+
+    int64_t perf_node_start_cycles;
+    int64_t perf_node_start_time_us;
+
+    const int n_threads;
+
+    // synchronization primitives
+    atomic_int n_active;  // num active threads
+    atomic_int node_n;    // active graph node
+    atomic_int node_task; // active graph node task phase
+
+    ggml_abort_callback abort_callback; // abort ggml_graph_compute when true
+    void * abort_callback_data;
+};
+
+struct ggml_compute_state {
+    ggml_thread_t thrd;
+    int ith;
+    struct ggml_compute_state_shared * shared;
+    enum ggml_status ec;
+};
+
 static void ggml_graph_compute_perf_stats_node(struct ggml_tensor * node, const struct ggml_compute_state_shared * st) {
     int64_t cycles_cur  = ggml_perf_cycles()  - st->perf_node_start_cycles;
     int64_t time_us_cur = ggml_perf_time_us() - st->perf_node_start_time_us;
@@ -18219,6 +18498,7 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads, int n_cur_
                 n_tasks = n_threads;
             } break;
         case GGML_OP_FLASH_ATTN:
+        case GGML_OP_FLASH_ATTN_EXT:
             {
                 n_tasks = n_threads;
             } break;
@@ -18310,34 +18590,30 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads, int n_cur_
 }
 
 static void ggml_graph_compute_thread_sync_node(int * node_n, struct ggml_compute_state * state, const bool do_yield) {
-    UNUSED(do_yield);
     // wait for other threads to finish
     const int last_node_n = * node_n;
-    int spinCounter = 0;
 
     while (true) {
+        if (do_yield) {
+            sched_yield();
+        }
+
         * node_n = atomic_load(&state->shared->node_n);
         if (* node_n != last_node_n) break;
-
-        spinCounter++;
-        if (spinCounter > 2000)
-            sched_yield();
     }
 }
 
 static void ggml_graph_compute_thread_sync_task(int * task_phase, struct ggml_compute_state * state, const bool do_yield) {
-    UNUSED(do_yield);
     // wait for other threads to finish
     const int last_task_phase = * task_phase;
-    int spinCounter = 0;
 
     while (true) {
+        if (do_yield) {
+            sched_yield();
+        }
+
         * task_phase = atomic_load(&state->shared->node_task);
         if (* task_phase != last_task_phase) break;
-
-        spinCounter++;
-        if (spinCounter > 2000)
-            sched_yield();
     }
 }
 
@@ -18377,7 +18653,7 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
                 struct ggml_tensor * node = cgraph->nodes[node_n];
                 if (GGML_OP_HAS_FINALIZE[node->op]) {
                     params.nth = ggml_get_n_tasks(node, n_threads, state->shared->n_threads);
-                    ggml_compute_forward(&params, node, state);
+                    ggml_compute_forward(&params, node);
                 }
                 ggml_graph_compute_perf_stats_node(node, state->shared);
             }
@@ -18397,17 +18673,17 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
                     /* INIT */
                     if (GGML_OP_HAS_INIT[node->op]) {
                         params.type = GGML_TASK_TYPE_INIT;
-                        ggml_compute_forward(&params, node, state);
+                        ggml_compute_forward(&params, node);
                     }
 
                     // TODO: maybe push node_n to the atomic but if other threads see n_tasks is 1,
                     // they do something more efficient than spinning (?)
                     params.type = GGML_TASK_TYPE_COMPUTE;
-                    ggml_compute_forward(&params, node, state);
+                    ggml_compute_forward(&params, node);
 
                     if (GGML_OP_HAS_FINALIZE[node->op]) {
                         params.type = GGML_TASK_TYPE_FINALIZE;
-                        ggml_compute_forward(&params, node, state);
+                        ggml_compute_forward(&params, node);
                     }
 
                     ggml_graph_compute_perf_stats_node(node, state->shared);
@@ -18446,7 +18722,7 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
 
         if (state->ith < n_tasks) {
             if (GGML_OP_HAS_INIT[node->op]) {
-                ggml_compute_forward(&params, node, state);
+                ggml_compute_forward(&params, node);
             }
         }
 
@@ -18467,7 +18743,7 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
 
         if (state->ith < n_tasks) {
             params.type = GGML_TASK_TYPE_COMPUTE;
-            ggml_compute_forward(&params, node, state);
+            ggml_compute_forward(&params, node);
         }
 
         if (atomic_fetch_sub(&state->shared->n_active, 1) == 1) {
@@ -18626,6 +18902,12 @@ struct ggml_cplan ggml_graph_plan(const struct ggml_cgraph * cgraph, int n_threa
                         cur += sizeof(float)*ne11*n_tasks; // this is overestimated by x2
                     }
                 } break;
+            case GGML_OP_FLASH_ATTN_EXT:
+                {
+                    const int64_t ne00 = node->src[0]->ne[0]; // D
+
+                    cur = 2*sizeof(float)*ne00*n_tasks; // 2x head size
+                } break;
             case GGML_OP_FLASH_FF:
                 {
                     if (node->src[1]->type == GGML_TYPE_F32) {
@@ -18699,7 +18981,6 @@ enum ggml_status ggml_graph_compute(struct ggml_cgraph * cgraph, struct ggml_cpl
         /*.node_task               =*/ GGML_TASK_TYPE_FINALIZE,
         /*.abort_callback          =*/ NULL,
         /*.abort_callback_data     =*/ NULL,
-        /*.current_chunk;          =*/ 0,
     };
     struct ggml_compute_state * workers = alloca(sizeof(struct ggml_compute_state)*n_threads);
 
@@ -20883,6 +21164,14 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
             // TODO: return an error instead of crashing with GGML_ASSERT
             gguf_tensor_info_sanitize(info);
 
+            // make sure there is no duplicated tensor names
+            for (uint64_t j = 0; j < i; ++j) {
+                if (strcmp(info->name.data, ctx->infos[j].name.data) == 0) {
+                    fprintf(stderr, "%s: duplicated tensor name %s\n", __func__, info->name.data);
+                    ok = false;
+                }
+            }
+
             if (!ok) {
                 fprintf(stderr, "%s: failed to read tensor info\n", __func__);
                 fclose(file);
@@ -21419,6 +21708,10 @@ void gguf_set_kv(struct gguf_context * ctx, struct gguf_context * src) {
 void gguf_add_tensor(
              struct gguf_context * ctx,
         const struct ggml_tensor * tensor) {
+    if (gguf_find_tensor(ctx, tensor->name) != -1) {
+        GGML_ASSERT(false && "duplicated tensor name");
+    }
+
     const int idx = ctx->header.n_tensors;
     ctx->infos = realloc(ctx->infos, (idx + 1)*sizeof(struct gguf_tensor_info));
 

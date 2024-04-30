@@ -612,6 +612,8 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
             params.cont_batching = true;
         } else if (arg == "--color") {
             params.use_color = true;
+        } else if (arg == "-fa" || arg == "--flash-attn") {
+            params.flash_attn = true;
         } else if (arg == "--mlock") {
             params.use_mlock = true;
         } else if (arg == "--gpu-layers" || arg == "-ngl" || arg == "--n-gpu-layers") {
@@ -1077,7 +1079,9 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.yarn_beta_slow    = params.yarn_beta_slow;
     cparams.yarn_orig_ctx     = params.yarn_orig_ctx;
     cparams.defrag_thold      = params.defrag_thold;
-    
+    cparams.flash_attn        = params.flash_attn;
+    cparams.offload_kqv       = !params.no_kv_offload;
+
     cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);
 
@@ -1483,6 +1487,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cfg_scale: %f # default: 1.0\n", sparams.cfg_scale);
     fprintf(stream, "chunks: %d # default: -1 (unlimited)\n", params.n_chunks);
     fprintf(stream, "color: %s # default: false\n", params.use_color ? "true" : "false");
+    fprintf(stream, "flash_attn: %s # default: false\n", params.flash_attn ? "true" : "false");
     fprintf(stream, "ctx_size: %d # default: 512\n", params.n_ctx);
     fprintf(stream, "escape: %s # default: false\n", params.escape ? "true" : "false");
     fprintf(stream, "file: # never logged, see prompt instead. Can still be specified for input.\n");
