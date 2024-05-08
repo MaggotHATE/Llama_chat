@@ -228,9 +228,14 @@ struct modelThread{
             if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
         if (isContinue == 'w') {
-            summary +=  std::format("| Msg: {}t | Total: {}t | at {:.3f}t/s | {}", last_tokens, past_tokens, lastSpeed, sparamsListShort);
+#ifdef GGML_USE_VULKAN
+            summary += "vk|";
+#elif defined(GGML_USE_CLBLAST)
+            summary += "cl|";
+#endif
+            summary += std::format("{}|Msg: {}t|All: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, past_tokens, lastSpeedPrompt, lastSpeed);
             std::cout << lastResult;
-            std::cout << "\n--------------------------------------------------------------------------------------------------\n" << summary;
+            std::cout << "\n-------------------------------------------------------------------------------------------\n" << summary;
         }
         //if (last_tokens > 0) std::cout << "Generated: " << last_tokens << std::endl;
         //std::cout<< DELIMINER;
@@ -278,7 +283,7 @@ struct modelThread{
             return false;
         }
     }
-    
+
     bool writeTextFile(std::string path, std::string name){
         std::string path1 = path + std::to_string(newChat.params.seed) + "-" + name  + "-" + shortModelName + ".txt";
         std::ofstream file(path1, std::ios::app);
@@ -302,8 +307,35 @@ struct modelThread{
             return false;
         }
     }
-    
-    
+
+    bool writeTextFileDivided(std::string path, std::string name){
+        std::string path1 = path + std::to_string(newChat.params.seed) + "-" + name  + "-" + shortModelName + "-I.txt";
+        std::string path2 = path + std::to_string(newChat.params.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
+        std::ofstream file_i(path1, std::ios::app);
+        std::ofstream file_o(path2, std::ios::app);
+        if (file_i.is_open() && file_o.is_open()) {
+            file_i << shortModelName << DELIMINER;
+            file_i << sparamsList << DELIMINER;
+            file_i << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+            file_i << lastTimings << std::endl;
+            file_i << "Prompt:" << consumed_tokens << std::endl;
+            file_i << "Result: " << last_tokens << std::endl;
+            file_i << "----------------------------------------\n"<< std::endl;
+            for (auto r : resultsStringPairs) {
+                // file << r.first << DELIMINER;
+                // file << ' ' << r.second << DELIMINER;
+                file_i << '\n' << r.second << DELIMINER;
+            }
+
+            file_i.close();
+            file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
+            file_o.close();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     bool writeTextFile(){
         std::string path = std::to_string(newChat.params.seed) + "-" + shortModelName + "-" + ".txt";
         std::ofstream file(path, std::ios::app);

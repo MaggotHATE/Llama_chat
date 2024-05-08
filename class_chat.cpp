@@ -218,7 +218,7 @@ int main(int argc, char ** argv) {
                 if (queue["choices"].back() == "regens") {
                     if (regens >= 1) {
                         if (regens < 20) {
-                            threadedChat.writeTextFile("tales/",std::to_string(regens));
+                            threadedChat.writeTextFileDivided("tales/",std::to_string(regens));
                             input = "regen";
                             threadedChat.externalData = "Cycles left: " + std::to_string(regens);
                         }
@@ -248,8 +248,9 @@ int main(int argc, char ** argv) {
                         break;
                     }
                     case 'R': {
+                        threadedChat.writeTextFileDivided("tales/",std::to_string(regens));
                         window_title = "ChatTest: Regens ";
-                        regens = 20;
+                        regens = 19;
                         queue["choices"].push_back("regens");
                         threadedChat.externalData = "Cycles left: " + std::to_string(regens);
                         break;

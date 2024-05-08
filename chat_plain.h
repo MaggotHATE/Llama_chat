@@ -1146,7 +1146,7 @@ public:
         // if we run out of context:
         // - take the n_keep first tokens from the original prompt (via n_past)
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-        if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) > n_ctx) {
+        if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) >= n_ctx) {
             printf("....");
             const int n_left    = n_past - params.n_keep;
             const int n_discard = n_left/2;
@@ -1179,7 +1179,7 @@ public:
             // if we run out of context:
             // - take the n_keep first tokens from the original prompt (via n_past)
             // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-            if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) > n_ctx) {
+            if (n_past + (int) embd.size() + std::max<int>(0, guidance_offset) >= n_ctx) {
                 // if (params.n_predict == -2) {
                     // printf("\n\n%s: context full and n_predict == -%d => stopping\n", __func__, params.n_predict);
                     // break;
@@ -1411,7 +1411,7 @@ public:
         // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
         // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
         int comp = -1;
-        llama_sampling_rollback(ctx_sampling, n_last_message - comp);
+        llama_sampling_rollback(ctx_sampling, n_last_message);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past + comp, -1);
         embd_inp.erase(embd_inp.begin() + n_consumed - comp, embd_inp.end());
         //n_remain += last_tokens_count;

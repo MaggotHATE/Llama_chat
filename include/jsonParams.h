@@ -134,7 +134,7 @@ static nlohmann::json getJson(std::string fileName){
     return config;
 }
 
-static std::string getText(std::string filename){
+static std::string getText(std::string filename) {
     std::string result;
     
     std::ifstream file(filename);
@@ -285,6 +285,29 @@ static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
     }
 }
 
+static void promptFileLink(std::string& text, std::string open, std::string close) {
+    std::string text_tmp = text;
+    size_t open_pos = text_tmp.rfind(open);
+    size_t close_pos = text_tmp.rfind(close);
+    
+    while (open_pos != text_tmp.npos && close_pos != text_tmp.npos) {
+        size_t diff = close_pos - open_pos - open.length();
+        if (diff > 0) {
+            std::string result_tag = text_tmp.substr(open_pos + open.length(),diff);
+            std::string result_text = getText(result_tag);
+            if (result_text.length() > 0) {
+                text.replace(open_pos,diff + open.length() + close.length(),result_text);
+            }
+
+        }
+
+        text_tmp.replace(open_pos,open.length(),"{}");
+        text_tmp.replace(close_pos,close.length(),"{}");
+        open_pos = text_tmp.rfind(open);
+        close_pos = text_tmp.rfind(close);
+    }
+}
+
 static void load_param_func(nlohmann::json& config, std::string param_name, float& param, llama_sampling_param_func& param_func) {
     if (checkJObj(config, param_name)) {
         std::cout << "Found object: " << param_name << std::endl;
@@ -325,7 +348,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
                     process_STcard(params.prompt, config["st_card"], config["user"]);
                 } else if (checkJString(config, "char")) {
                     text_fill(params.prompt, "char", config["char"], "{{", "}}");
-                }
+                } else promptFileLink(params.prompt, "{{", "}}");
             }
             
             if (checkJString(config, "reverse-prompt")){
