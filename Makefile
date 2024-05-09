@@ -29,6 +29,17 @@ ifndef UNAME_M
 UNAME_M := $(shell uname -m)
 endif
 
+# In GNU make default CXX is g++ instead of c++.  Let's fix that so that users
+# of non-gcc compilers don't have to provide g++ alias or wrapper.
+DEFCC  := cc
+DEFCXX := c++
+ifeq ($(origin CC),default)
+CC  := $(DEFCC)
+endif
+ifeq ($(origin CXX),default)
+CXX := $(DEFCXX)
+endif
+
 # detect Windows
 ifneq ($(findstring _NT,$(UNAME_S)),)
 	_WIN32 := 1
@@ -635,6 +646,15 @@ GET_OBJ_FILE = $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cu,%.o,$(1))
 
 #NAMED BULDS
 
+chat: $(EXE)_mini
+	@echo Build $(EXE)_mini complete for $(ECHO_MESSAGE)
+    
+chat_cl: $(EXE_CL)_mini
+	@echo Build $(EXE_CL)_mini complete for $(ECHO_MESSAGE)
+    
+chat_vk: $(EXE_VK)_mini
+	@echo Build $(EXE_VK)_mini complete for $(ECHO_MESSAGE)
+    
 demo: $(EXE)
 	@echo Build $(EXE) complete for $(ECHO_MESSAGE) 
      
