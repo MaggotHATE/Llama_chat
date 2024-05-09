@@ -13742,10 +13742,11 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 
         llama_sample_softmax(ctx, candidates);
 
-    } else {
-        // Print message indicating skipping of the smoothing
-        printf("--------\nSkipping smoothing as smoothing_factor is 0.\n--------");
     }
+    // else {
+        ///Print message indicating skipping of the smoothing
+        // printf("--------\nSkipping smoothing as smoothing_factor is 0.\n--------");
+    // }
 
     // Update timing in context if ctx is available
     if (ctx) {
@@ -18048,7 +18049,7 @@ struct llama_timings llama_get_timings(struct llama_context * ctx) {
         /*.t_eval_ms   =*/ 1e-3 * ctx->t_eval_us,
 
         /*.n_sample =*/ std::max(1, ctx->n_sample),
-        /*.n_p_eval =*/ std::max(1, ctx->n_p_eval),
+        /*.n_p_eval =*/ std::max(0, ctx->n_p_eval),
         /*.n_eval   =*/ std::max(1, ctx->n_eval),
     };
 

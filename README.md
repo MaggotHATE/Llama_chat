@@ -1,52 +1,59 @@
 # Llama_chat
-**A chat UI for Llama.cpp. Uses ImgUI, tinyfiledialogs and json.hpp.**
+**A chat UI for Llama.cpp.**
 
 ![image](https://github.com/MaggotHATE/Llama_chat/blob/main/pics/Llama_chat.PNG)
 
-This project started from the main example of llama.cpp - the idea was to read parameters from .json files, and it stays the same here, only with a class, separate threads for running llama.cpp, structs for managing and settings - and only then wrapped into UI. A chatTest console app is also added as an additional example for testing purposes, since certain information (like memory used by the model) is printed outside of the original example (in llama.cpp, common.cpp, etc.).
+This project started from the main example of llama.cpp - the idea was to read parameters from .json files. Now it's a class, separate threads for running llama.cpp, structs for managing and settings - and only then wrapped into UI.
+
+Additionally, chatTest console app is also added for testing purposes, since certain information (like memory used by the model) is printed outside of the original example (in llama.cpp, common.cpp, etc.).
 
 ## Features
 
-* Two versions: gguf and ggmlv3
 * Model settings management through config.json file
 * UI settings management through chatConfig.json file
 * Global and per-model settings
 * Quick model select according to config.json
 * "Templates" (prompts) with a separate .json file to store, load and quickly use in chat ui.
+* "Characters" with their own .json files, partial compatibility with SillyTavern format.
 * Assignable folders for models and prompt files
 * Quick select of prompt files before loading a model
 * Prompts history within one session
+* Last result regeneration (still WIP)
 
-## About chatTest
+### About chatTest
 
-Recently I've added two bulk generation tests into chatTest as a way of determining how good a model is. After loading a model, input one of these instead of dialog.
+ChatTest is a debugging-oriented version that uses the same internal processing, but alaos allows bulk generation tests as a way of evaluating models and prompts. After loading a model, input one of these instead of dialog.
 
 * cycle - generates X amount of results by a given prompt. It also has wildcards support for additional randomization. See sci.json as an example.
 * test - generates results for each given params preset on the same prompt and seed. See presetsTest.json as an example, which will be used by default.
+* regens - generates 20 results by a given prompt, but using regeneration of the last result. You can also drag-n-drop a text file with a prompt, but the file name needs to have "regens.txt" at the end.
 
-In both cases it will ask you to enter file name or a prompt, cycle will also ask for a custom amount of cycles if no file given.
+In first two cases it will ask you to enter file name or a prompt, cycle will also ask for a custom amount of cycles if no file given. Regens is instant as it relies on the prompt.
 
 ## Building
 
-Tested on Windows only for now. AVX releases only due to old CPU, please compile if using a modern CPU.
+Tested on Windows only for now. AVX2 releases only for now, older releases were AVX only.
 
 ### Requirements
 
 * tinyfiledialogs https://sourceforge.net/projects/tinyfiledialogs/
-* Vulkan SDK (only "include" folder) https://vulkan.lunarg.com/#new_tab
+* Vulkan SDK (installer is preferred) https://vulkan.lunarg.com/#new_tab
 * imgui https://github.com/ocornut/imgui
+* SDL2 https://github.com/libsdl-org/SDL
 * OpenCL and CLBLAST if needed (see https://github.com/ggerganov/llama.cpp#clblast for installation guide)
 
 ### Building on Windows
 
 * Download this repo or `git clone` it
 * Use w64devkit https://github.com/skeeto/w64devkit/releases
+* Install all prerequisites according to w64devkit installation
 * Launch w64devkit.exe and navigate to the project folder
-* `make all_cpu` to compile all cpu-only executables
-* `make all` includes CLBLAST ( the only GPU option for now - regarding CUBLAS see https://github.com/ggerganov/llama.cpp/issues/1470 )
-* `make demos_gguf` for gguf only chats
-* `make gguf_cpu` for gguf and cpu only chat and test
+* `make chat` for CPU-only
+* `make chat_cl` for Clblast build
+* `make chat_vk` for Vulkan build
+* `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
 * if your GPU/iGPU don't support Vulkan, compile with SDL2=1
+* if you need Windows console for debugging, compile with CONW=1
 * see more in makefile
 
 ### Credits
@@ -58,3 +65,7 @@ Tested on Windows only for now. AVX releases only due to old CPU, please compile
 * Vulkan experimental build uses [this PR](https://github.com/ggerganov/llama.cpp/pull/2059)
 * [redmond-puffin-13b](https://huggingface.co/TheBloke/Redmond-Puffin-13B-GGUF) from config.json (q4_K_S version works faster)
 * [mistral-7b-instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF) from config.json (q4_K_S version works faster)
+
+### Additional notes
+
+* ggmlv3 version is very old and almost deprecated for now, as almost no new models are using the old format
