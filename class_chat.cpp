@@ -218,7 +218,7 @@ int main(int argc, char ** argv) {
                 if (queue["choices"].back() == "regens") {
                     if (regens >= 1) {
                         if (regens < 20) {
-                            threadedChat.writeTextFileDivided("tales/",std::to_string(regens));
+                            threadedChat.writeTextFileUnified("tales/",std::to_string(regens), regens == 19);
                             input = "regen";
                             threadedChat.externalData = "Cycles left: " + std::to_string(regens);
                         }

@@ -336,6 +336,47 @@ struct modelThread{
         }
     }
 
+    bool writeTextFileUnified(std::string path, std::string name, bool first_time){
+        std::string path1 = path + std::to_string(newChat.params.seed) + "-INPUT-" + shortModelName + ".txt";
+        std::string path2 = path + std::to_string(newChat.params.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
+        std::ofstream file_o(path2, std::ios::app);
+        if (file_o.is_open()) {
+            if (first_time) {
+                std::ofstream file_i(path1, std::ios::app);
+                if (file_i.is_open()) {
+                    file_i << shortModelName << DELIMINER;
+                    file_i << sparamsList << DELIMINER;
+                    file_i << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+                    file_i << lastTimings << std::endl;
+                    file_i << "Prompt:" << consumed_tokens << std::endl;
+                    file_i << "Result: " << last_tokens << std::endl;
+                    file_i << "----------------------------------------\n"<< std::endl;
+                    for (auto r : resultsStringPairs) {
+                        // file << r.first << DELIMINER;
+                        // file << ' ' << r.second << DELIMINER;
+                        file_i << '\n' << r.second << DELIMINER;
+                    }
+
+                    file_i.close();
+                }
+            }
+            std::string summary = "";
+#ifdef GGML_USE_VULKAN
+            summary += "vk|";
+#elif defined(GGML_USE_CLBLAST)
+            summary += "cl|";
+#endif
+            summary += std::format("{}|Msg: {}t|All: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, past_tokens, lastSpeedPrompt, lastSpeed);
+
+            file_o << summary << DELIMINER;
+            file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
+            file_o.close();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     bool writeTextFile(){
         std::string path = std::to_string(newChat.params.seed) + "-" + shortModelName + "-" + ".txt";
         std::ofstream file(path, std::ios::app);

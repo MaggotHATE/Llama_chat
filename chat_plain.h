@@ -1298,6 +1298,8 @@ public:
             }
             if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval, n_past, 0))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
+                std::string report = std::format("evaluate_main(): failed to eval: {}\n{}\n Failed: {}", params.model, params.prompt,embd[i]);
+                writeTextFile(std::to_string(getRand()) + ".txt", report);
                 return 1;
             }
             n_past += n_eval;
