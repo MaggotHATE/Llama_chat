@@ -4,7 +4,6 @@
 #include "ggml-impl.h"
 #include "ggml-quants.h"
 #include "ggml.h"
-#include "sgemm.h"
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <malloc.h> // using malloc.h with MSC/MINGW
@@ -35,6 +34,10 @@
 
 #ifdef __ARM_FEATURE_MATMUL_INT8
 #undef GGML_USE_LLAMAFILE
+#endif
+
+#ifdef GGML_USE_LLAMAFILE
+#include "sgemm.h"
 #endif
 
 #if defined(_MSC_VER)
@@ -1303,6 +1306,8 @@ static inline void __avx_f32cx8_store(ggml_fp16_t *x, __m256 y) {
 #define GGML_F16_VEC_ZERO   GGML_F32x4_ZERO
 #define GGML_F16_VEC_SET1   GGML_F32x4_SET1
 #define GGML_F16_VEC_FMA    GGML_F32x4_FMA
+#define GGML_F16_VEC_ADD    GGML_F32x4_ADD
+#define GGML_F16_VEC_MUL    GGML_F32x4_MUL
 #define GGML_F16_VEC_REDUCE GGML_F32x4_REDUCE
 // Use vec_xl, not vec_ld, in case the load address is not aligned.
 #define GGML_F16_VEC_LOAD(p, i) (i & 0x1) ?                   \
@@ -2817,6 +2822,16 @@ bool ggml_are_same_shape(const struct ggml_tensor * t0, const struct ggml_tensor
         (t0->ne[1] == t1->ne[1] ) &&
         (t0->ne[2] == t1->ne[2] ) &&
         (t0->ne[3] == t1->ne[3] );
+}
+
+bool ggml_are_same_stride(const struct ggml_tensor * t0, const struct ggml_tensor * t1) {
+    static_assert(GGML_MAX_DIMS == 4, "GGML_MAX_DIMS is not 4 - update this function");
+
+    return
+        (t0->nb[0] == t1->nb[0] ) &&
+        (t0->nb[1] == t1->nb[1] ) &&
+        (t0->nb[2] == t1->nb[2] ) &&
+        (t0->nb[3] == t1->nb[3] );
 }
 
 // check if t1 can be represented as a repeatition of t0

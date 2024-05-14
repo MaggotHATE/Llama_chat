@@ -1180,7 +1180,7 @@ struct chatUI{
                 
                 ImGui::TextWrapped(" Model performance settings");
                 ImGui::Separator();
-                paramsPanelNew(newChat.newChat.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*24));
+                paramsPanelNew(newChat.newChat.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.85, ImGui::GetContentRegionAvail().y));
             } else {
                 
                 
@@ -1204,7 +1204,7 @@ struct chatUI{
                 
                 ImGui::TextWrapped(" Config performance settings");
                 ImGui::Separator();
-                paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.80f, ImGui::GetTextLineHeightWithSpacing()*24));
+                paramsPanelNew(localSettings.params, totalThreads, ImVec2( ImGui::GetContentRegionAvail().x * 0.85, ImGui::GetContentRegionAvail().y));
                 
             }
             
@@ -2689,8 +2689,8 @@ struct chatUI{
         ImGui::EndPopup();
         }
         
-        ImVec2 advanced_size = ImVec2(width * 0.95f, ImGui::GetTextLineHeightWithSpacing() * 30);
-        if (newChat.loaded == 9) advanced_size.y = ImGui::GetTextLineHeightWithSpacing() * 35;
+        ImVec2 advanced_size = ImVec2(width * 0.95f, ImGui::GetTextLineHeightWithSpacing() * 33);
+        //if (newChat.loaded == 9) advanced_size.y = ImGui::GetTextLineHeightWithSpacing() * 35;
         if (ImGui::BeginPopup("Sampling settings", ImGuiWindowFlags_NoSavedSettings)) {
             
             if (ImGui::BeginChild("Sampling settings frame", advanced_size, ImGuiWindowFlags_NoSavedSettings)){
