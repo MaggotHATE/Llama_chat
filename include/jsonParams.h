@@ -3,6 +3,7 @@
 #include "common.h"
 #include "llama.h"
 #include "grammar-parser.h"
+#define JSON_ASSERT GGML_ASSERT
 #include "json.hpp"
 
 #include <fstream>

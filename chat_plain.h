@@ -491,7 +491,7 @@ public:
     }
     
     std::string getSparamsChanged(bool fullnames = true){
-        std::string result = "logits ";
+        std::string result = fullnames ? "logits" : "@";
 
         std::string name_penalty_repeat = fullnames ? "penalty_repeat" : "p_r";
         std::string name_penalty_threshold = fullnames ? "penalty_threshold" : "p_t";
@@ -512,16 +512,16 @@ public:
         std::string name_top_p = fullnames ? "top_p" : "P";
         std::string name_min_p = fullnames ? "min_p" : "I";
 
-        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += "-> " + name_penalty_repeat + " = " + std::to_string(params.sparams.penalty_repeat); 
-        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += "-> " + name_penalty_threshold + " = " + std::to_string(params.sparams.penalty_threshold); 
-        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "-> " + name_penalty_freq + " = " + std::to_string(params.sparams.penalty_freq); 
-        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "-> " + name_penalty_present + " = " + std::to_string(params.sparams.penalty_present); 
+        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += "->" + name_penalty_repeat + " = " + std::to_string(params.sparams.penalty_repeat); 
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += "->" + name_penalty_threshold + " = " + std::to_string(params.sparams.penalty_threshold); 
+        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "->" + name_penalty_freq + " = " + std::to_string(params.sparams.penalty_freq); 
+        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "->" + name_penalty_present + " = " + std::to_string(params.sparams.penalty_present); 
         
         
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
             if (params.sparams.dynatemp_range > 0) {
-                result += std::format("-> {} ({:.2f} - {:.2f})",name_dynatemp_range,params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
+                result += std::format("->{}({:.2f} - {:.2f})",name_dynatemp_range,params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
                 if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
             } else {
                 result += name_temp; 
@@ -533,21 +533,21 @@ public:
             result += std::format("; {} = {:.2f}", name_mirostat_eta, params.sparams.mirostat_eta);
         } else {
             for (auto s : params.sparams.samplers_sequence){
-                result += "-> ";
+                result += "->";
                 switch (s){
                     case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += "= " + std::to_string(params.sparams.top_k); break;
-                    case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("= {:.2f}",params.sparams.tfs_z); break;
-                    case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("= {:.2f}",params.sparams.typical_p); break;
-                    case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("= {:.2f}",params.sparams.p_step); break;
-                    case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("= {:.2f}",params.sparams.top_p); break;
-                    case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("= {:.2f}",params.sparams.min_p); break;
+                    case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format(" = {:.2f}",params.sparams.tfs_z); break;
+                    case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format(" = {:.2f}",params.sparams.typical_p); break;
+                    case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format(" = {:.2f}",params.sparams.p_step); break;
+                    case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format(" = {:.2f}",params.sparams.top_p); break;
+                    case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format(" = {:.2f}",params.sparams.min_p); break;
                     case 't': {
                             if (params.sparams.dynatemp_range > 0) {
-                                result += std::format("{} ({:.2f} - {:.2f})",name_dynatemp_range, params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
+                                result += std::format("{}({:.2f} - {:.2f})",name_dynatemp_range, params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
                                 if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
                             } else { 
                                 result += name_temp; 
-                                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("= {:.2f}",params.sparams.temp); 
+                                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format(" = {:.2f}",params.sparams.temp); 
                                 result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
                             }
                             break;
@@ -1412,8 +1412,9 @@ public:
         // n_past = n_past_last + 1;
         // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
         // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
-        int comp = -1;
-        llama_sampling_rollback(ctx_sampling, n_last_message);
+        //int comp = -1;
+        int comp = 0;
+        llama_sampling_rollback(ctx_sampling, n_last_message_past);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past + comp, -1);
         embd_inp.erase(embd_inp.begin() + n_consumed - comp, embd_inp.end());
         //n_remain += last_tokens_count;

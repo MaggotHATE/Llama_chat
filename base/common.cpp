@@ -1396,7 +1396,7 @@ void dump_string_yaml_multiline(FILE * stream, const char * prop_name, const cha
     size_t pos_start = 0;
     size_t pos_found = 0;
 
-    if (!data_str.empty() && (std::isspace(data_str[0]) || std::isspace(data_str.back()))) {
+    if (std::isspace(data_str[0]) || std::isspace(data_str.back())) {
         data_str = std::regex_replace(data_str, std::regex("\n"), "\\n");
         data_str = std::regex_replace(data_str, std::regex("\""), "\\\"");
         data_str = "\"" + data_str + "\"";
@@ -1450,6 +1450,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cpu_has_fma: %s\n",         ggml_cpu_has_fma()         ? "true" : "false");
     fprintf(stream, "cpu_has_gpublas: %s\n",     ggml_cpu_has_gpublas()     ? "true" : "false");
     fprintf(stream, "cpu_has_neon: %s\n",        ggml_cpu_has_neon()        ? "true" : "false");
+    fprintf(stream, "cpu_has_sve: %s\n",         ggml_cpu_has_sve()         ? "true" : "false");
     fprintf(stream, "cpu_has_f16c: %s\n",        ggml_cpu_has_f16c()        ? "true" : "false");
     fprintf(stream, "cpu_has_fp16_va: %s\n",     ggml_cpu_has_fp16_va()     ? "true" : "false");
     fprintf(stream, "cpu_has_wasm_simd: %s\n",   ggml_cpu_has_wasm_simd()   ? "true" : "false");

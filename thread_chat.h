@@ -79,6 +79,9 @@ struct modelThread{
     int remain_tokens = 0;
     int consumed_tokens = 0;
     int past_tokens = 0;
+    int left_tokens = 0;
+    
+    bool penalize_nl = false;
     
     std::string lastTimings = "Not yet calculated...";
     float lastSpeed = 0.0f;
@@ -150,11 +153,19 @@ struct modelThread{
         return newChat.params.input_suffix != suffix;
     }
     
+
+    void remove_last_nl(std::string& msg) {
+        if (msg.back() == '\n' || msg.back() == '\r') {
+            msg.pop_back();
+        }
+    }
+    
     void appendQuestion(std::string& input){
         //if (input.back() == DELIMINER ) input.pop_back();
         //resultsString.emplace_back(input);
         //if(newChat.params.input_prefix.empty()) 
-            resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
+        if (penalize_nl) remove_last_nl(input);
+        resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
         //else resultsStringPairs.emplace_back(std::pair(newChat.params.input_prefix,input));
     }
     
@@ -183,7 +194,7 @@ struct modelThread{
         Clear();
         getTimigsPre();
         getSparamsList();
-        std::string summary = " ";
+        std::string summary = "-";
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
@@ -205,10 +216,11 @@ struct modelThread{
         std::cout << "Last         : " << last_tokens << std::endl;
         std::cout << "Past-Last    : " << past_tokens - last_tokens << std::endl;
         std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << std::endl;
-        //std::cout << "n_past_last  : " << newChat.n_past_last << '\n' << std::endl;
+        std::cout << "n_past_last  : " << newChat.n_past_last << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
+        if (penalize_nl) std::cout << "penalize_nl = true" << '\n' << std::endl;
         //#endif
         //std::cout << lastTimings << std::endl;
         std::cout << std::format("Eval speed: {:.3f} t/s", lastSpeedPrompt) << std::format(" | Gen speed: {:.3f} t/s", lastSpeed) << std::endl;
@@ -229,13 +241,13 @@ struct modelThread{
         }
         if (isContinue == 'w') {
 #ifdef GGML_USE_VULKAN
-            summary += "vk|";
+            summary += "VK-|";
 #elif defined(GGML_USE_CLBLAST)
-            summary += "cl|";
+            summary += "CL-|";
 #endif
-            summary += std::format("{}|Msg: {}t|All: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, past_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}|Msg: {}t|Left: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
             std::cout << lastResult;
-            std::cout << "\n-------------------------------------------------------------------------------------------\n" << summary;
+            std::cout << "\n----------------------------------------------------------------------------------------------\n" << summary;
         }
         //if (last_tokens > 0) std::cout << "Generated: " << last_tokens << std::endl;
         //std::cout<< DELIMINER;
@@ -366,7 +378,7 @@ struct modelThread{
 #elif defined(GGML_USE_CLBLAST)
             summary += "cl|";
 #endif
-            summary += std::format("{}|Msg: {}t|All: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, past_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}|Msg: {}t|Left: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
 
             file_o << summary << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
@@ -537,6 +549,7 @@ void getStats() {
     last_tokens = newChat.getLastTokens();
     consumed_tokens = newChat.getConsumedTokens();
     past_tokens = newChat.getPastTokens();
+    left_tokens = newChat.params.n_ctx - past_tokens;
     remain_tokens = newChat.getRemainTokens();
 }
 
@@ -612,6 +625,7 @@ void getResultAsyncStringFull3() {
             getTimigsPre();
             
             std::string input = resultsStringPairs.back().second;
+
             newChat.inputOnlyNew(input);
             
             isPregen = 'i';
@@ -772,6 +786,8 @@ void getResultAsyncStringFull3() {
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
+            
+            penalize_nl = newChat.params.sparams.penalize_nl;
 
             //std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
@@ -797,6 +813,8 @@ void getResultAsyncStringFull3() {
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
+            
+            penalize_nl = newChat.params.sparams.penalize_nl;
 
             //std::cout << "Loaded, you can type now! " << std::endl;
             getShortName();
@@ -824,6 +842,8 @@ void getResultAsyncStringFull3() {
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
+            
+            penalize_nl = newChat.params.sparams.penalize_nl;
 
             std::cout << "Reset complete!" << std::endl;
             getShortName();
