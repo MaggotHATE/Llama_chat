@@ -43,15 +43,21 @@
 #include <signal.h>
 #endif
 
-// #ifdef GGML_USE_VULKAN
-    // #include "ggml-vulkan.h"
-// #endif
+#ifdef GGML_USE_CLBLAST
+    //#include "ggml-opencl.h"
+    extern int GGML_OPENCL_DEFAULT_PLATFORM_ID;
+    extern std::string GGML_OPENCL_RESULT_DEVICE_NAME;
+#endif
 
 #define SESSIONS_FOLDER "sessions/"
 
 static gpt_params paramsDefault;
 
 static bool is_interacting = false;
+
+static void log_down(std::string text, uint32_t seed) {
+    writeTextFile(std::to_string(seed) + ".log", text);
+}
 
 std::string llama_string_timings(struct llama_context * ctx) {
     const llama_timings timings = llama_get_timings(ctx);
@@ -252,6 +258,8 @@ public:
     bool finished            = true;
     int n_past_last           = 0;
     int n_remain_last         = 0;
+    int n_consumed_last       = 0;
+    int n_embd_inp_last       = 0;
 
     // experimenting with simple dynamic paramenters
     float d_temp_min = 1.8;
@@ -746,7 +754,7 @@ public:
 
         //llama_init_backend(params.numa);
         llama_backend_init();
-        printf("..............Backend initialized................\n");
+        printf("..............Backend initialized simple................\n");
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
@@ -776,7 +784,7 @@ public:
         // LET'S TRY THIS
         //llama_init_backend(params.numa);
         llama_backend_init();
-        printf("..............Backend initialized................\n");
+        printf("..............Backend initialized strict................\n");
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
@@ -829,8 +837,17 @@ public:
             //loading the model itself; uses llama_backend, ctx, ctx_guidance
             // LET'S TRY THIS
             //llama_init_backend(params.numa);
+
+//#define GGML_OPENCL_DEFAULT_PLATFORM_ID params.clblast_platform_id
+#ifdef GGML_USE_CLBLAST
+// #undef GGML_OPENCL_DEFAULT_PLATFORM_ID
+// #define GGML_OPENCL_DEFAULT_PLATFORM_ID params.clblast_platform_id
+            GGML_OPENCL_DEFAULT_PLATFORM_ID = params.clblast_platform_id;
+            printf("..GGML_OPENCL_DEFAULT_PLATFORM_ID = %d..\n", GGML_OPENCL_DEFAULT_PLATFORM_ID);
+#endif
+
             llama_backend_init();
-            printf("..............Backend initialized................\n");
+            printf("..............Backend initialized common: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
 
             // load the model and apply lora adapter, if any
             std::tie(model, ctx) = llama_init_from_gpt_params(params);
@@ -1333,6 +1350,7 @@ public:
     //checking already existing contex
     int checkEmb(){
         if (debug) printf("-ce");
+        //log_down("checkEmb\n", params.seed);
         //fprintf(stderr, "1");
         // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
         // --prompt or --file which uses the same value.
@@ -1363,6 +1381,7 @@ public:
     // main generation, includes adding antiprompt at the end
     int applyEmb(bool fastStop = false) {
         if (debug) printf("-ae");
+        //log_down("applyEmb\n", params.seed);
         //fprintf(stderr, "2");
 
         // optionally save the session on first sample (for faster prompt loading next time)
@@ -1370,13 +1389,11 @@ public:
             need_to_save_session = false;
             llama_state_save_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
         }
-        
-        
-        
+
         // new generation function, moved to common 
         const llama_token id = llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
         //const llama_token id = llama_sampling_sample_choice(ctx_sampling, ctx, ctx_guidance, tempFirst);
-        
+
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.emplace_back(id);
         llama_sampling_accept(ctx_sampling, ctx, id, true);
@@ -1406,6 +1423,12 @@ public:
         n_last_message = 0;
         n_last_message_past = 0;
     }
+    
+    void capture_states() {
+        n_past_last = n_past;
+        n_embd_inp_last = embd_inp.size();
+        n_consumed_last = n_consumed;
+    }
 
 
     void clear_last() {
@@ -1413,13 +1436,16 @@ public:
         // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
         // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
         //int comp = -1;
-        int comp = 0;
+        //int comp = 0;
         llama_sampling_rollback(ctx_sampling, n_last_message_past);
-        llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past + comp, -1);
-        embd_inp.erase(embd_inp.begin() + n_consumed - comp, embd_inp.end());
+        llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
+        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + 1, embd_inp.end());
         //n_remain += last_tokens_count;
-        n_past -= n_last_message_past - comp;
-        
+        n_past -= n_last_message_past;
+        //n_past = n_past_last;
+        //n_consumed = n_consumed_last;
+        //embd.clear();
+        //embd_guidance.clear();
         
         clearLastTokens();
         
@@ -1942,9 +1968,42 @@ public:
         }
     }
     
-    std::string preEmbNew(bool& fastStop){ // 1 2 3 4
-        //std::cout << " ** " << std::endl;
+    void preEmbSeparate(bool& fastStop) {
+        if (debug) printf("-pen");
+        //log_down("preEmbSeparate \n", params.seed);
+        fastStop = true;
         
+        // some user input remains from prompt or interaction, forward it to processing
+        while ((int) embd_inp.size() > n_consumed) {
+            //fprintf(stderr, ">");
+            //embd.emplace_back(embd_inp[n_consumed]);
+            embd.push_back(embd_inp[n_consumed]);
+            //last_n_tokens.erase(last_n_tokens.begin());
+            //last_n_tokens.emplace_back(embd_inp[n_consumed]);
+            //last_tokens.erase(last_tokens.begin());
+            //last_tokens.emplace_back(embd_inp[n_consumed]);
+            
+            // GG: I'm not sure it's a good idea to push the prompt tokens into the sampling context
+            //     Most likely will remove this in the future to avoid exposing "prev"
+            //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
+            //     penalty will be applied only based on the tokens generated by the model.
+            ctx_sampling->prev.erase(ctx_sampling->prev.begin());
+            //ctx_sampling->prev.emplace_back(embd_inp[n_consumed]);
+            ctx_sampling->prev.push_back(embd_inp[n_consumed]);
+
+
+            ++n_consumed;
+            if ((int) embd.size() >= params.n_batch) {
+                break;
+            }
+        }
+
+        capture_lasts();
+    }
+    
+    std::string processEmb(bool& fastStop){ // 1 2 3 4
+        //std::cout << " ** " << std::endl;
+        //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
         if (embd.size() > 0) {
             checkEmb(); // 1
         }
@@ -1955,35 +2014,10 @@ public:
         if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
             applyEmb(); // 2
         } else {
-            if (debug) printf("-pen");
-            fastStop = true;
-            // some user input remains from prompt or interaction, forward it to processing
-            while ((int) embd_inp.size() > n_consumed) {
-                //fprintf(stderr, ">");
-                //embd.emplace_back(embd_inp[n_consumed]);
-                embd.push_back(embd_inp[n_consumed]);
-                //last_n_tokens.erase(last_n_tokens.begin());
-                //last_n_tokens.emplace_back(embd_inp[n_consumed]);
-                //last_tokens.erase(last_tokens.begin());
-                //last_tokens.emplace_back(embd_inp[n_consumed]);
-                
-                // GG: I'm not sure it's a good idea to push the prompt tokens into the sampling context
-                //     Most likely will remove this in the future to avoid exposing "prev"
-                //     Same thing is done in "server". If we stop pushing the prompt tokens, then the repetition
-                //     penalty will be applied only based on the tokens generated by the model.
-                ctx_sampling->prev.erase(ctx_sampling->prev.begin());
-                //ctx_sampling->prev.emplace_back(embd_inp[n_consumed]);
-                ctx_sampling->prev.push_back(embd_inp[n_consumed]);
-                
-                
-                ++n_consumed;
-                if ((int) embd.size() >= params.n_batch) {
-                    
-                    break;
-                }
-            }
-
-            capture_lasts();
+            preEmbSeparate(fastStop);
+            // n_consumed_last = n_consumed;
+            // n_embd_inp_last = embd_inp.size();
+            capture_states();
         }
 
         // display text
@@ -2003,7 +2037,7 @@ public:
     // token by token generation and pushing
     std::string cycleStringsOnly(bool stream = false) {
         //std::cout << " * " << input << std::endl;
-        
+        //log_down("cycleStringsOnly\n", params.seed);
         std::string result;
         bool fastStop = false;
         //dynamic_params(params.sparams.temp, d_temp_min, d_temp_max, d_temp_add, d_temp_mul, d_temp_up);
@@ -2013,7 +2047,7 @@ public:
         //generate(false);  // do not forget to include it elsewhere after loading the model  
         //inputOnly(input); // MOVED
         
-        std::string bit = preEmbNew(fastStop);
+        std::string bit = processEmb(fastStop);
 
         //if (stream || streaming) std::cout << bit;
 
@@ -2032,7 +2066,7 @@ public:
                 
                 //eraseAntiprompt(result);
                 finished = true;
-                
+                //log_down("cycleStringsOnly FINISHED\n", params.seed);
                 //checkAntiprompt();
                 //setEOS();
                 

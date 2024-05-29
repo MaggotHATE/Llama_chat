@@ -20,6 +20,10 @@
 #   include "chat_plain.h"  
 #endif
 
+#ifdef GGML_USE_CLBLAST
+    extern std::string GGML_OPENCL_RESULT_DEVICE_NAME;
+#endif
+
 using namespace std;
 
 template <typename T>
@@ -200,7 +204,11 @@ struct modelThread{
         std::cout << "Seed: " << std::to_string(newChat.params.seed) << std::endl;
         std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << std::endl;
         std::cout << "batch size: " << std::to_string(newChat.params.n_batch) << std::endl;
-        std::cout << "ubatch size: " << std::to_string(newChat.params.n_ubatch) << "\n----------------------------------------" << std::endl;
+        std::cout << "ubatch size: " << std::to_string(newChat.params.n_ubatch) << std::endl;
+#ifdef GGML_USE_CLBLAST
+        std::cout << "GPU: " << GGML_OPENCL_RESULT_DEVICE_NAME << std::endl;
+#endif
+        std::cout << "----------------------------------------" << std::endl;
         if (newChat.params.antiprompt.size()) std::cout << "Antiprompt: " << newChat.params.antiprompt[0] << std::endl;
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << "\n----------------------------------------" << std::endl;
@@ -215,8 +223,10 @@ struct modelThread{
         std::cout << "Remain       : " << remain_tokens << std::endl;
         std::cout << "Last         : " << last_tokens << std::endl;
         std::cout << "Past-Last    : " << past_tokens - last_tokens << std::endl;
-        std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << std::endl;
-        std::cout << "n_past_last  : " << newChat.n_past_last << '\n' << std::endl;
+        std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
+        std::cout << "n_past_last  : " << newChat.n_past_last << std::endl;
+        std::cout << "n_embd_inp_last  : " << newChat.n_embd_inp_last << std::endl;
+        std::cout << "n_consumed_last  : " << newChat.n_consumed_last << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
@@ -1305,7 +1315,7 @@ struct configurableChat{
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) modelConfig[model]["n_ubatch"] = params.n_ubatch;
         if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
-        
+        if (params.clblast_platform_id != paramsDefault.clblast_platform_id) modelConfig[model]["clblast_platform_id"] = params.clblast_platform_id;
         if (params.format_instruct != paramsDefault.format_instruct) modelConfig[model]["format_instruct"] = params.format_instruct;
         if (params.format_dialog != paramsDefault.format_dialog) modelConfig[model]["format_dialog"] = params.format_dialog;
         if (params.bos != paramsDefault.bos) modelConfig[model]["bos"] = params.bos;
@@ -1402,7 +1412,8 @@ struct configurableChat{
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) newCard["n_ubatch"] = params.n_ubatch;
         if (params.n_threads != paramsDefault.n_threads) newCard["n_threads"] = params.n_threads;
-        
+        if (params.clblast_platform_id != paramsDefault.clblast_platform_id) newCard["clblast_platform_id"] = params.clblast_platform_id;
+
         //#if GGML_EXPERIMENTAL1
         if (params.n_threads_batch != paramsDefault.n_threads_batch) newCard["n_threads_batch"] = params.n_threads_batch;
         //#endif

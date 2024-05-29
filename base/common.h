@@ -47,6 +47,7 @@ int     get_math_cpu_count();
 struct gpt_params {
     uint32_t seed               = -1;   // RNG seed
     int32_t n_threads           = get_math_cpu_count();
+    int32_t clblast_platform_id = -1;
     int32_t n_threads_batch     = -1;   // number of threads to use for batch processing (-1 = use n_threads)
     int32_t n_predict           = -1;   // new tokens to predict
     int32_t n_ctx               = 512;  // context size

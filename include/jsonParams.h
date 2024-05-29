@@ -439,7 +439,8 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
     if (config["no_kv_offload"].is_boolean()) params.no_kv_offload = config["no_kv_offload"];
     if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = config["input_prefix_bos"];
-    
+    if (config["main_gpu"].is_boolean()) params.main_gpu = config["main_gpu"];
+
     if (checkJString(config, "grammar")) params.sparams.grammar = config["grammar"];
     if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
     
@@ -486,10 +487,12 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
     if (checkJNum(config, "n_threads_vk")) params.n_threads = config["n_threads_vk"];
     if (checkJNum(config, "n_threads_batch_vk")) params.n_threads_batch = config["n_threads_batch_vk"];
-#elif defined(GGML_USE_CLBLAST)
+#elif GGML_USE_CLBLAST
     if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
     if (checkJNum(config, "n_threads_clblast")) params.n_threads = config["n_threads_clblast"];
     if (checkJNum(config, "n_threads_batch_clblast")) params.n_threads_batch = config["n_threads_batch_clblast"];
+
+    if (checkJNum(config, "clblast_platform_id")) params.clblast_platform_id = config["clblast_platform_id"];
 #endif
 }
 

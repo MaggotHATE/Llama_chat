@@ -9,10 +9,14 @@
 #include <cstring>
 #include <limits>
 #include <sstream>
+#include <iostream>
 #include <vector>
 
 #define CL_TARGET_OPENCL_VERSION 120
 #include <clblast.h>
+
+int GGML_OPENCL_DEFAULT_PLATFORM_ID = -1;
+std::string GGML_OPENCL_RESULT_DEVICE_NAME = "Generic GPU";
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244 4267) // possible loss of data
@@ -985,38 +989,57 @@ void ggml_cl_init(void) {
     cl_platform_id platform_ids[NPLAT];
     CL_CHECK(clGetPlatformIDs(NPLAT, platform_ids, &n_platforms));
 
+// #ifndef GGML_OPENCL_DEFAULT_PLATFORM_ID
+// #define GGML_OPENCL_DEFAULT_PLATFORM_ID -1
+// #endif
+
+    int default_platform_id = GGML_OPENCL_DEFAULT_PLATFORM_ID;
+    fprintf(stderr, "ggml_opencl: GGML_OPENCL_DEFAULT_PLATFORM_ID = '%d'\n", default_platform_id);
+    if (default_platform_id != -1 && default_platform_id > n_platforms) default_platform_id = n_platforms;
+
     for (unsigned i = 0; i < n_platforms; i++) {
-        struct cl_platform * p = &platforms[i];
-        p->number = i;
-        p->id = platform_ids[i];
-        CL_CHECK(clGetPlatformInfo(p->id, CL_PLATFORM_NAME, sizeof(p->name), &p->name, NULL));
-        CL_CHECK(clGetPlatformInfo(p->id, CL_PLATFORM_VENDOR, sizeof(p->vendor), &p->vendor, NULL));
+        if (default_platform_id == -1 || i == default_platform_id) {
+            struct cl_platform * p = &platforms[i];
+            p->number = i;
+            p->id = platform_ids[i];
+            CL_CHECK(clGetPlatformInfo(p->id, CL_PLATFORM_NAME, sizeof(p->name), &p->name, NULL));
+            CL_CHECK(clGetPlatformInfo(p->id, CL_PLATFORM_VENDOR, sizeof(p->vendor), &p->vendor, NULL));
 
-        cl_device_id device_ids[NDEV];
-        cl_int clGetDeviceIDsError = clGetDeviceIDs(p->id, CL_DEVICE_TYPE_ALL, NDEV, device_ids, &p->n_devices);
-        if (clGetDeviceIDsError == CL_DEVICE_NOT_FOUND) {
-            p->n_devices = 0;
-        } else {
-            CL_CHECK(clGetDeviceIDsError);
-        }
-        p->devices = p->n_devices > 0 ? &devices[n_devices] : NULL;
-        p->default_device = NULL;
-
-        for (unsigned j = 0; j < p->n_devices; j++) {
-            struct cl_device * d = &devices[n_devices];
-            d->number = n_devices++;
-            d->id = device_ids[j];
-            d->platform = p;
-            CL_CHECK(clGetDeviceInfo(d->id, CL_DEVICE_NAME, sizeof(d->name), &d->name, NULL));
-            CL_CHECK(clGetDeviceInfo(d->id, CL_DEVICE_TYPE, sizeof(d->type), &d->type, NULL));
-
-            if (p->default_device == NULL && d->type == CL_DEVICE_TYPE_GPU) {
-                p->default_device = d;
+            cl_device_id device_ids[NDEV];
+            cl_int clGetDeviceIDsError = clGetDeviceIDs(p->id, CL_DEVICE_TYPE_ALL, NDEV, device_ids, &p->n_devices);
+            if (clGetDeviceIDsError == CL_DEVICE_NOT_FOUND) {
+                p->n_devices = 0;
+            } else {
+                CL_CHECK(clGetDeviceIDsError);
             }
-        }
+            p->devices = p->n_devices > 0 ? &devices[n_devices] : NULL;
+            p->default_device = NULL;
 
-        if (default_device == NULL && p->default_device != NULL) {
-            default_device = p->default_device;
+            for (unsigned j = 0; j < p->n_devices; j++) {
+                struct cl_device * d = &devices[n_devices];
+                d->number = n_devices++;
+                d->id = device_ids[j];
+                d->platform = p;
+                CL_CHECK(clGetDeviceInfo(d->id, CL_DEVICE_NAME, sizeof(d->name), &d->name, NULL));
+                CL_CHECK(clGetDeviceInfo(d->id, CL_DEVICE_TYPE, sizeof(d->type), &d->type, NULL));
+
+                if (p->default_device == NULL && d->type == CL_DEVICE_TYPE_GPU) {
+                    fprintf(stderr, "ggml_opencl: selecting CL_DEVICE_TYPE_GPU: '%s'\n", d->name);
+                    p->default_device = d;
+                }
+            }
+
+            if (default_device == NULL && p->default_device != NULL) {
+                // fprintf(stderr, "ggml_opencl: do you want to select '%s'? y/n\n", p->default_device->name);
+
+                // std::string input;
+                // std::getline(std::cin, input);
+                // if (input == "y") {
+                    default_device = p->default_device;
+                    fprintf(stderr, "ggml_opencl: selecting p->default_device: '%s'\n", default_device->name);
+                    GGML_OPENCL_RESULT_DEVICE_NAME = default_device->name;
+                // }
+            }
         }
     }
 
@@ -1038,6 +1061,8 @@ void ggml_cl_init(void) {
         user_device_number = (int)n;
     }
     if (user_platform_number != -1 && user_device_number != -1) {
+        fprintf(stderr, "ggml_opencl: found platforms: '%u'\n", user_platform_number);
+        fprintf(stderr, "ggml_opencl: found devices: '%u'\n", user_device_number);
         cl_platform* platform = &platforms[user_platform_number];
         if ((unsigned)user_device_number >= platform->n_devices) {
             fprintf(stderr, "ggml_opencl: invalid device number %d\n", user_device_number);
@@ -1050,6 +1075,8 @@ void ggml_cl_init(void) {
         unsigned n_selected_devices = n_devices;
 
         if (user_platform_number == -1 && user_platform_string != NULL && user_platform_string[0] != 0) {
+            fprintf(stderr, "ggml_opencl: found platforms: '%u'\n", user_platform_number);
+            fprintf(stderr, "ggml_opencl: found devices: '%u'\n", n_selected_devices);
             for (unsigned i = 0; i < n_platforms; i++) {
                 struct cl_platform * p = &platforms[i];
                 if (strstr(p->name, user_platform_string) != NULL ||
@@ -1068,6 +1095,8 @@ void ggml_cl_init(void) {
             selected_devices = p->devices;
             n_selected_devices = p->n_devices;
             default_device = p->default_device;
+            fprintf(stderr, "ggml_opencl: selected_devices: '%u'\n", selected_devices);
+            fprintf(stderr, "ggml_opencl: n_selected_devices: '%u'\n", n_selected_devices);
             if (n_selected_devices == 0) {
                 fprintf(stderr, "ggml_opencl: selected platform '%s' does not have any devices.\n", p->name);
                 exit(1);
@@ -1088,6 +1117,7 @@ void ggml_cl_init(void) {
             }
         }
         if (user_device_number != -1) {
+            fprintf(stderr, "ggml_opencl: chose device: '%u'\n", 0);
             selected_devices = &devices[user_device_number];
             n_selected_devices = 1;
             default_device = &selected_devices[0];
@@ -1096,6 +1126,7 @@ void ggml_cl_init(void) {
         GGML_ASSERT(n_selected_devices > 0);
 
         if (default_device == NULL) {
+            fprintf(stderr, "ggml_opencl: chose device due to default_device == NULL: '%u'\n", 0);
             default_device = &selected_devices[0];
         }
     }
