@@ -316,6 +316,7 @@ int main(int argc, char ** argv) {
                     case 'I': {
                         window_title = "ChatTest: Input ";
                         if (!input.empty()) inputPrompt = input;
+                        remove_last_nl(inputPrompt);
                         threadedChat.appendQuestion(inputPrompt);
                         threadedChat.display();
                         threadedChat.startGen();

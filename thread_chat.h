@@ -57,6 +57,12 @@ void Clear()
 #endif
 }
 
+static void remove_last_nl(std::string& msg) {
+    if (msg.back() == '\n' || msg.back() == '\r') {
+        msg.pop_back();
+    }
+}
+
 struct modelThread{
     //model class
     chat newChat;
@@ -157,18 +163,12 @@ struct modelThread{
         return newChat.params.input_suffix != suffix;
     }
     
-
-    void remove_last_nl(std::string& msg) {
-        if (msg.back() == '\n' || msg.back() == '\r') {
-            msg.pop_back();
-        }
-    }
     
     void appendQuestion(std::string& input){
         //if (input.back() == DELIMINER ) input.pop_back();
         //resultsString.emplace_back(input);
         //if(newChat.params.input_prefix.empty()) 
-        if (penalize_nl) remove_last_nl(input);
+        //if (penalize_nl) remove_last_nl(input);
         resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
         //else resultsStringPairs.emplace_back(std::pair(newChat.params.input_prefix,input));
     }
@@ -247,7 +247,7 @@ struct modelThread{
                 else std::cout << newChat.params.input_prefix << r.second;
             }
             
-            if (r.second.back() != '\n') std::cout<< DELIMINER;
+            //if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
         if (isContinue == 'w') {
 #ifdef GGML_USE_VULKAN

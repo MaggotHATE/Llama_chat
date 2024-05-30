@@ -227,7 +227,7 @@ private:
     int guidance_offset       = 0;
     int original_prompt_len   = 0;
     int n_last_message        = 0;
-    int n_last_message_past   = 0;
+    int n_last_message_past   = -1;
     int t_eval_ms             = 0;
     int n_eval                = 0;
     int t_p_eval_ms           = 0;
@@ -847,8 +847,11 @@ public:
 #endif
 
             llama_backend_init();
+#ifdef GGML_USE_CLBLAST
             printf("..............Backend initialized common: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
-
+#else
+            printf("..............Backend initialized common................\n");
+#endif
             // load the model and apply lora adapter, if any
             std::tie(model, ctx) = llama_init_from_gpt_params(params);
             printf("..............Model initialized................\n");
@@ -1421,7 +1424,7 @@ public:
 // additional functions
     void clearLastTokens() {
         n_last_message = 0;
-        n_last_message_past = 0;
+        n_last_message_past = -1;
     }
     
     void capture_states() {
@@ -1439,7 +1442,7 @@ public:
         //int comp = 0;
         llama_sampling_rollback(ctx_sampling, n_last_message_past);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
-        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + 1, embd_inp.end());
+        embd_inp.erase(embd_inp.begin() + n_embd_inp_last, embd_inp.end());
         //n_remain += last_tokens_count;
         n_past -= n_last_message_past;
         //n_past = n_past_last;
