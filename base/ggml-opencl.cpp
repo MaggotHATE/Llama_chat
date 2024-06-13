@@ -1040,6 +1040,7 @@ void ggml_cl_init(void) {
                     GGML_OPENCL_RESULT_DEVICE_NAME = default_device->name;
                 // }
             }
+
         }
     }
 
