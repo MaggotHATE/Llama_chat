@@ -2183,7 +2183,7 @@ static ggml_backend_buffer_type_i ggml_backend_opencl_buffer_type_interface = {
     /* .get_alignment    = */ ggml_backend_opencl_buffer_type_get_alignment,
     /* .get_max_size     = */ ggml_backend_opencl_buffer_type_get_max_size,
     /* .get_alloc_size   = */ NULL,
-    /* .supports_backend = */ ggml_backend_opencl_buffer_type_supports_backend,
+    /* .supports_backend = */ //ggml_backend_opencl_buffer_type_supports_backend,
     /* .is_host          = */ NULL,
 };
 
