@@ -2182,16 +2182,17 @@ struct llama_vocab {
     id special_cls_id  = -1;
     id special_mask_id = -1;
 
-    int special_add_bos = -1; // -1 unknown, 1 add, 0 don't add.
-    int special_add_eos = -1; // -1 unknown, 1 add, 0 don't add.
-
     id linefeed_id       = 13;
     id special_prefix_id = -1;
     id special_suffix_id = -1;
     id special_middle_id = -1;
     id special_eot_id    = -1; // TODO: move above after "eos_id", and here add "file separator" token
 
-    bool add_space_prefix = true;
+    // tokenizer flags
+    bool tokenizer_add_space_prefix = true;
+    bool tokenizer_add_bos          = false;
+    bool tokenizer_add_eos          = false;
+    bool tokenizer_ignore_merges    = false;
 
     int find_bpe_rank(const std::string & token_left, const std::string & token_right) const {
         GGML_ASSERT(token_left.find(' ') == std::string::npos);
@@ -4568,38 +4569,9 @@ static void llm_load_vocab(
             vocab.special_cls_id  = -1;
             vocab.special_mask_id = -1;
 
-            // For Fill-In-the-Middle (FIM)/infill models which where converted
-            // prior to support of FIM special tokens in GGUF, the following
-            // will allow those models to continue to work. The general names
-            // of the known models are currently CodeLlama (LLM_ARCH_LLAMA) and
-            // CodeGemma (LLM_ARCH_GEMMA). This can potentially be removed once
-            // new versions of these models have been published.
-            std::string gen_name;
-            ml.get_key(LLM_KV_GENERAL_NAME, gen_name, false);
-
-            std::transform(gen_name.begin(), gen_name.end(), gen_name.begin(),
-                [](unsigned char c){ return std::tolower(c); });
-
-            if (gen_name.find("code") != std::string::npos) {
-                if (model.arch == LLM_ARCH_LLAMA) {
-                    vocab.special_prefix_id = 32007;
-                    vocab.special_suffix_id = 32008;
-                    vocab.special_middle_id = 32009;
-                    vocab.special_eot_id    = 32010;
-                } else if (model.arch == LLM_ARCH_GEMMA) {
-                    vocab.special_prefix_id = 67;
-                    vocab.special_suffix_id = 69;
-                    vocab.special_middle_id = 68;
-                    // TODO: this is not EOT, it is "file separator" token, needs fix
-                    //       https://huggingface.co/google/codegemma-7b-it/blob/9b1d9231388358c04d90bd003458f5070d97db44/tokenizer_config.json#L565-L572
-                    //vocab.special_eot_id    = 70;
-                    vocab.special_eot_id    = 107;
-                }
-            }
-
             const int add_space_prefix_keyidx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_ADD_PREFIX).c_str());
             if (add_space_prefix_keyidx != -1) {
-                vocab.add_space_prefix = gguf_get_val_bool(ctx, add_space_prefix_keyidx);
+                vocab.tokenizer_add_space_prefix = gguf_get_val_bool(ctx, add_space_prefix_keyidx);
             } // The default value of add_space_prefix is true.
         } else if (tokenizer_model == "bert") {
             vocab.type = LLAMA_VOCAB_TYPE_WPM;
@@ -4612,13 +4584,13 @@ static void llm_load_vocab(
             vocab.special_pad_id  = 0;
             vocab.special_cls_id  = 101;
             vocab.special_mask_id = 103;
-            vocab.add_space_prefix = false;
+            vocab.tokenizer_add_space_prefix = false;
         } else if (tokenizer_model == "gpt2") {
             vocab.type = LLAMA_VOCAB_TYPE_BPE;
 
             const int add_space_prefix_keyidx = gguf_find_key(ctx, kv(LLM_KV_TOKENIZER_ADD_PREFIX).c_str());
             if (add_space_prefix_keyidx != -1) {
-                vocab.add_space_prefix = gguf_get_val_bool(ctx, add_space_prefix_keyidx);
+                vocab.tokenizer_add_space_prefix = gguf_get_val_bool(ctx, add_space_prefix_keyidx);
             }
 
             // read bpe merges and populate bpe ranks
@@ -4676,6 +4648,8 @@ static void llm_load_vocab(
                     tokenizer_pre == "llama-v3" ||
                     tokenizer_pre == "llama-bpe") {
                 vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_LLAMA3;
+                vocab.tokenizer_ignore_merges = true;
+                vocab.tokenizer_add_bos = true;
             } else if (
                     tokenizer_pre == "deepseek-llm") {
                 vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_DEEPSEEK_LLM;
@@ -4720,9 +4694,20 @@ static void llm_load_vocab(
             } else if (
                 tokenizer_pre == "smaug-bpe") {
                 vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_SMAUG;
+            } else if (
+                tokenizer_pre == "poro-chat") {
+                vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_PORO;
             } else {
                 throw std::runtime_error(format("unknown pre-tokenizer type: '%s'", tokenizer_pre.c_str()));
             }
+        } else if (vocab.type == LLAMA_VOCAB_TYPE_SPM) {
+            vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_DEFAULT;
+            vocab.tokenizer_add_bos = true;
+            vocab.tokenizer_add_eos = false;
+        } else if (vocab.type == LLAMA_VOCAB_TYPE_WPM) {
+            vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_DEFAULT;
+            vocab.tokenizer_add_bos = true;
+            vocab.tokenizer_add_eos = false;
         } else {
             vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_DEFAULT;
         }
@@ -4777,6 +4762,46 @@ static void llm_load_vocab(
 
     // determine the newline token: LLaMA "<0x0A>" == 10 == '\n', Falcon 193 == '\n'
     if (vocab.type == LLAMA_VOCAB_TYPE_SPM) {
+
+        // For Fill-In-the-Middle (FIM)/infill models which where converted
+        // prior to support of FIM special tokens in GGUF, the following
+        // will allow those models to continue to work. The general names
+        // of the known models are currently CodeLlama (LLM_ARCH_LLAMA) and
+        // CodeGemma (LLM_ARCH_GEMMA). This can potentially be removed once
+        // new versions of these models have been published.
+        std::string gen_name;
+        ml.get_key(LLM_KV_GENERAL_NAME, gen_name, false);
+
+        std::transform(gen_name.begin(), gen_name.end(), gen_name.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+
+        if (gen_name.find("code") != std::string::npos) {
+            if (model.arch == LLM_ARCH_LLAMA
+              && 32010 < vocab.id_to_token.size()
+              && vocab.id_to_token[32007].text == "<PRE>"
+              && vocab.id_to_token[32008].text == "<SUF>"
+              && vocab.id_to_token[32009].text == "<MID>"
+              && vocab.id_to_token[32010].text == "<EOT>") {
+                vocab.special_prefix_id = 32007;
+                vocab.special_suffix_id = 32008;
+                vocab.special_middle_id = 32009;
+                vocab.special_eot_id    = 32010;
+            } else if (model.arch == LLM_ARCH_GEMMA
+              && 107 < vocab.id_to_token.size()
+              && vocab.id_to_token[67].text == "<|fim_prefix|>"
+              && vocab.id_to_token[69].text == "<|fim_suffix|>"
+              && vocab.id_to_token[68].text == "<|fim_middle|>"
+              && vocab.id_to_token[107].text == "<end_of_turn>") {
+                vocab.special_prefix_id = 67;
+                vocab.special_suffix_id = 69;
+                vocab.special_middle_id = 68;
+                // TODO: this is not EOT, it is "file separator" token, needs fix
+                //       https://huggingface.co/google/codegemma-7b-it/blob/9b1d9231388358c04d90bd003458f5070d97db44/tokenizer_config.json#L565-L572
+                //vocab.special_eot_id    = 70;
+                vocab.special_eot_id    = 107;
+            }
+        }
+
         try {
             vocab.linefeed_id = llama_byte_to_token(vocab, '\n');
         } catch (const std::exception & e) {
@@ -4828,10 +4853,10 @@ static void llm_load_vocab(
             bool temp = true;
 
             if (ml.get_key(LLM_KV_TOKENIZER_ADD_BOS, temp, false)) {
-                vocab.special_add_bos = int(temp);
+                vocab.tokenizer_add_bos = temp;
             }
             if (ml.get_key(LLM_KV_TOKENIZER_ADD_EOS, temp, false)) {
-                vocab.special_add_eos = int(temp);
+                vocab.tokenizer_add_eos = temp;
             }
         }
 
@@ -4931,7 +4956,7 @@ static void llm_load_vocab(
         );
 
         // set attributes by model/tokenizer name
-        if (_contains_any(tokenizer_pre, {"jina-v2-es", "jina-v2-de"})) {
+        if (_contains_any(tokenizer_pre, {"jina-v2-de", "jina-v2-es", "jina-v2-code"})) {
             _set_token_attr("<mask>", LLAMA_TOKEN_ATTR_LSTRIP, true);
         } else if (_contains_any(model_name, {"phi-3", "phi3"})) {
             for (auto id : vocab.cache_special_tokens) {
@@ -5068,7 +5093,7 @@ static bool llm_load_tensors(
 
     // there is very little benefit to offloading the input layer, so always keep it on the CPU
     model.buft_input = llama_default_buffer_type_cpu(true);
-    //model.buft_input = llama_default_buffer_type_offload(main_gpu);
+    //model.buft_input = llama_default_buffer_type_offload(model, main_gpu);
 
     model.buft_layer.resize(n_layer);
 
@@ -12949,107 +12974,142 @@ struct llm_bigram_bpe {
 };
 
 struct llm_tokenizer_bpe {
-    llm_tokenizer_bpe(const llama_vocab & vocab): vocab(vocab) {}
+    llm_tokenizer_bpe(const llama_vocab & vocab): vocab(vocab) {
+        GGML_ASSERT(vocab.type == LLAMA_VOCAB_TYPE_BPE);
+        switch (vocab.type_pre) {
+            case LLAMA_VOCAB_PRE_TYPE_LLAMA3:
+                regex_exprs = {
+                    // original regex from tokenizer.json
+                    //"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+
+                    // adapted: https://github.com/ggerganov/llama.cpp/pull/6920#issuecomment-2080233989
+                    "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_DBRX:
+            case LLAMA_VOCAB_PRE_TYPE_SMAUG:
+                regex_exprs = {
+                    // same as llama3
+                    "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_DEEPSEEK_LLM:
+                regex_exprs = {
+                    "[\r\n]",
+                    "\\s?[A-Za-zµÀ-ÖØ-öø-ƺƼ-ƿǄ-ʓʕ-ʯͰ-ͳͶͷͻ-ͽͿΆΈ-ΊΌΎ-ΡΣ-ϵϷ-ҁҊ-ԯԱ-ՖႠ-ჅᎠ-Ᏽᏸ-ᏽᲐ-ᲺᲽ-Ჿᴀ-ᴫᵫ-ᵷᵹ-ᶚḀ-ἕἘ-Ἕἠ-ὅὈ-Ὅὐ-ὗὙὛὝὟ-ώᾀ-ᾴᾶ-ᾼιῂ-ῄῆ-ῌῐ-ΐῖ-Ίῠ-Ῥῲ-ῴῶ-ῼℂℇℊ-ℓℕℙ-ℝℤΩℨK-ℭℯ-ℴℹℼ-ℿⅅ-ⅉⅎↃↄⰀ-ⱻⱾ-ⳤⳫ-ⳮⳲⳳꙀ-ꙭꚀ-ꚛꜢ-ꝯꝱ-ꞇꞋ-ꞎꭰ-ꮿﬀ-ﬆﬓ-ﬗＡ-Ｚａ-ｚ𐐀-𐑏𐒰-𐓓𐓘-𐓻𐲀-𐲲𐳀-𐳲𑢠-𑣟𞤀-𞥃]+",
+                    "\\s?[!-/:-~！-／：-～‘-‟　-。]+",
+                    "\\s+$",
+                    "[一-龥ࠀ-一가-퟿]+",
+                    "\\p{N}+",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_DEEPSEEK_CODER:
+                regex_exprs = {
+                    "[\r\n]",
+                    "\\s?\\p{L}+",
+                    "\\s?\\p{P}+",
+                    "[一-龥ࠀ-一가-퟿]+",
+                    "\\p{N}",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_FALCON:
+                regex_exprs = {
+                    "[\\p{P}\\$\\+<=>\\^~\\|`]+",
+                    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                    "[0-9][0-9][0-9]",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_MPT:
+                // TODO: MPT pre-tokenization regexes are unknown
+                //       the following are close, but not exact. run the following:
+                //       ./bin/test-tokenizer-0 ../models/ggml-vocab-mpt.gguf
+                GGML_ASSERT("MPT pre-tokenization regexes are unknown - fixes needed");
+                regex_exprs = {
+                    "\\s?\\p{L}+",
+                    "\\s?\\p{P}+",
+                    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_STARCODER:
+            case LLAMA_VOCAB_PRE_TYPE_REFACT:
+            case LLAMA_VOCAB_PRE_TYPE_COMMAND_R:
+                regex_exprs = {
+                    "\\p{N}",
+                    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_GPT2:
+            case LLAMA_VOCAB_PRE_TYPE_OLMO:
+                regex_exprs = {
+                    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_STABLELM2:
+            case LLAMA_VOCAB_PRE_TYPE_QWEN2:
+                regex_exprs = {
+                    // original regex from tokenizer.json
+                    // "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+                    "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_PORO:
+                regex_exprs = {
+                    " ?[^(\\s|.,!?…。，、।۔،)]+",
+                };
+                break;
+            default:
+                // default regex for BPE tokenization pre-processing
+                regex_exprs = {
+                    "[\\p{P}\\$\\+<=>\\^~\\|]+",
+                    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                    "\\p{N}+",
+                    "[0-9][0-9][0-9]",
+                };
+                break;
+        }
+    }
+
+    void append(const llama_vocab::id token_id, std::vector<llama_vocab::id> & output) const {
+        output.push_back(token_id);
+    }
+
+    bool append_bos(std::vector<llama_vocab::id> & output) const {
+        if (vocab.tokenizer_add_bos) {
+            GGML_ASSERT(vocab.special_bos_id != -1);
+            output.push_back(vocab.special_bos_id);
+            return true;
+        }
+        return false;
+    }
+
+    bool append_eos(std::vector<llama_vocab::id> & output) const {
+        if (vocab.tokenizer_add_eos) {
+            GGML_ASSERT(vocab.special_eos_id != -1);
+            output.push_back(vocab.special_eos_id);
+            return true;
+        }
+        return false;
+    }
+
+    void check_double_bos_eos(const std::vector<llama_vocab::id> & output) const {
+        if (vocab.tokenizer_add_bos && output.size() >= 2 && output[1] == vocab.special_bos_id) {
+            LLAMA_LOG_WARN(
+                "%s: Added a BOS token to the prompt as specified by the model but the prompt "
+                "also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. "
+                "Are you sure this is what you want?\n", __FUNCTION__);
+        }
+        if (vocab.tokenizer_add_eos && output.size() >= 2 && *(output.end()-2) == vocab.special_eos_id) {
+            LLAMA_LOG_WARN(
+                "%s: Added a EOS token to the prompt as specified by the model but the prompt "
+                "also ends with a EOS token. So now the final prompt ends with 2 EOS tokens. "
+                "Are you sure this is what you want?\n", __FUNCTION__);
+        }
+    }
 
     void tokenize(const std::string & text, std::vector<llama_vocab::id> & output) {
         int final_prev_index = -1;
-        bool ignore_merges = false;
 
-        std::vector<std::string> word_collection;
-        switch (vocab.type) {
-            case LLAMA_VOCAB_TYPE_BPE:
-                switch (vocab.type_pre) {
-                    case LLAMA_VOCAB_PRE_TYPE_LLAMA3:
-                        ignore_merges = true;
-                        word_collection = unicode_regex_split(text, {
-                            // original regex from tokenizer.json
-                            //"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
-
-                            // adapted: https://github.com/ggerganov/llama.cpp/pull/6920#issuecomment-2080233989
-                            "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_DBRX:
-                    case LLAMA_VOCAB_PRE_TYPE_SMAUG:
-                        word_collection = unicode_regex_split(text, {
-                            // same as llama3
-                            "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_DEEPSEEK_LLM:
-                        word_collection = unicode_regex_split(text, {
-                            "[\r\n]",
-                            "\\s?[A-Za-zµÀ-ÖØ-öø-ƺƼ-ƿǄ-ʓʕ-ʯͰ-ͳͶͷͻ-ͽͿΆΈ-ΊΌΎ-ΡΣ-ϵϷ-ҁҊ-ԯԱ-ՖႠ-ჅᎠ-Ᏽᏸ-ᏽᲐ-ᲺᲽ-Ჿᴀ-ᴫᵫ-ᵷᵹ-ᶚḀ-ἕἘ-Ἕἠ-ὅὈ-Ὅὐ-ὗὙὛὝὟ-ώᾀ-ᾴᾶ-ᾼιῂ-ῄῆ-ῌῐ-ΐῖ-Ίῠ-Ῥῲ-ῴῶ-ῼℂℇℊ-ℓℕℙ-ℝℤΩℨK-ℭℯ-ℴℹℼ-ℿⅅ-ⅉⅎↃↄⰀ-ⱻⱾ-ⳤⳫ-ⳮⳲⳳꙀ-ꙭꚀ-ꚛꜢ-ꝯꝱ-ꞇꞋ-ꞎꭰ-ꮿﬀ-ﬆﬓ-ﬗＡ-Ｚａ-ｚ𐐀-𐑏𐒰-𐓓𐓘-𐓻𐲀-𐲲𐳀-𐳲𑢠-𑣟𞤀-𞥃]+",
-                            "\\s?[!-/:-~！-／：-～‘-‟　-。]+",
-                            "\\s+$",
-                            "[一-龥ࠀ-一가-퟿]+",
-                            "\\p{N}+",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_DEEPSEEK_CODER:
-                        word_collection = unicode_regex_split(text, {
-                            "[\r\n]",
-                            "\\s?\\p{L}+",
-                            "\\s?\\p{P}+",
-                            "[一-龥ࠀ-一가-퟿]+",
-                            "\\p{N}",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_FALCON:
-                        word_collection = unicode_regex_split(text, {
-                            "[\\p{P}\\$\\+<=>\\^~\\|]+",
-                            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
-                            "[0-9][0-9][0-9]",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_MPT:
-                        // TODO: MPT pre-tokenization regexes are unknown
-                        //       the following are close, but not exact. run the following:
-                        //       ./bin/test-tokenizer-0 ../models/ggml-vocab-mpt.gguf
-                        GGML_ASSERT("MPT pre-tokenization regexes are unknown - fixes needed");
-                        word_collection = unicode_regex_split(text, {
-                            "\\s?\\p{L}+",
-                            "\\s?\\p{P}+",
-                            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_STARCODER:
-                    case LLAMA_VOCAB_PRE_TYPE_REFACT:
-                    case LLAMA_VOCAB_PRE_TYPE_COMMAND_R:
-                        word_collection = unicode_regex_split(text, {
-                            "\\p{N}",
-                            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_GPT2:
-                    case LLAMA_VOCAB_PRE_TYPE_OLMO:
-                        word_collection = unicode_regex_split(text, {
-                            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
-                        });
-                        break;
-                    case LLAMA_VOCAB_PRE_TYPE_STABLELM2:
-                    case LLAMA_VOCAB_PRE_TYPE_QWEN2:
-                        word_collection = unicode_regex_split(text, {
-                            // original regex from tokenizer.json
-                            // "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
-                            "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
-                        });
-                        break;
-                    default:
-                        // default regex for BPE tokenization pre-processing
-                        word_collection = unicode_regex_split(text, {
-                            "[\\p{P}\\$\\+<=>\\^~\\|]+",
-                            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
-                            "\\p{N}+",
-                            "[0-9][0-9][0-9]",
-                        });
-                        break;
-                }
-                break;
-            default:
-                GGML_ASSERT(false);
-                break;
-        }
+        const auto word_collection = unicode_regex_split(text, regex_exprs);
 
         symbols_final.clear();
 
@@ -13060,7 +13120,7 @@ struct llm_tokenizer_bpe {
             int index = 0;
             size_t offset = 0;
 
-            if (ignore_merges && vocab.token_to_id.find(word) != vocab.token_to_id.end()) {
+            if (vocab.tokenizer_ignore_merges && vocab.token_to_id.find(word) != vocab.token_to_id.end()) {
                 symbols.emplace_back(llm_symbol{-1, -1, word.c_str(), word.size()});
                 offset = word.size();
             }
@@ -13141,10 +13201,9 @@ struct llm_tokenizer_bpe {
                     for (auto j = str.begin(); j != str.end(); ++j) {
                         std::string byte_str(1, *j);
                         auto token_multibyte = vocab.token_to_id.find(byte_str);
-                        if (token_multibyte == vocab.token_to_id.end()) {
-                            throw std::runtime_error("ERROR: byte not found in vocab");
+                        if (token_multibyte != vocab.token_to_id.end()) {
+                            output.push_back(token_multibyte->second);
                         }
-                        output.push_back((*token_multibyte).second);
                     }
                 } else {
                     output.push_back((*token).second);
@@ -13182,6 +13241,8 @@ private:
     }
 
     const llama_vocab & vocab;
+
+    std::vector<std::string> regex_exprs;
 
     std::vector<llm_symbol> symbols;
     std::vector<llm_symbol> symbols_final;
@@ -13245,7 +13306,7 @@ struct llm_tokenizer_wpm {
         const std::vector<uint32_t> cpts_nfd = unicode_cpts_normalize_nfd(unicode_cpts_from_utf8(text));
         std::vector<std::string> words(1, "");
 
-        for (const char32_t cpt : cpts_nfd) {
+        for (const uint32_t cpt : cpts_nfd) {
             const auto flags = unicode_cpt_flags(cpt);
 
             if (flags.is_whitespace) {
@@ -13463,7 +13524,7 @@ static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & 
 
                 bool is_prev_special = false;
 
-                if (add_special && vocab.special_add_bos != 0) {
+                if (add_special && vocab.tokenizer_add_bos) {
                     GGML_ASSERT(vocab.special_bos_id != -1);
                     output.push_back(vocab.special_bos_id);
                     is_prev_special = true;
@@ -13473,7 +13534,7 @@ static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & 
                     if (fragment.type == FRAGMENT_BUFFER_VARIANT_TYPE_RAW_TEXT) {
                         auto raw_text = fragment.raw_text.substr(fragment.offset, fragment.length);
 
-                        if (vocab.add_space_prefix) {
+                        if (vocab.tokenizer_add_space_prefix) {
                             if (!output.size() || is_prev_special) {  // prefix with space if first token
                                 raw_text = " " + raw_text;
                             }
@@ -13491,23 +13552,24 @@ static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & 
                     }
                 }
 
-                if (add_special && vocab.special_add_bos != 0 && output.size() >= 2 && output[1] == vocab.special_bos_id) {
+                if (add_special && vocab.tokenizer_add_bos && output.size() >= 2 && output[1] == vocab.special_bos_id) {
                     LLAMA_LOG_WARN(
                         "%s: Added a BOS token to the prompt as specified by the model but the prompt "
                         "also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. "
                         "Are you sure this is what you want?\n", __FUNCTION__);
                 }
 
-                if (add_special && vocab.special_add_eos == 1) {
+                if (add_special && vocab.tokenizer_add_eos) {
                     GGML_ASSERT(vocab.special_eos_id != -1);
                     output.push_back(vocab.special_eos_id);
                 }
             } break;
         case LLAMA_VOCAB_TYPE_BPE:
             {
-                if (add_special && vocab.special_add_bos != 0) {
-                    GGML_ASSERT(vocab.special_bos_id != -1);
-                    output.push_back(vocab.special_bos_id);
+                llm_tokenizer_bpe tokenizer(vocab);
+
+                if (add_special) {
+                    tokenizer.append_bos(output);
                 }
 
                 for (const auto & fragment : fragment_buffer) {
@@ -13517,23 +13579,15 @@ static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & 
 #ifdef PRETOKENIZERDEBUG
                         LLAMA_LOG_WARN("TT: (%ld %ld %ld) '%s'\n", raw_text.length(), fragment.offset, fragment.length, raw_text.c_str());
 #endif
-                        llm_tokenizer_bpe tokenizer(vocab);
                         tokenizer.tokenize(raw_text, output);
                     } else { // if (fragment.type == FRAGMENT_BUFFER_VARIANT_TYPE_TOKEN)
-                        output.push_back(fragment.token);
+                        tokenizer.append(fragment.token, output);
                     }
                 }
 
-                if (add_special && vocab.special_add_bos != 0 && output.size() >= 2 && output[1] == vocab.special_bos_id) {
-                    LLAMA_LOG_WARN(
-                        "%s: Added a BOS token to the prompt as specified by the model but the prompt "
-                        "also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. "
-                        "Are you sure this is what you want?\n", __FUNCTION__);
-                }
-
-                if (add_special && vocab.special_add_eos == 1) {
-                    GGML_ASSERT(vocab.special_add_eos != -1);
-                    output.push_back(vocab.special_eos_id);
+                if (add_special) {
+                    tokenizer.append_eos(output);
+                    tokenizer.check_double_bos_eos(output);
                 }
             } break;
         case LLAMA_VOCAB_TYPE_WPM:
@@ -18271,11 +18325,11 @@ llama_token llama_token_nl(const struct llama_model * model) {
 }
 
 int32_t llama_add_bos_token(const struct llama_model * model) {
-    return model->vocab.special_add_bos;
+    return model->vocab.tokenizer_add_bos;
 }
 
 int32_t llama_add_eos_token(const struct llama_model * model) {
-    return model->vocab.special_add_eos;
+    return model->vocab.tokenizer_add_eos;
 }
 
 llama_token llama_token_prefix(const struct llama_model * model) {

@@ -113,7 +113,10 @@ static bool checkJNum(nlohmann::json& config, std::string name){
 
 static bool checkJObj(nlohmann::json& config, std::string name){
     if(config.contains(name)){
-        if(config[name].is_object()) return true;
+        if(config[name].is_object()) {
+            std::cout << name << " object found!" << std::endl;
+            return true;
+        }
     }
     
     return false;
@@ -494,6 +497,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
 
     if (checkJNum(config, "clblast_platform_id")) params.clblast_platform_id = config["clblast_platform_id"];
 #endif
+
 }
 
 static void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
@@ -515,10 +519,23 @@ static void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool
     }
 }
 
+static void getParamsFromGroup(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+
+    if(config.contains("group") && config["group"].is_object()){
+        std::cout << "Found group settings" << params.model << std::endl;
+        nlohmann::json modelConfig = config["group"];
+        bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
+        getParamsFromJson(modelConfig, params, hasFiles, headless);
+        getParamsFromPreset(modelConfig, params, false, headless);
+        getParamsFromGroup(modelConfig, params, false, headless);
+    }
+}
+
 static void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
+    getParamsFromGroup(config, params, false, headless);
     
     if(config.contains(params.model) && config[params.model].is_object()){
         std::cout << "Found settings for model " << params.model << std::endl;
@@ -526,6 +543,7 @@ static void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool 
         bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
         getParamsFromJson(modelConfig, params, hasFiles, headless);
         getParamsFromPreset(modelConfig, params, false, headless);
+        getParamsFromGroup(modelConfig, params, false, headless);
     }
     
 }
@@ -534,6 +552,7 @@ static void readParamsFromJson(nlohmann::json& config, std::string modelName, gp
     
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
+    getParamsFromGroup(config, params, false, headless);
     params.model = modelName;
     
     if(config.contains("model")){
@@ -543,6 +562,7 @@ static void readParamsFromJson(nlohmann::json& config, std::string modelName, gp
             bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
             getParamsFromJson(modelConfig, params, hasFiles, headless);
             getParamsFromPreset(modelConfig, params, false, headless);
+            getParamsFromGroup(modelConfig, params, false, headless);
         }
     }
     

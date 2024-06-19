@@ -341,6 +341,18 @@ CXXFLAGS_VK = $(CXXFLAGS) -DGGML_USE_VULKAN
 CXXFLAGS_E = -DGGML_EXPERIMENTAL
 CXXFLAGS_E1 = -DGGML_EXPERIMENTAL1 -DGGML_EXPERIMENTAL
 
+ifdef VK_DEBUG
+	CXXFLAGS_VK += -DGGML_VULKAN_DEBUG
+endif # VK_DEBUG
+
+ifdef VK_MEMDEBUG
+	CXXFLAGS_VK += -DGGML_VULKAN_MEMORY_DEBUG
+endif # VK_MEMDEBUG
+
+ifdef VK_VALID
+	CXXFLAGS_VK += -DGGML_VULKAN_VALIDATE
+endif # VK_VALID
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------

@@ -251,9 +251,9 @@ struct modelThread{
         }
         if (isContinue == 'w') {
 #ifdef GGML_USE_VULKAN
-            summary += "VK-|";
+            summary += std::format("VK{}|",newChat.params.n_gpu_layers);
 #elif defined(GGML_USE_CLBLAST)
-            summary += "CL-|";
+            summary += std::format("CL{}|",newChat.params.n_gpu_layers);
 #endif
             summary += std::format("{}|Msg: {}t|Left: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
             std::cout << lastResult;
@@ -539,161 +539,160 @@ struct modelThread{
     
 /// CURRENT
 
-void checkFinished() {
-    if (newChat.finished){
-        //newChat.eraseAntiprompt(lastResult);
-        newChat.eraseAntiprompt(lastResult);
-        newChat.eraseLast(lastResult, newChat.params.input_prefix);
-        
-        resultsStringPairs.emplace_back(std::pair("AI",lastResult));
-        lastResult = "";
-        isContinue = 'i';
-        isPregen = 'i';
-        
-        getTimigsBoth();
-        newChat.clear_speed();
+    void checkFinished() {
+        if (newChat.finished){
+            //newChat.eraseAntiprompt(lastResult);
+            newChat.eraseAntiprompt(lastResult);
+            newChat.eraseLast(lastResult, newChat.params.input_prefix);
+
+            resultsStringPairs.emplace_back(std::pair("AI",lastResult));
+            lastResult = "";
+            isContinue = 'i';
+            isPregen = 'i';
+
+            getTimigsBoth();
+            newChat.clear_speed();
+        }
     }
-}
 
-void getStats() {
-    last_tokens = newChat.getLastTokens();
-    consumed_tokens = newChat.getConsumedTokens();
-    past_tokens = newChat.getPastTokens();
-    left_tokens = newChat.params.n_ctx - past_tokens;
-    remain_tokens = newChat.getRemainTokens();
-}
+    void getStats() {
+        last_tokens = newChat.getLastTokens();
+        consumed_tokens = newChat.getConsumedTokens();
+        past_tokens = newChat.getPastTokens();
+        left_tokens = newChat.params.n_ctx - past_tokens;
+        remain_tokens = newChat.getRemainTokens();
+    }
 
-void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
-        //isContinue = 'w';
-        //std::cout << " ** " << input << std::endl;
-        newChat.clearLastTokens();
-        
-        
-        futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
-            
-            std::string input = resultsStringPairs.back().second;
+    void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
+            //isContinue = 'w';
+            //std::cout << " ** " << input << std::endl;
+            newChat.clearLastTokens();
+
+
+            futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
                 
-            getTimigsPre();
-            //newChat.inputOnly(input);
-            if (full == true) {
+                std::string input = resultsStringPairs.back().second;
+
+                getTimigsPre();
+                //newChat.inputOnly(input);
+                if (full == true) {
+                    isPregen = 'w';
+                    newChat.inputOnlyNew(input);
+                }
+
+                isPregen = 'i';
+                consumed_tokens = newChat.getConsumedTokens();
+                past_tokens = newChat.getPastTokens();
+                last_tokens = newChat.getLastTokens();
+
+                getTimigsPre();
+                newChat.capture_lasts();
+
+                if (streaming == true) display();
+
+                while (isContinue != 'i'){
+
+
+                    std::string output = newChat.cycleStringsOnly(false);
+                    lastResult += output;
+                    //if (streaming == true) display();
+                    if (streaming == true) std::cout << output;
+                    getTimigsGen();
+
+                    // if (full == true) {
+                        // if (streaming == true) {
+                            // getTimigsGen();
+                            // display();
+                            // std::cout << lastResult;
+                        // } else getTimigsGen();
+                    // } else if (streaming == true) std::cout << output;
+
+                    //getTimigsSimple();
+
+                    checkFinished();
+                    getStats();
+
+                }
+
+                if (streaming == true) display();
+
+                std::string result = "ready";
+
+                return result;
+            });
+
+        }
+
+    // for UI
+    void getResultAsyncStringFull3() {
+            //isContinue = 'w';
+            //std::cout << " ** " << input << std::endl;
+            newChat.clearLastTokens();
+
+
+            futureTextString = std::async(std::launch::async, [this] mutable {
                 isPregen = 'w';
+                getTimigsPre();
+
+                std::string input = resultsStringPairs.back().second;
+
                 newChat.inputOnlyNew(input);
-            }
-            
-            isPregen = 'i';
-            consumed_tokens = newChat.getConsumedTokens();
-            past_tokens = newChat.getPastTokens();
-            last_tokens = newChat.getLastTokens();
-            
-            getTimigsPre();
-            newChat.capture_lasts();
-            
-            if (streaming == true) display();
-            
-            while (isContinue != 'i'){
-        
 
-                std::string output = newChat.cycleStringsOnly(false);
-                lastResult += output;
-                //if (streaming == true) display();
-                if (streaming == true) std::cout << output;
-                getTimigsGen();
-                
-                // if (full == true) {
-                    // if (streaming == true) {
-                        // getTimigsGen();
-                        // display();
-                        // std::cout << lastResult;
-                    // } else getTimigsGen();
-                // } else if (streaming == true) std::cout << output;
-                
-                //getTimigsSimple();
-                
-                checkFinished();
-                getStats();
-                
-            }
-            
-            if (streaming == true) display();
-            
-            std::string result = "ready";
-                
-            return result;
-        });
-        
-    }
-    
-// for UI
-void getResultAsyncStringFull3() {
-        //isContinue = 'w';
-        //std::cout << " ** " << input << std::endl;
-        newChat.clearLastTokens();
-        
-        
-        futureTextString = std::async(std::launch::async, [this] mutable {
-            isPregen = 'w';
-            getTimigsPre();
-            
-            std::string input = resultsStringPairs.back().second;
+                isPregen = 'i';
+                consumed_tokens = newChat.getConsumedTokens();
+                past_tokens = newChat.getPastTokens();
 
-            newChat.inputOnlyNew(input);
-            
-            isPregen = 'i';
-            consumed_tokens = newChat.getConsumedTokens();
-            past_tokens = newChat.getPastTokens();
-            
-            getTimigsPre();
-            newChat.capture_lasts();
-            
-            while (isContinue != 'i'){
-        
+                getTimigsPre();
+                newChat.capture_lasts();
 
-                std::string output = newChat.cycleStringsOnly(false);
-                if (isContinue == 'i') {
-                    if (isUnload == 'y') {
-                        unload();
+                while (isContinue != 'i'){
+
+
+                    std::string output = newChat.cycleStringsOnly(false);
+                    if (isContinue == 'i') {
+                        if (isUnload == 'y') {
+                            unload();
+                        }
+                        return (std::string) "stopped";
                     }
-                    return (std::string) "stopped";
-                }
-                lastResult += output;
-                
-                getTimigsGen();
-                
-                //getTimigsSimple();
-                
-                checkFinished();
-                getStats();
-                if (isContinue == 'i') {
-                    if (isUnload == 'y') {
-                        unload();
+                    lastResult += output;
+
+                    getTimigsGen();
+
+                    //getTimigsSimple();
+
+                    checkFinished();
+                    getStats();
+                    if (isContinue == 'i') {
+                        if (isUnload == 'y') {
+                            unload();
+                        }
+                        return (std::string) "stopped";
                     }
-                    return (std::string) "stopped";
+
                 }
-            
-            }
-            
-            std::string result = "ready";
-                
-            return result;
-        });
-        
-    }
-    
+
+                std::string result = "ready";
+
+                return result;
+            });
+
+        }
+
     void getResultAsyncStringRepeat(bool streaming = false, bool full = false) {
-        
+
         futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
-                
+
             getTimigsPre();
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
             last_tokens = newChat.getLastTokens();
-            
+
             getTimigsPre();
-            
-            
+
             while (isContinue != 'i') {
-        
+
 
                 std::string output = newChat.cycleStringsOnly(false);
                 if (isContinue == 'i') {
@@ -702,9 +701,9 @@ void getResultAsyncStringFull3() {
                     }
                     return (std::string) "stopped";
                 }
-                
+
                 lastResult += output;
-                
+
                 // if (streaming) {
                     // if (full) {
                         // getTimigsGen();
@@ -719,7 +718,7 @@ void getResultAsyncStringFull3() {
                 // there's no repeat/continue in chatTest anyway, UI-only
                 //getTimigsSimple();
                 getTimigsGen();
-                
+
                 checkFinished();
                 getStats();
                 if (isContinue == 'i') {
@@ -729,30 +728,30 @@ void getResultAsyncStringFull3() {
                     return (std::string) "stopped";
                 }
             }
-            
+
             std::string result = "ready";
-                
+
             return result;
         });
-        
+
     }
-    
+
     void getResultAsyncStringRepeat3() {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
         newChat.clearLastTokens();
-        
-        
+
+
         futureTextString = std::async(std::launch::async, [this] mutable {
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
-            
+
             getTimigsPre();
-            
-            
+
+
             while (isContinue != 'i'){
-        
+
 
                 std::string output = newChat.cycleStringsOnly(false);
                 if (isContinue == 'i') {
@@ -762,11 +761,11 @@ void getResultAsyncStringFull3() {
                     return (std::string) "stopped";
                 }
                 lastResult += output;
-                
+
                 getTimigsGen();
-                
+
                 //getTimigsSimple();
-                
+
                 checkFinished();
                 getStats();
                 if (isContinue == 'i') {
@@ -775,28 +774,28 @@ void getResultAsyncStringFull3() {
                     }
                     return (std::string) "stopped";
                 }
-            
+
             }
-            
+
             std::string result = "ready";
-                
+
             return result;
         });
-        
+
     }
-    
+
     void load(nlohmann::json localConfig, bool soft = false) {
-    
+
         totalResult = std::async(std::launch::async, [this, localConfig, soft] mutable { 
 
-            loaded = newChat.initGenerate(localConfig, false, soft);
+            loaded = newChat.initialize(localConfig, false, soft);
 
             appendFirstPrompt();
             getTimigsBoth();
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
-            
+
             penalize_nl = newChat.params.sparams.penalize_nl;
 
             //std::cout << "Loaded, you can type now! " << std::endl;
@@ -806,45 +805,48 @@ void getResultAsyncStringFull3() {
             if (isUnload == 'y') {
                 unload();
             } else isContinue = 'i';
-            
+
+            getTimigsPre();
+
             return loaded;
         });
     }
-    
+
     void load() {
-    
+
         totalResult = std::async(std::launch::async, [this] mutable { 
 
-            loaded = newChat.initGenerate(jsonConfig, false);
+            loaded = newChat.initialize(jsonConfig, false);
 
             appendFirstPrompt();
             //getTimigsSimple();
-            getTimigsBoth();
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
-            
+
             penalize_nl = newChat.params.sparams.penalize_nl;
 
             //std::cout << "Loaded, you can type now! " << std::endl;
+            getTimigsBoth();
             getShortName();
             getSparamsList();
+            getTimigsPre();
             //isContinue = 'i';
-            
+
             if (isUnload == 'y') {
                 unload();
             } else isContinue = 'i';
-            
+
             return loaded;
         });
     }
-    
+
     void microload() {
-    
+
         loaded = 10;
         totalResult = std::async(std::launch::async, [this] mutable { 
 
-            newChat.generate();
+            newChat.process_prompt();
 
             appendFirstPrompt();
             //getTimigsSimple();
@@ -852,14 +854,14 @@ void getResultAsyncStringFull3() {
             //remain_tokens = newChat.getRemainTokens();
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
-            
+
             penalize_nl = newChat.params.sparams.penalize_nl;
 
             std::cout << "Reset complete!" << std::endl;
             getShortName();
             getSparamsList();
             isContinue = 'i';
-            
+
             loaded = 9;
             return loaded;
         });
