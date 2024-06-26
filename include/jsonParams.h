@@ -329,6 +329,44 @@ static void load_param_num(nlohmann::json& config, std::string param_name, float
     else if (checkJNum(config, param_name)) param = config[param_name];
 }
 
+static std::string msg_formatting(std::vector<std::pair<std::string, std::string>> messages, std::string order_sys, std::string order_msg, std::string presystem, std::string postsystem, std::string preinput, std::string postinput, std::string preoutput, std::string postoutput, int message_idx) {
+    std::string formatted_result = "";
+    int idx = 0;
+
+    for (auto s : order_sys) {
+        switch (s) {
+            case '-': formatted_result += '\n'; break;
+            case '!': formatted_result += messages[idx].second; ++idx; break;
+            case '1': formatted_result += presystem; break;
+            case '2': formatted_result += postsystem; break;
+            default: break;
+        }
+    }
+
+    while (idx < message_idx) {
+        for (auto s : order_msg) {
+            switch (s) {
+                case '-': formatted_result += '\n'; break;
+                case '!': formatted_result += messages[idx].second; ++idx; break;
+                case '3': formatted_result += preinput; break;
+                case '4': formatted_result += postinput; break;
+                case '5': formatted_result += preoutput; break;
+                case '6': formatted_result += postoutput; break;
+                default: break;
+            }
+        }
+    }
+
+    return formatted_result;
+}
+
+static std::string get_last_formatted(std::vector<std::pair<std::string, std::string>> messages, std::string order_sys, std::string order_msg, std::string presystem, std::string postsystem, std::string preinput, std::string postinput, std::string preoutput, std::string postoutput) {
+    std::string total = msg_formatting(messages, order_sys, order_msg, presystem, postsystem, preinput, postinput, preoutput, postoutput, messages.size());
+    std::string previous = msg_formatting(messages, order_sys, order_msg, presystem, postsystem, preinput, postinput, preoutput, postoutput, messages.size() - 1);
+    
+    return total.substr(previous.size(), total.size() - previous.size());
+}
+
 static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "file")) {

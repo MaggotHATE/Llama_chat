@@ -1307,8 +1307,6 @@ public:
     
 // main generation end////////////////////////////////////////////////////////////////
 
-    
-
 // additional functions
     void clearLastTokens() {
         n_last_message = 0;
@@ -1327,19 +1325,19 @@ public:
         // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
         // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
         //int comp = -1;
-        //int comp = 0;
-        llama_sampling_rollback(ctx_sampling, n_last_message_past + 1);
+        int comp = 1;
+        llama_sampling_rollback(ctx_sampling, n_last_message_past + comp);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
-        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + 1, embd_inp.end());
+        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + comp, embd_inp.end());
         //n_remain += last_tokens_count;
         n_past -= n_last_message_past;
         //n_past = n_past_last;
         //n_consumed = n_consumed_last;
         //embd.clear();
         //embd_guidance.clear();
-        
+
         clearLastTokens();
-        
+
         if (n_past > 0) {
             resetGrammar();
             is_interacting = false;
@@ -1491,7 +1489,7 @@ public:
             }
         }
 
-        // display text
+        // display and return text
         
         
         if (input_echo) {
@@ -1514,100 +1512,6 @@ public:
         return 1;
     }
 
-    // input assembly, DELIMINER is important for proper model functioning since we use getline
-    int subInput(std::string& buffer, std::string line){
-        buffer += line + DELIMINER;
-        if (debug) printf("-si");
-        //std::cout << " *** *** " << line << std::endl;
-        // Add tokens to embd only if the input buffer is non-empty
-        // Entering a empty line lets the user pass control back
-        if (params.input_prefix_bos) {
-            //embd_inp.emplace_back(llama_token_bos(model));
-            embd_inp.push_back(llama_token_bos(model));
-        }
-        
-        
-        
-        if (buffer.length() > 1) {
-            if (debug) fprintf(stderr, "<");
-            
-            appendPrefix(buffer);
-            
-            // append input suffix if any
-            appendSuffix(buffer);
-            
-            const size_t original_size = embd_inp.size();
-
-            // instruct mode: insert instruction prefix
-            // if (params.instruct && !is_antiprompt) {
-                // n_consumed = embd_inp.size();
-                // if (debug) printf("|");
-                // embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
-            // }
-            
-            if (params.escape) {
-                process_escapes(buffer);
-            }
-
-            //auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
-            const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
-            const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
-            //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-            embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
-            embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-            embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
-            
-            for (size_t i = original_size; i < embd_inp.size(); ++i) {
-                const llama_token token = embd_inp[i];
-                //output_tokens.emplace_back(token);
-                output_tokens.push_back(token);
-                output_ss << llama_token_to_piece(ctx, token);
-            }
-
-            // instruct mode: insert response suffix
-            // if (params.instruct) {
-                // if (debug) printf("^");
-                // embd_inp.insert(embd_inp.end(), inp_sfx.begin(), inp_sfx.end());
-            // }
-
-            if (n_remain > 0) n_remain -= line_inp.size();
-        }
-
-        //is_antiprompt = false;
-        
-        return 1;
-    }
-    
-    // the logics should be:
-    // 3 4! 5 6 1 3 4! 5 6 > < 3 [5 1 2 4!] 1 3 4! 5 6
-    // forwarding, print, preInput, postInput, check Emb, forwarding, print, preInput, postIput (waiting for input), postInput(getting input ), forwarding, [preInput, check Emb, generate, print], check, forwarding, print Anti, preInput, postIput (waiting for input)    
-    
-    //input, which requires preemptive processing (checking, adding prompt leftovers, antiprompt processing)
-    
-    int inputOnly(std::string input){
-        //std::cout << " ***** " << input << std::endl;
-        if (n_past > 0 && is_interacting) {
-
-            std::string buffer;
-            
-            //std::cout << " ***** " << input << std::endl;
-            
-            subInput(buffer, input);     
-            input_echo = false; // do not echo this again        
-        }
-        
-        if (n_past > 0) {
-            resetGrammar();
-            is_interacting = false;
-        }
-        
-        //checkInfinite();
-
-        return 1;
-    }
-    
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
     
     void resetCTX(){
@@ -1622,7 +1526,25 @@ public:
     }
     
     
-    void classicProcessing(std::string& buffer){
+    void classicProcessing(std::string& buffer) {
+         //auto line_inp = ::llama_tokenize(ctx, buffer, false);
+        //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
+        // const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+        // const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+        // const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+        //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+        // embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
+        
+        // if (chatFormat.eos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+        // if (chatFormat.bos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
+        
+        // embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+        
+        // if (chatFormat.eos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+        // if (chatFormat.bos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
+        
+       // embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
+           
         const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
         const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
         const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
@@ -1659,48 +1581,21 @@ public:
                 // if (debug) printf("|");
                 // embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
             // }
-            
+
             if (params.escape) {
                 process_escapes(buffer);
             }
 
-            //auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
-            // const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
-            // const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
-            // const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
-            //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-            // embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
-            
-            // if (chatFormat.eos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
-            // if (chatFormat.bos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
-            
-            // embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-            
-            // if (chatFormat.eos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
-            // if (chatFormat.bos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
-            
-           // embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
-           
             //classicProcessing(buffer);
             formatInput(params.format_dialog, buffer);
             //formatInput(buffer);
-            
-            
-            
+
             for (size_t i = original_size; i < embd_inp.size(); ++i) {
                 const llama_token token = embd_inp[i];
                 //output_tokens.emplace_back(token);
                 output_tokens.push_back(token);
                 output_ss << llama_token_to_piece(ctx, token);
             }
-
-            // instruct mode: insert response suffix
-            // if (params.instruct) {
-                // if (debug) printf("^");
-                // embd_inp.insert(embd_inp.end(), inp_sfx.begin(), inp_sfx.end());
-            // }
-            
 
             // n_remain -= line_inp.size();
         }

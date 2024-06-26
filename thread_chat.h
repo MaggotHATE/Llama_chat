@@ -127,16 +127,22 @@ struct modelThread{
     }
     
     void appendFirstPrompt(){
-        std::string context = newChat.params.prompt;
-        
-        if (newChat.params.antiprompt.size()) {
-            if (newChat.params.prompt != newChat.params.antiprompt[0]){
-                int cutAntiPos = context.rfind(newChat.params.antiprompt[0]);
-                if (cutAntiPos != std::string::npos){
-                    context.erase(cutAntiPos);
+        std::string context;
+
+        if (newChat.params.prompt.length() > 0) {
+            context = newChat.params.prompt;
+
+            if (newChat.params.antiprompt.size()) {
+                if (newChat.params.prompt != newChat.params.antiprompt[0]){
+                    int cutAntiPos = context.rfind(newChat.params.antiprompt[0]);
+                    if (cutAntiPos != std::string::npos){
+                        context.erase(cutAntiPos);
+                    }
+                    
                 }
-                
             }
+        } else {
+            
         }
         
         resultsStringPairs.emplace_back(std::pair("AI",context));
