@@ -749,7 +749,28 @@ public:
             antiprompt_ids.emplace_back(::llama_tokenize(ctx, antiprompt, false, true));
         }
     }
-    
+
+    int check_encoder() {
+        if (llama_model_has_encoder(model)) {
+            int enc_input_size = embd_inp.size();
+            llama_token * enc_input_buf = embd_inp.data();
+
+            if (llama_encode(ctx, llama_batch_get_one(enc_input_buf, enc_input_size, 0, 0))) {
+                return 1;
+            }
+
+            llama_token decoder_start_token_id = llama_model_decoder_start_token(model);
+            if (decoder_start_token_id == -1) {
+                decoder_start_token_id = llama_token_bos(model);
+            }
+
+            embd_inp.clear();
+            embd_inp.push_back(decoder_start_token_id);
+        }
+
+        return 0;
+    }
+
     int loadModel(){
 
         //llama_init_backend(params.numa);
@@ -929,6 +950,9 @@ public:
         // instruct mode was removed since its format is not universal enough
 
         const bool add_bos = llama_should_add_bos_token(model);
+        if (!llama_model_has_encoder(model)) {
+            GGML_ASSERT(llama_add_eos_token(model) != 1);
+        }
         printf("add_bos: %d\n", add_bos);
 
         if (params.interactive_first || !params.prompt.empty() || session_tokens.empty()) {
@@ -1640,6 +1664,8 @@ public:
         //ctx_sampling = llama_sampling_init(params.sparams);
 
         tokenize_antiprompt();
+        
+        check_encoder();
 
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
 
