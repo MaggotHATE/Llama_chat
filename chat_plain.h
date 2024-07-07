@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "common.h"
+//#include "common.h"
 //#include "sampling_plus.h"
-#include "llama.h"
+//#include "llama.h"
 
 #include "jsonParams.h"
 

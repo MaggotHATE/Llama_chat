@@ -88,8 +88,10 @@ extern "C" {
         LLAMA_VOCAB_PRE_TYPE_DBRX           = 13,
         LLAMA_VOCAB_PRE_TYPE_SMAUG          = 14,
         LLAMA_VOCAB_PRE_TYPE_PORO           = 15,
-        LLAMA_VOCAB_PRE_TYPE_VIKING         = 16,
-        LLAMA_VOCAB_PRE_TYPE_JAIS           = 17,
+        LLAMA_VOCAB_PRE_TYPE_CHATGLM3       = 16,
+        LLAMA_VOCAB_PRE_TYPE_CHATGLM4       = 17,
+        LLAMA_VOCAB_PRE_TYPE_VIKING         = 18,
+        LLAMA_VOCAB_PRE_TYPE_JAIS           = 19,
     };
 
     // note: these values should be synchronized with ggml_rope
@@ -954,6 +956,7 @@ extern "C" {
 
     // Sets the current rng seed.
     LLAMA_API void llama_set_rng_seed(struct llama_context * ctx, uint32_t seed);
+    LLAMA_API void llama_set_time(struct llama_context * ctx, const int64_t t_start_sample_us);
 
     /// @details Repetition penalty described in CTRL academic paper https://arxiv.org/abs/1909.05858, with negative logit fix.
     /// @details Frequency and presence penalties described in OpenAI API https://platform.openai.com/docs/api-reference/parameter-details.

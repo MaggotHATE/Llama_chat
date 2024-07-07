@@ -1,6 +1,6 @@
 #pragma once
 
-#include "llama.h"
+#include "llama-addon.h"
 
 #include "grammar-parser.h"
 

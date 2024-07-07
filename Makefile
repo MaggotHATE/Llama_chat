@@ -430,11 +430,29 @@ $(TMP)old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
   
 #VULKAN
 
+PYTHON_CMD = python
+GLSLC_CMD  = glslc
+_llama_vk_genshaders_cmd = $(PYTHON_CMD) ggml/ggml_vk_generate_shaders.py
+_llama_vk_header = ggml/src/ggml-vulkan-shaders.hpp
+_llama_vk_source = ggml/src/ggml-vulkan-shaders.cpp
+_llama_vk_input_dir = ggml/src/vulkan-shaders
+_llama_vk_shader_deps = $(echo $(_llama_vk_input_dir)/*.comp)
 
+ggml/src/ggml-vulkan.o: ggml/src/ggml-vulkan.cpp ggml/include/ggml-vulkan.h $(_llama_vk_header) $(_llama_vk_source)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(_llama_vk_header): $(_llama_vk_source)
+
+$(_llama_vk_source): $(_llama_vk_shader_deps)
+	$(_llama_vk_genshaders_cmd) \
+		--glslc      $(GLSLC_CMD) \
+		--input-dir  $(_llama_vk_input_dir) \
+		--target-hpp $(_llama_vk_header) \
+		--target-cpp $(_llama_vk_source)
 
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = $(TMP)vk_ggml.o $(TMP)vk_ggml-alloc.o $(TMP)vk_ggml-backend.o $(TMP)vk_llama.o $(TMP)vk_sampling.o $(TMP)vk_common.o $(TMP)vk_ggml-quants.o $(TMP)vk_grammar-parser.o $(TMP)vk_ggml-vulkan.o $(TMP)vk_unicode.o $(TMP)vk_unicode-data.o $(TMP)vk_sgemm.o
+OBJS_VK = $(TMP)vk_ggml.o $(TMP)vk_ggml-alloc.o $(TMP)vk_ggml-backend.o $(TMP)vk_llama.o $(TMP)vk_llama-addon.o $(TMP)vk_sampling.o $(TMP)vk_common.o $(TMP)vk_ggml-quants.o $(TMP)vk_grammar-parser.o $(TMP)vk_ggml-vulkan.o $(TMP)vk_unicode.o $(TMP)vk_unicode-data.o $(TMP)vk_sgemm.o
 
 $(TMP)vk_ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
@@ -444,9 +462,6 @@ $(TMP)vk_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
 	
 $(TMP)vk_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
-	
-$(TMP)vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h
-	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
 
 $(TMP)vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
 	$(CC) $(CFLAGS_VK)    -c $< -o $@
@@ -460,11 +475,14 @@ $(TMP)vk_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
 $(TMP)vk_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
-VK_COMMON_H_DEPS = base/common.h base/sampling.h base/llama.h
+VK_COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
 VK_COMMON_DEPS   = $(TMP)vk_common.o $(TMP)vk_sampling.o $(TMP)vk_grammar-parser.o
 
 $(TMP)vk_common.o: base/common.cpp $(VK_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+    
+$(TMP)vk_llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
 $(TMP)vk_sampling.o: base/sampling.cpp $(VK_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
@@ -475,11 +493,33 @@ $(TMP)vk_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
     
 $(TMP)vk_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+    
+PYTHON_CMD = python
+GLSLC_CMD  = glslc
+_llama_vk_genshaders_cmd = $(PYTHON_CMD) base/ggml_vk_generate_shaders.py
+_llama_vk_header = base/ggml-vulkan-shaders.hpp
+_llama_vk_source = base/ggml-vulkan-shaders.cpp
+_llama_vk_input_dir = base/vulkan-shaders
+_llama_vk_shader_deps = $(echo $(_llama_vk_input_dir)/*.comp)
+
+	
+$(TMP)vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+
+$(_llama_vk_header): $(_llama_vk_source)
+
+$(_llama_vk_source): $(_llama_vk_shader_deps)
+	$(_llama_vk_genshaders_cmd) \
+		--glslc      $(GLSLC_CMD) \
+		--input-dir  $(_llama_vk_input_dir) \
+		--target-hpp $(_llama_vk_header) \
+		--target-cpp $(_llama_vk_source)
+
   
 #####################################
 ################################ GGUF
 
-OBJS_GGUF = $(TMP)ggml.o $(TMP)ggml-alloc.o $(TMP)ggml-backend.o $(TMP)llama.o $(TMP)sampling.o $(TMP)common.o $(TMP)ggml-quants.o $(TMP)grammar-parser.o $(TMP)unicode.o $(TMP)unicode-data.o $(TMP)sgemm.o
+OBJS_GGUF = $(TMP)ggml.o $(TMP)ggml-alloc.o $(TMP)ggml-backend.o $(TMP)llama.o $(TMP)llama-addon.o $(TMP)sampling.o $(TMP)common.o $(TMP)ggml-quants.o $(TMP)grammar-parser.o $(TMP)unicode.o $(TMP)unicode-data.o $(TMP)sgemm.o
     
 $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
@@ -504,23 +544,26 @@ $(TMP)unicode-data.o: base/unicode-data.cpp base/unicode-data.h
 	
 $(TMP)llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-	
-COMMON_H_DEPS = base/common.h base/sampling.h base/llama.h
+
+COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
 COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
 
 $(TMP)common.o: base/common.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-	
+
 $(TMP)sampling.o: base/sampling.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
+
+$(TMP)llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(TMP)sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-    
+
 $(TMP)grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-   
-    
+
+
 # Separate CLBLAST
 
 # Mac provides OpenCL as a framework
@@ -537,7 +580,7 @@ CXXFLAGS_UI_CL += -lclblast -lOpenCL
 
 
 #OBJS_GGUF_CL    = $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o
-OBJS_GGUF_CL    = $(TMP)cl_ggml.o $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o $(TMP)cl_unicode.o $(TMP)cl_unicode-data.o $(TMP)cl_sgemm.o
+OBJS_GGUF_CL    = $(TMP)cl_ggml.o $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_llama-addon.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o $(TMP)cl_unicode.o $(TMP)cl_unicode-data.o $(TMP)cl_sgemm.o
 
 $(TMP)cl_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
@@ -566,10 +609,13 @@ $(TMP)cl_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
 $(TMP)cl_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 	
-CL_COMMON_H_DEPS = base/common.h base/sampling.h base/llama.h
+CL_COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
 
 $(TMP)cl_common.o: base/common.cpp $(CL_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)cl_llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
 $(TMP)cl_sampling.o: base/sampling.cpp $(CL_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
