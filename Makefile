@@ -430,29 +430,9 @@ $(TMP)old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
   
 #VULKAN
 
-PYTHON_CMD = python
-GLSLC_CMD  = glslc
-_llama_vk_genshaders_cmd = $(PYTHON_CMD) ggml/ggml_vk_generate_shaders.py
-_llama_vk_header = ggml/src/ggml-vulkan-shaders.hpp
-_llama_vk_source = ggml/src/ggml-vulkan-shaders.cpp
-_llama_vk_input_dir = ggml/src/vulkan-shaders
-_llama_vk_shader_deps = $(echo $(_llama_vk_input_dir)/*.comp)
-
-ggml/src/ggml-vulkan.o: ggml/src/ggml-vulkan.cpp ggml/include/ggml-vulkan.h $(_llama_vk_header) $(_llama_vk_source)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(_llama_vk_header): $(_llama_vk_source)
-
-$(_llama_vk_source): $(_llama_vk_shader_deps)
-	$(_llama_vk_genshaders_cmd) \
-		--glslc      $(GLSLC_CMD) \
-		--input-dir  $(_llama_vk_input_dir) \
-		--target-hpp $(_llama_vk_header) \
-		--target-cpp $(_llama_vk_source)
-
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = $(TMP)vk_ggml.o $(TMP)vk_ggml-alloc.o $(TMP)vk_ggml-backend.o $(TMP)vk_llama.o $(TMP)vk_llama-addon.o $(TMP)vk_sampling.o $(TMP)vk_common.o $(TMP)vk_ggml-quants.o $(TMP)vk_grammar-parser.o $(TMP)vk_ggml-vulkan.o $(TMP)vk_unicode.o $(TMP)vk_unicode-data.o $(TMP)vk_sgemm.o
+OBJS_VK = $(TMP)vk_ggml.o $(TMP)vk_ggml-alloc.o $(TMP)vk_ggml-backend.o $(TMP)vk_llama.o $(TMP)vk_llama-addon.o $(TMP)vk_sampling.o $(TMP)vk_common.o $(TMP)vk_ggml-quants.o $(TMP)vk_grammar-parser.o $(TMP)vk_ggml-vulkan.o $(TMP)vk_ggml-vulkan-shaders.o $(TMP)vk_unicode.o $(TMP)vk_unicode-data.o $(TMP)vk_sgemm.o
 
 $(TMP)vk_ggml.o: base/ggml.c base/ggml.h
 	$(CC)  $(CFLAGS_VK)   -c $< -o $@
@@ -482,7 +462,7 @@ $(TMP)vk_common.o: base/common.cpp $(VK_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
 $(TMP)vk_llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
 $(TMP)vk_sampling.o: base/sampling.cpp $(VK_COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
@@ -494,26 +474,14 @@ $(TMP)vk_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
 $(TMP)vk_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-PYTHON_CMD = python
-GLSLC_CMD  = glslc
-_llama_vk_genshaders_cmd = $(PYTHON_CMD) base/ggml_vk_generate_shaders.py
-_llama_vk_header = base/ggml-vulkan-shaders.hpp
-_llama_vk_source = base/ggml-vulkan-shaders.cpp
-_llama_vk_input_dir = base/vulkan-shaders
-_llama_vk_shader_deps = $(echo $(_llama_vk_input_dir)/*.comp)
-
+vulkan-shaders-gen: base/vulkan-shaders-gen.cpp
+	$(CXX) $(CXXFLAGS_VK) -o $@ $(LDFLAGS_VK) base/vulkan-shaders-gen.cpp
 	
-$(TMP)vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h
+$(TMP)vk_ggml-vulkan-shaders.o: base/ggml-vulkan-shaders.cpp base/ggml-vulkan-shaders.hpp
 	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
-
-$(_llama_vk_header): $(_llama_vk_source)
-
-$(_llama_vk_source): $(_llama_vk_shader_deps)
-	$(_llama_vk_genshaders_cmd) \
-		--glslc      $(GLSLC_CMD) \
-		--input-dir  $(_llama_vk_input_dir) \
-		--target-hpp $(_llama_vk_header) \
-		--target-cpp $(_llama_vk_source)
+	
+$(TMP)vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h base/ggml-vulkan-shaders.hpp base/ggml-vulkan-shaders.cpp
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
 
   
 #####################################

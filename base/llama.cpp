@@ -59,6 +59,12 @@
     #include <io.h>
 #endif
 
+#if __cplusplus >= 202000L
+    #define LU8(x) (const char*)(u8##x)
+#else
+    #define LU8(x) u8##x
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -4437,16 +4443,6 @@ static void llm_load_hparams(
 
     // non-transformer models do not have attention heads
     if (hparams.n_head() > 0) {
-        // sanity check for n_rot (optional)
-        hparams.n_rot = hparams.n_embd / hparams.n_head();
-
-        ml.get_key(LLM_KV_ROPE_DIMENSION_COUNT, hparams.n_rot, false);
-
-        if (model.arch == LLM_ARCH_LLAMA || model.arch == LLM_ARCH_FALCON) {
-            if (hparams.n_rot != hparams.n_embd / hparams.n_head()) {
-                throw std::runtime_error(format("invalid n_rot: %u, expected %u", hparams.n_rot, hparams.n_embd / hparams.n_head()));
-            }
-        }
         // gpt-neox n_rot = rotary_pct * (n_embd / n_head)
         // gpt-j n_rot = rotary_dim
 
@@ -4455,6 +4451,17 @@ static void llm_load_hparams(
 
         hparams.n_embd_head_v = hparams.n_embd / hparams.n_head();
         ml.get_key(LLM_KV_ATTENTION_VALUE_LENGTH, hparams.n_embd_head_v, false);
+
+        // sanity check for n_rot (optional)
+        hparams.n_rot = hparams.n_embd_head_k;
+
+        ml.get_key(LLM_KV_ROPE_DIMENSION_COUNT, hparams.n_rot, false);
+
+        if (model.arch == LLM_ARCH_LLAMA || model.arch == LLM_ARCH_FALCON) {
+            if (hparams.n_rot != hparams.n_embd_head_k) {
+                throw std::runtime_error(format("invalid n_rot: %u, expected %u", hparams.n_rot, hparams.n_embd_head_k));
+            }
+        }
     } else {
         hparams.n_rot = 0;
         hparams.n_embd_head_k = 0;
@@ -5232,6 +5239,9 @@ static void llm_load_vocab(
             } else if (
                 tokenizer_pre == "jais") {
                 vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_JAIS;
+            } else if (
+                tokenizer_pre == "tekken") {// K-KINGUUU?!
+                vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_TEKKEN;
             } else {
                 throw std::runtime_error(format("unknown pre-tokenizer type: '%s'", tokenizer_pre.c_str()));
             }
@@ -5782,6 +5792,13 @@ static bool llm_load_tensors(
         const int64_t n_ff         = hparams.n_ff();
         const int64_t n_expert     = hparams.n_expert;
 
+        const int64_t n_head        = hparams.n_head();
+        const int64_t n_head_kv     = hparams.n_head_kv();
+        const int64_t n_embd_head_k = hparams.n_embd_head_k;
+        const int64_t n_embd_head_v = hparams.n_embd_head_v;
+        const int64_t n_expert_used = hparams.n_expert_used;
+        const int64_t n_ctx_train   = hparams.n_ctx_train;
+
         if (n_expert > 0 && hparams.n_expert_used == 0) {
             throw std::runtime_error("model has expert layers but no expert layers are used");
         }
@@ -5820,10 +5837,15 @@ static bool llm_load_tensors(
 
                         layer.attn_norm = ml.create_tensor(ctx_layer, tn(LLM_TENSOR_ATTN_NORM, "weight", i), {n_embd});
 
-                        layer.wq = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_Q,   "weight", i), {n_embd, n_embd});
-                        layer.wk = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_K,   "weight", i), {n_embd, n_embd_gqa});
-                        layer.wv = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_V,   "weight", i), {n_embd, n_embd_gqa});
-                        layer.wo = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_OUT, "weight", i), {n_embd, n_embd});
+                        layer.wq = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_Q,   "weight", i), {n_embd, n_embd_head_k * n_head});
+                        layer.wk = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_K,   "weight", i), {n_embd, n_embd_k_gqa});
+                        layer.wv = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_V,   "weight", i), {n_embd, n_embd_v_gqa});
+                        layer.wo = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_OUT, "weight", i), {n_embd_head_k * n_head, n_embd});
+                        // new vs old
+                        // layer.wq = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_Q,   "weight", i), {n_embd, n_embd});
+                        // layer.wk = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_K,   "weight", i), {n_embd, n_embd_gqa});
+                        // layer.wv = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_V,   "weight", i), {n_embd, n_embd_gqa});
+                        // layer.wo = ml.create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_OUT, "weight", i), {n_embd, n_embd});
 
                         // optional bias tensors
                         layer.bq = ml.create_tensor(ctx_layer, tn(LLM_TENSOR_ATTN_Q,   "bias", i), {n_embd},     llama_model_loader::TENSOR_NOT_REQUIRED);
@@ -12922,6 +12944,8 @@ struct llm_build_context {
                     LLM_NORM_RMS, cb, -1);
             cb(cur, "result_norm", -1);
         } else {
+            GGML_ASSERT(n_outputs_enc > 0 && "call llama_encode() first");
+
             struct ggml_tensor * embd_enc       = llm_build_inp_embd_enc();
             struct ggml_tensor * pos_bucket_dec = llm_build_pos_bucket(true);
 
@@ -15131,6 +15155,13 @@ struct llm_tokenizer_bpe {
             case LLAMA_VOCAB_PRE_TYPE_JAIS:
                 regex_exprs = {
                     "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_TEKKEN:
+                    // original regex from tokenizer.json
+                    // "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+                regex_exprs = {
+                    "[^\\r\\n\\p{L}\\p{N}]?((?=[\\p{L}])([^a-z]))*((?=[\\p{L}])([^A-Z]))+|[^\\r\\n\\p{L}\\p{N}]?((?=[\\p{L}])([^a-z]))+((?=[\\p{L}])([^A-Z]))*|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
                 };
                 break;
             case LLAMA_VOCAB_PRE_TYPE_STABLELM2:

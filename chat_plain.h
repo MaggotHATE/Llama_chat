@@ -1619,6 +1619,7 @@ public:
                 //output_tokens.emplace_back(token);
                 output_tokens.push_back(token);
                 output_ss << llama_token_to_piece(ctx, token);
+                std::cout << "tkns = " << embd_inp.size() << std::endl;
             }
 
             // n_remain -= line_inp.size();

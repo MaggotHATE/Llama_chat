@@ -248,6 +248,44 @@ static void process_STcard(std::string& text, std::string card_path, std::string
 
 }
 
+static void process_STcard_Anytag(std::string& text, std::string card_path, std::string user, std::string char_name = "Character"){
+    nlohmann::json st_card = getJson(card_path);
+
+    if (st_card.contains("data")) {
+
+        nlohmann::json st_card_data = st_card["data"];
+        std::cout << "Data found" << std::endl;
+
+        text_fill(text, "user", user, "{{", "}}");
+
+        if (checkJString(st_card_data, "name")) {
+            std::cout << "name found" << std::endl;
+            char_name = st_card_data["name"];
+            text_fill(text, "char", char_name, "{{", "}}");
+        }
+        
+        for (auto tag : st_card_data.items()) {
+            std::cout << "\n Found " << tag.key() << std::endl;
+
+            std::string tag_key = tag.key();
+            std::string tag_val = tag.value();
+
+            std::cout << "\n " << tag_key << ":\n" << tag_val << std::endl;
+
+            text_fill(tag_val, "original", " ", "{{", "}}");
+            text_fill(tag_val, "char", char_name, "{{", "}}");
+            text_fill(tag_val, "user", user, "{{", "}}");
+            std::cout << "\n  " << tag_key << ":\n" << tag_val << std::endl;
+
+            text_fill(text, tag_key, tag_val, "{{", "}}");
+        }
+
+        std::cout << '\n' << text << std::endl;
+
+    }
+
+}
+
 static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
     std::string format_template = "";
     if (checkJString(config, "format_file")) {
@@ -376,7 +414,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
         if (checkJString(config, "format_file")) {
             processFormatTemplate(config, params);
             if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                process_STcard(params.prompt, config["st_card"], config["user"]);
+                process_STcard_Anytag(params.prompt, config["st_card"], config["user"]);
             } else if (checkJString(config, "char")) {
                 text_fill(params.prompt, "char", config["char"], "{{", "}}");
             }
@@ -386,8 +424,10 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
             } else if (checkJString(config, "prompt")) {
                 params.prompt = config["prompt"];
                 processPrompt(params.prompt);
+                promptFileLink(params.prompt, "{{{", "}}}");
+
                 if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard(params.prompt, config["st_card"], config["user"]);
+                    process_STcard_Anytag(params.prompt, config["st_card"], config["user"]);
                 } else if (checkJString(config, "char")) {
                     text_fill(params.prompt, "char", config["char"], "{{", "}}");
                 } else promptFileLink(params.prompt, "{{", "}}");
@@ -400,7 +440,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
                     params.antiprompt[0] = config["reverse-prompt"];
                 
                 if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard(params.antiprompt[0], config["st_card"], config["user"]);
+                    process_STcard_Anytag(params.antiprompt[0], config["st_card"], config["user"]);
                 } else if (checkJString(config, "char")) {
                     text_fill(params.antiprompt[0], "char", config["char"], "{{", "}}");
                 }
@@ -409,7 +449,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
             if (checkJString(config, "input_prefix")) {
                 params.input_prefix = config["input_prefix"];
                 if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard(params.input_prefix, config["st_card"], config["user"]);
+                    process_STcard_Anytag(params.input_prefix, config["st_card"], config["user"]);
                 } else if (checkJString(config, "char")) {
                     text_fill(params.input_prefix, "char", config["char"], "{{", "}}");
                 }
@@ -417,7 +457,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
             if (checkJString(config, "input_suffix")) {
                 params.input_suffix = config["input_suffix"];
                 if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard(params.input_suffix, config["st_card"], config["user"]);
+                    process_STcard_Anytag(params.input_suffix, config["st_card"], config["user"]);
                 } else if (checkJString(config, "char")) {
                     text_fill(params.input_suffix, "char", config["char"], "{{", "}}");
                 }
