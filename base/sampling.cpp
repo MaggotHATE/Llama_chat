@@ -249,7 +249,7 @@ llama_token llama_sampling_sample(
     }
 
     if (ctx_sampling->grammar != NULL) {
-        llama_sample_grammar(ctx_main, &cur_p, ctx_sampling->grammar);
+        llama_grammar_sample(ctx_sampling->grammar, ctx_main, &cur_p);
     }
 
     if (temp < 0.0) {
@@ -325,7 +325,7 @@ void llama_sampling_accept(
     ctx_sampling->prev.push_back(id);
 
     if (ctx_sampling->grammar != NULL && apply_grammar) {
-        llama_grammar_accept_token(ctx_main, ctx_sampling->grammar, id);
+        llama_grammar_accept_token(ctx_sampling->grammar, ctx_main, id);
     }
 }
 

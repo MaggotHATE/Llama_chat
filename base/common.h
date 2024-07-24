@@ -183,43 +183,34 @@ void llama_batch_add(
 // Vocab utils
 //
 
-std::string string_strip(const std::string & str);
-
 // tokenizes a string into a vector of tokens
 // should work similar to Python's `tokenizer.encode`
 std::vector<llama_token> llama_tokenize(
   const struct llama_context * ctx,
            const std::string & text,
-                        bool   add_bos,
-                        bool   special = false);
+                        bool   add_special,
+                        bool   parse_special = false);
 
 std::vector<llama_token> llama_tokenize(
     const struct llama_model * model,
            const std::string & text,
-                        bool   add_bos,
-                        bool   special = false);
+                        bool   add_special,
+                        bool   parse_special = false);
 
-// tokenizes a token into a piece
+// tokenizes a token into a piece, optionally renders special/control tokens
 // should work similar to Python's `tokenizer.id_to_piece`
 std::string llama_token_to_piece(
         const struct llama_context * ctx,
-                       llama_token   token);
-
-// TODO: these should be moved in llama.h C-style API under single `llama_detokenize` function
-//       that takes into account the tokenizer type and decides how to handle the leading space
-//
-// detokenizes a vector of tokens into a string
-// should work similar to Python's `tokenizer.decode`
-// removes the leading space from the first non-BOS token
-std::string llama_detokenize_spm(
-                         llama_context * ctx,
-        const std::vector<llama_token> & tokens);
+                       llama_token   token,
+                       bool          special = true);
 
 // detokenizes a vector of tokens into a string
 // should work similar to Python's `tokenizer.decode`
-std::string llama_detokenize_bpe(
+// optionally renders special/control tokens
+std::string llama_detokenize(
                          llama_context * ctx,
-        const std::vector<llama_token> & tokens);
+        const std::vector<llama_token> & tokens,
+                                  bool   special = true);
 
 // Uses the value from the model metadata if possible, otherwise
 // defaults to true when model type is SPM, otherwise false.

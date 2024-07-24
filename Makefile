@@ -102,10 +102,14 @@ ARCH = -march=native -mtune=native
 TMP = o/
 endif
 
-# ggmlsrc_f = base/ggml
-# llamacpp_f = base/llamacpp
-ggmlsrc_f = base/ggml_llamacpp
-llamacpp_f = base/ggml_llamacpp
+#the main folder for groups of sources
+base = base
+ggmlsrc_f = $(base)/ggml
+llamacpp_f = $(base)/llama
+#common_f = $(base)/common
+common_f = $(base)
+# ggmlsrc_f = base/ggml_llamacpp
+# llamacpp_f = base/ggml_llamacpp
 
 
 # IMGUI_DIR = imgui
@@ -150,9 +154,10 @@ OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 
 # OBJS_UI_VK = $(subst main_vk2.cpp,VULKAN/main_vk.cpp,$(OBJS))
 
+vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f):include
+
 FILE_D = -Itinyfiledialogs
-I_GGUF = -I. -Ibase -Iinclude
-I_GGUF_TEST = -I. -Ibase/ggml_llamacpp -Iinclude
+I_GGUF = -I$(ggmlsrc_f) -I$(llamacpp_f) -I$(common_f) -Iinclude -I.
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -236,10 +241,10 @@ CXXFLAGS_UI += -DSDL2
 endif
 
 #for general ggml-gguf
-CFLAGS = $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 
 #for all chatTest
-CXXFLAGS = $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -DGGML_USE_LLAMAFILE -w -pipe
+CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -DGGML_USE_LLAMAFILE -w -pipe
 
 
 
@@ -324,29 +329,18 @@ LDFLAGS_VK+ = -lvulkan
 endif
 
 
-
-
 # For emojis
 
 CXXFLAGS_UI += -DIMGUI_USE_WCHAR32
 
 CXXFLAGS_UI_CL = $(CXXFLAGS_UI) -DGGML_USE_CLBLAST
-CXXFLAGS_UI_GGML = $(CXXFLAGS_UI) -DGGML_OLD_FORMAT
-CXXFLAGS_UI_CL_GGML = $(CXXFLAGS_UI) -DGGML_OLD_FORMAT -DGGML_USE_CLBLAST
 CXXFLAGS_UI_VK = $(CXXFLAGS_UI) -DGGML_USE_VULKAN
 
 CFLAGS_CL = $(CFLAGS) -DGGML_USE_CLBLAST
-CFLAGS_GGML = $(CFLAGS) -DGGML_OLD_FORMAT
-CFLAGS_CL_GGML = $(CFLAGS) -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT
 CFLAGS_VK = $(CFLAGS) -DGGML_USE_VULKAN
 
 CXXFLAGS_CL = $(CXXFLAGS) -DGGML_USE_CLBLAST
-CXXFLAGS_GGML = $(CXXFLAGS) -DGGML_OLD_FORMAT
-CXXFLAGS_CL_GGML = $(CXXFLAGS) -DGGML_USE_CLBLAST -DGGML_OLD_FORMAT
 CXXFLAGS_VK = $(CXXFLAGS) -DGGML_USE_VULKAN
-
-CXXFLAGS_E = -DGGML_EXPERIMENTAL
-CXXFLAGS_E1 = -DGGML_EXPERIMENTAL1 -DGGML_EXPERIMENTAL
 
 ifdef VK_DEBUG
 	CXXFLAGS_VK += -DGGML_VULKAN_DEBUG
@@ -369,183 +363,69 @@ ifdef PRE_BACKEND
 GGUF_F = pre_backend
 endif
 GGML_F = GGML
-  
-#GGML
-
-OBJS_GGML1 = $(TMP)old_ggml.o $(TMP)old_ggml-alloc.o $(TMP)old_llama.o $(TMP)old_common.o $(TMP)old_k_quants.o $(TMP)old_grammar-parser.o
-
-$(TMP)old_ggml.o: GGML/ggml.c GGML/ggml.h
-	$(CC)  $(CFLAGS_GGML)   -c $< -o $@
-    
-$(TMP)old_ggml-alloc.o: GGML/ggml-alloc.c GGML/ggml.h GGML/ggml-alloc.h
-	$(CC)  $(CFLAGS_GGML)   -c $< -o $@
-
-$(TMP)old_llama.o: GGML/llama.cpp GGML/ggml.h GGML/ggml-alloc.h GGML/llama.h  GGML/llama-util.h
-	$(CXX) $(CXXFLAGS_GGML) -c $< -o $@
-
-$(TMP)old_common.o: GGML/common.cpp GGML/common.h
-	$(CXX) $(CXXFLAGS_GGML) -c $< -o $@
-
-$(TMP)old_libllama$(DSO_EXT): $(TMP)old_llama.o $(TMP)old_ggml.o
-	$(CXX) $(CXXFLAGS_GGML) -shared -fPIC -o $@ $^ $(LDFLAGS)
-    
-$(TMP)old_k_quants.o: GGML/k_quants.c GGML/k_quants.h
-	$(CC) $(CFLAGS_GGML) -c $< -o $@
-    
-$(TMP)old_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
-	$(CXX) $(CXXFLAGS_GGML) -c $< -o $@
-
-# Separate GGML CLBLAST
-
-# Mac provides OpenCL as a framework
-ifeq ($(UNAME_S),Darwin)
-    LDFLAGS_CL_GGML += -lclblast -framework OpenCL
-else
-    #LDFLAGS2 += -lclblast -lOpenCL
-    LDFLAGS_CL_GGML += -Llib/OpenCL.lib -Llib/clblast.lib
-endif
-    #LDFLAGS_CL += -lclblast -lOpenCL
-CXXFLAGS_CL_GGML += -lclblast -lOpenCL
-CXXFLAGS_UI_CL_GGML += -lclblast -lOpenCL
-
-
-OBJS_CL_GGML1    = $(TMP)old_cl_k_quants.o $(TMP)old_cl_ggml-opencl.o $(TMP)old_cl_ggml.o $(TMP)old_cl_ggml-alloc.o $(TMP)old_cl_llama.o $(TMP)old_cl_common.o $(TMP)old_cl_grammar-parser.o
-
-$(TMP)old_cl_ggml-opencl.o: GGML/ggml-opencl.cpp GGML/ggml-opencl.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-    
-$(TMP)old_cl_ggml.o: GGML/ggml.c GGML/ggml.h
-	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
-    
-$(TMP)old_cl_ggml-alloc.o: GGML/ggml-alloc.c GGML/ggml.h GGML/ggml-alloc.h
-	$(CC)  $(CFLAGS_CL_GGML)   -c $< -o $@
-
-$(TMP)old_cl_llama.o: GGML/llama.cpp GGML/ggml.h GGML/ggml-alloc.h GGML/llama.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-
-$(TMP)old_cl_common.o: GGML/common.cpp GGML/common.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-
-$(TMP)old_cl_libllama$(DSO_EXT): $(TMP)old_cl_llama.o $(TMP)old_cl_ggml.o
-	$(CXX) $(CXXFLAGS_CL_GGML) -shared -fPIC -o $@ $^ $(LDFLAGS_CL_GGML)
-    
-$(TMP)old_cl_k_quants.o: GGML/k_quants.c GGML/k_quants.h
-	$(CC) $(CFLAGS_CL_GGML) -c $< -o $@
-    
-$(TMP)old_cl_grammar-parser.o: GGML/grammar-parser.cpp GGML/grammar-parser.h
-	$(CXX) $(CXXFLAGS_CL_GGML) -c $< -o $@
-  
-#VULKAN
+#VULKAN OLD
 
 #CXXFLAGS_VK += -I$(VULKAN_DIR)/include
 
-OBJS_VK = $(TMP)vk_ggml.o $(TMP)vk_ggml-alloc.o $(TMP)vk_ggml-backend.o $(TMP)vk_llama.o $(TMP)vk_llama-addon.o $(TMP)vk_sampling.o $(TMP)vk_common.o $(TMP)vk_ggml-quants.o $(TMP)vk_grammar-parser.o $(TMP)vk_ggml-vulkan.o $(TMP)vk_ggml-vulkan-shaders.o $(TMP)vk_unicode.o $(TMP)vk_unicode-data.o $(TMP)vk_sgemm.o
+# OBJS_VK = $(TMP)vk_ggml.o $(TMP)vk_ggml-alloc.o $(TMP)vk_ggml-backend.o $(TMP)vk_llama.o $(TMP)vk_llama-addon.o $(TMP)vk_sampling.o $(TMP)vk_common.o $(TMP)vk_ggml-quants.o $(TMP)vk_grammar-parser.o $(TMP)vk_ggml-vulkan.o $(TMP)vk_ggml-vulkan-shaders.o $(TMP)vk_unicode.o $(TMP)vk_unicode-data.o $(TMP)vk_sgemm.o
 
-$(TMP)vk_ggml.o: base/ggml.c base/ggml.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+# $(TMP)vk_ggml.o: base/ggml.c base/ggml.h
+	# $(CC)  $(CFLAGS_VK)   -c $< -o $@
 	
-$(TMP)vk_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+# $(TMP)vk_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
+	# $(CC)  $(CFLAGS_VK)   -c $< -o $@
 	
-$(TMP)vk_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
-	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+# $(TMP)vk_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
+	# $(CC)  $(CFLAGS_VK)   -c $< -o $@
 
-$(TMP)vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
-	$(CC) $(CFLAGS_VK)    -c $< -o $@
+# $(TMP)vk_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
+	# $(CC) $(CFLAGS_VK)    -c $< -o $@
 	
-$(TMP)vk_unicode.o: base/unicode.cpp base/unicode.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_unicode.o: base/unicode.cpp base/unicode.h
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-$(TMP)vk_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
-$(TMP)vk_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
-VK_COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
-VK_COMMON_DEPS   = $(TMP)vk_common.o $(TMP)vk_sampling.o $(TMP)vk_grammar-parser.o
+# VK_COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
+# VK_COMMON_DEPS   = $(TMP)vk_common.o $(TMP)vk_sampling.o $(TMP)vk_grammar-parser.o
 
-$(TMP)vk_common.o: base/common.cpp $(VK_COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_common.o: base/common.cpp $(VK_COMMON_H_DEPS)
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-$(TMP)vk_llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
-$(TMP)vk_sampling.o: base/sampling.cpp $(VK_COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_sampling.o: base/sampling.cpp $(VK_COMMON_H_DEPS)
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
 	
-$(TMP)vk_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-$(TMP)vk_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
-	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+# $(TMP)vk_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
+	# $(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-vulkan-shaders-gen: base/vulkan-shaders-gen.cpp
-	$(CXX) $(CXXFLAGS_VK) -o $@ $(LDFLAGS_VK) base/vulkan-shaders-gen.cpp
+# vulkan-shaders-gen: base/vulkan-shaders-gen.cpp
+	# $(CXX) $(CXXFLAGS_VK) -o $@ $(LDFLAGS_VK) base/vulkan-shaders-gen.cpp
 	
-$(TMP)vk_ggml-vulkan-shaders.o: base/ggml-vulkan-shaders.cpp base/ggml-vulkan-shaders.hpp
-	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+# $(TMP)vk_ggml-vulkan-shaders.o: base/ggml-vulkan-shaders.cpp base/ggml-vulkan-shaders.hpp
+	# $(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
 	
-$(TMP)vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h base/ggml-vulkan-shaders.hpp base/ggml-vulkan-shaders.cpp
-	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+# $(TMP)vk_ggml-vulkan.o: base/ggml-vulkan.cpp base/ggml-vulkan.h base/ggml-vulkan-shaders.hpp base/ggml-vulkan-shaders.cpp
+	# $(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
 
   
 #####################################
 ################################ GGUF
-
-OBJS_GGUF = $(TMP)ggml.o $(TMP)ggml-alloc.o $(TMP)ggml-backend.o $(TMP)llama.o $(TMP)llama-addon.o $(TMP)sampling.o $(TMP)common.o $(TMP)ggml-quants.o $(TMP)grammar-parser.o $(TMP)unicode.o $(TMP)unicode-data.o $(TMP)sgemm.o
-    
-$(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
-
-$(TMP)ggml.o: base/ggml.c base/ggml.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
-	
-$(TMP)ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
-	
-$(TMP)ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
-
-$(TMP)ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
-	$(CC) $(CFLAGS)    -c $< -o $@
-	
-$(TMP)unicode.o: base/unicode.cpp base/unicode.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)unicode-data.o: base/unicode-data.cpp base/unicode-data.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-	
-$(TMP)llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
-COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
-
-$(TMP)common.o: base/common.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)sampling.o: base/sampling.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-############ Test #################
-
-GGUF_TEST_F = base/ggml_llamacpp
-
-OBJS_GGUF_TEST = \
+OBJS_GGUF = \
     $(TMP)t_ggml.o \
     $(TMP)t_ggml-alloc.o \
     $(TMP)t_ggml-backend.o \
+    $(TMP)t_ggml-quants.o \
     $(TMP)t_ggml-aarch64.o \
     $(TMP)t_llama.o \
     $(TMP)t_llama-vocab.o \
@@ -554,7 +434,6 @@ OBJS_GGUF_TEST = \
     $(TMP)t_llama-addon.o \
     $(TMP)t_sampling.o \
     $(TMP)t_common.o \
-    $(TMP)t_ggml-quants.o \
     $(TMP)t_grammar-parser.o \
     $(TMP)t_unicode.o \
     $(TMP)t_unicode-data.o \
@@ -630,26 +509,42 @@ $(TMP)t_llama-sampling.o: \
 	$(llamacpp_f)/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-COMMON_H_DEPS = $(GGUF_TEST_F)/common.h $(GGUF_TEST_F)/sampling.h $(GGUF_TEST_F)/llama-addon.h $(llamacpp_f)/llama.h
+COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f)/llama.h
 COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
 
-$(TMP)t_common.o: $(GGUF_TEST_F)/common.cpp $(COMMON_H_DEPS)
+$(TMP)t_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_sampling.o: $(GGUF_TEST_F)/sampling.cpp $(COMMON_H_DEPS)
+$(TMP)t_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_llama-addon.o: $(GGUF_TEST_F)/llama-addon.cpp $(COMMON_H_DEPS)
+$(TMP)t_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_grammar-parser.o: $(GGUF_TEST_F)/grammar-parser.cpp $(GGUF_TEST_F)/grammar-parser.h
+$(TMP)t_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # test CLBLAST
+#OBJS_GGUF_TEST_CL 
 
-GGUF_TEST_F = base/ggml_llamacpp
+###########################################################################
+# Separate CLBLAST
 
-OBJS_GGUF_TEST_CL = \
+# Mac provides OpenCL as a framework
+ifeq ($(UNAME_S),Darwin)
+    LDFLAGS_CL += -lclblast -framework OpenCL
+else
+    #LDFLAGS2 += -lclblast -lOpenCL
+    LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib
+    #LDFLAGS_CL += -lclblast -lOpenCL
+endif
+
+CXXFLAGS_CL += -lclblast -lOpenCL
+CXXFLAGS_UI_CL += -lclblast -lOpenCL
+
+
+#OBJS_GGUF_CL    = $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o
+OBJS_GGUF_CL    = \
     $(TMP)clt_ggml.o \
     $(TMP)clt_ggml-alloc.o \
     $(TMP)clt_ggml-backend.o \
@@ -668,7 +563,7 @@ OBJS_GGUF_TEST_CL = \
     $(TMP)clt_unicode-data.o \
     $(TMP)clt_sgemm.o
     
-$(TMP)clt_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
+$(TMP)clt_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     
 $(TMP)clt_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
@@ -738,147 +633,150 @@ $(TMP)clt_llama-sampling.o: \
 	$(llamacpp_f)/llama.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
-COMMON_H_DEPS = $(GGUF_TEST_F)/common.h $(GGUF_TEST_F)/sampling.h $(GGUF_TEST_F)/llama-addon.h $(llamacpp_f)/llama.h
+COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f)/llama.h
 COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
 
-$(TMP)clt_common.o: $(GGUF_TEST_F)/common.cpp $(COMMON_H_DEPS)
+$(TMP)clt_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
-$(TMP)clt_sampling.o: $(GGUF_TEST_F)/sampling.cpp $(COMMON_H_DEPS)
+$(TMP)clt_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
-$(TMP)clt_llama-addon.o: $(GGUF_TEST_F)/llama-addon.cpp $(COMMON_H_DEPS)
+$(TMP)clt_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 
-$(TMP)clt_grammar-parser.o: $(GGUF_TEST_F)/grammar-parser.cpp $(GGUF_TEST_F)/grammar-parser.h
+$(TMP)clt_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-
+    
 ###########################################################################
-# Separate CLBLAST
+# Separate VULKAN
 
-# Mac provides OpenCL as a framework
-ifeq ($(UNAME_S),Darwin)
-    LDFLAGS_CL += -lclblast -framework OpenCL
-else
-    #LDFLAGS2 += -lclblast -lOpenCL
-    LDFLAGS_CL += -Llib/OpenCL.lib -Llib/clblast.lib
-    #LDFLAGS_CL += -lclblast -lOpenCL
-endif
-
-CXXFLAGS_CL += -lclblast -lOpenCL
-CXXFLAGS_UI_CL += -lclblast -lOpenCL
-
-
-#OBJS_GGUF_CL    = $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o
-OBJS_GGUF_CL    = $(TMP)cl_ggml.o $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_llama-addon.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o $(TMP)cl_unicode.o $(TMP)cl_unicode-data.o $(TMP)cl_sgemm.o
-
-$(TMP)cl_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+OBJS_VK    = \
+    $(TMP)vkt_ggml.o \
+    $(TMP)vkt_ggml-alloc.o \
+    $(TMP)vkt_ggml-backend.o \
+    $(TMP)vkt_ggml-aarch64.o \
+    $(TMP)vkt_ggml-vulkan.o \
+    $(TMP)vkt_ggml-vulkan-shaders.o \
+    $(TMP)vkt_llama.o \
+    $(TMP)vkt_llama-vocab.o \
+    $(TMP)vkt_llama-grammar.o \
+    $(TMP)vkt_llama-sampling.o \
+    $(TMP)vkt_llama-addon.o \
+    $(TMP)vkt_sampling.o \
+    $(TMP)vkt_common.o \
+    $(TMP)vkt_ggml-quants.o \
+    $(TMP)vkt_grammar-parser.o \
+    $(TMP)vkt_unicode.o \
+    $(TMP)vkt_unicode-data.o \
+    $(TMP)vkt_sgemm.o
     
-$(TMP)cl_grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+GLSLC_CMD  = glslc
+_ggml_vk_genshaders_cmd = $(shell pwd)/vulkan-shaders-gen
+_ggml_vk_header = $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
+_ggml_vk_source = $(ggmlsrc_f)/ggml-vulkan-shaders.cpp
+_ggml_vk_input_dir = $(ggmlsrc_f)/vulkan-shaders
+_ggml_vk_shader_deps = $(echo $(_ggml_vk_input_dir)/*.comp)
+
+$(TMP)vkt_ggml-vulkan.o: $(ggmlsrc_f)/ggml-vulkan.cpp $(ggmlsrc_f)/ggml-vulkan.h $(_ggml_vk_header) $(_ggml_vk_source)
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+
+$(_ggml_vk_header): $(_ggml_vk_source)
+
+$(_ggml_vk_source): $(_ggml_vk_shader_deps) vkt-shaders-gen
+	$(_ggml_vk_genshaders_cmd) \
+		--glslc      $(GLSLC_CMD) \
+		--input-dir  $(_ggml_vk_input_dir) \
+		--target-hpp $(_ggml_vk_header) \
+		--target-cpp $(_ggml_vk_source)
+    
+vkt-shaders-gen: $(ggmlsrc_f)/vulkan-shaders/vulkan-shaders-gen.cpp
+	$(CXX) $(CXXFLAGS_VK) -o $@ $(LDFLAGS_VK) $(ggmlsrc_f)/vulkan-shaders/vulkan-shaders-gen.cpp
 	
-$(TMP)cl_ggml.o: base/ggml.c base/ggml.h
-	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+$(TMP)vkt_ggml-vulkan-shaders.o: $(ggmlsrc_f)/ggml-vulkan-shaders.cpp $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
+	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
+    
+$(TMP)vkt_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
 	
-$(TMP)cl_ggml-alloc.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
-	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+$(TMP)vkt_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
 	
-$(TMP)cl_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
-	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+$(TMP)vkt_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-backend.h
+	$(CC)  $(CFLAGS_VK)   -c $< -o $@
+
+$(TMP)vkt_ggml-quants.o: \
+	$(ggmlsrc_f)/ggml-quants.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-quants.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS_VK)    -c $< -o $@
+
+$(TMP)vkt_ggml-aarch64.o: \
+	$(ggmlsrc_f)/ggml-aarch64.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-aarch64.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS_VK)    -c $< -o $@
+
+$(TMP)vkt_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
-$(TMP)cl_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
-	$(CC) $(CFLAGS_CL)    -c $< -o $@
+$(TMP)vkt_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+
+$(TMP)vkt_unicode-data.o: $(llamacpp_f)/unicode-data.cpp $(llamacpp_f)/unicode-data.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
-$(TMP)cl_unicode.o: base/unicode.cpp base/unicode.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+$(TMP)vkt_llama.o: $(llamacpp_f)/llama.cpp \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-grammar.h \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/unicode.h \
+	$(llamacpp_f)/llama.h \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-alloc.h \
+	$(ggmlsrc_f)/ggml-backend.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-$(TMP)cl_unicode-data.o: base/unicode-data.cpp base/unicode-data.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-	
-$(TMP)cl_llama.o: base/llama.cpp base/unicode.h base/ggml.h base/ggml-alloc.h base/ggml-backend.h base/llama.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-	
-CL_COMMON_H_DEPS = base/common.h base/sampling.h base/llama-addon.h base/llama.h
+$(TMP)vkt_llama-vocab.o: \
+	$(llamacpp_f)/llama-vocab.cpp \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-$(TMP)cl_common.o: base/common.cpp $(CL_COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+$(TMP)vkt_llama-grammar.o: \
+	$(llamacpp_f)/llama-grammar.cpp \
+	$(llamacpp_f)/llama-grammar.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-$(TMP)cl_llama-addon.o: base/llama-addon.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-	
-$(TMP)cl_sampling.o: base/sampling.cpp $(CL_COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-	
-$(TMP)cl_sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-# pre-backend
+$(TMP)vkt_llama-sampling.o: \
+	$(llamacpp_f)/llama-sampling.cpp \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-OBJS_GGUF_CL_PRE_BACKEND    = $(TMP)cl_pb_ggml.o $(TMP)cl_pb_ggml-quants.o $(TMP)cl_pb_ggml-opencl-gguf.o $(TMP)cl_pb_ggml-alloc.o $(TMP)cl_pb_ggml-backend.o $(TMP)cl_pb_llama.o $(TMP)cl_pb_sampling.o $(TMP)cl_pb_common.o $(TMP)cl_pb_grammar-parser.o
+COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f)/llama.h
+COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
 
-$(TMP)cl_pb_ggml-opencl-gguf.o: pre_backend/ggml-opencl.cpp pre_backend/ggml-opencl.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-$(TMP)cl_pb_ggml.o: pre_backend/ggml.c pre_backend/ggml.h
-	$(CC)  $(CFLAGS_CL)   -c $< -o $@
-    
-$(TMP)cl_pb_ggml-alloc.o: pre_backend/ggml-alloc.c pre_backend/ggml.h pre_backend/ggml-alloc.h
-	$(CC)  $(CFLAGS_CL)   -c $< -o $@
-    
-$(TMP)cl_pb_ggml-backend.o: pre_backend/ggml-backend.c pre_backend/ggml.h pre_backend/ggml-backend.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
+$(TMP)vkt_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-$(TMP)cl_pb_llama.o: pre_backend/llama.cpp pre_backend/ggml.h pre_backend/ggml-alloc.h pre_backend/ggml-backend.h pre_backend/llama.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-$(TMP)cl_pb_sampling.o: pre_backend/sampling.cpp pre_backend/sampling.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TMP)vkt_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-$(TMP)cl_pb_common.o: pre_backend/common.cpp pre_backend/common.h $(TMP)cl_sampling.o
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-$(TMP)cl_pb_ggml-quants.o: pre_backend/ggml-quants.c pre_backend/ggml.h pre_backend/ggml-quants.h
-	$(CC) $(CFLAGS)    -c $< -o $@
-    
-$(TMP)cl_pb_grammar-parser.o: pre_backend/grammar-parser.cpp pre_backend/grammar-parser.h
-	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
-    
-    
-# separate OpenBlas
+$(TMP)vkt_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 
-
-ifneq ($(shell grep -e "Arch Linux" -e "ID_LIKE=arch" /etc/os-release 2>/dev/null),)
-    CFLAGS_OB  += -DGGML_USE_OPENBLAS -I/usr/local/include/openblas -I/usr/include/openblas
-    LDFLAGS_OB += -lopenblas -lcblas
-else
-    CFLAGS_OB  += -DGGML_USE_OPENBLAS -I/include/openblas -I/include/openblas
-    LDFLAGS_OB += -lopenblas
-endif
-
-OBJS_GGUF_OB = $(TMP)ggml_ob.o $(TMP)ggml-alloc_ob.o $(TMP)llama_ob.o $(TMP)common_ob.o $(TMP)k_quants_ob.o $(TMP)grammar-parser_ob.o
-  
-$(TMP)ggml_ob.o: base/ggml.c base/ggml.h
-	$(CC)  $(CFLAGS) $(CFLAGS_OB)   -c $< -o $@
-    
-$(TMP)ggml-alloc_ob.o: base/ggml-alloc.c base/ggml.h base/ggml-alloc.h
-	$(CC)  $(CFLAGS) $(CFLAGS_OB)   -c $< -o $@
-
-#base/threadpool.h
-$(TMP)llama_ob.o: base/llama.cpp base/ggml.h base/ggml-alloc.h base/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)common_ob.o: base/common.cpp base/common.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TMP)libllama_ob$(DSO_EXT): $(TMP)llama.o $(TMP)ggml.o $(OBJS_GGUF_OB)
-	$(CXX) $(CXXFLAGS) -shared -fPIC -o $@ $^ $(LDFLAGS)
-    
-$(TMP)k_quants_ob.o: base/k_quants.c base/k_quants.h
-	$(CC) $(CFLAGS) $(CFLAGS_OB) -c $< -o $@
-    
-$(TMP)grammar-parser_ob.o: base/grammar-parser.cpp base/grammar-parser.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TMP)vkt_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
 # general    
     
@@ -938,22 +836,10 @@ demo_vk2: $(EXE_VK2)
 demo_vk2_mini: $(EXE_VK2)_mini
 	@echo Build $(EXE_VK2)_mini complete for $(ECHO_MESSAGE)
     
-demo_ob: $(EXE_OB)
-	@echo Build $(EXE_OB) complete for $(ECHO_MESSAGE) 
-    
-demo_ggml: $(EXE_GGML)
-	@echo Build $(EXE_GGML) complete for $(ECHO_MESSAGE)
-    
-demo_ggml_cl: $(EXE_CL_GGML)
-	@echo Build $(EXE_CL_GGML) complete for $(ECHO_MESSAGE)
-    
 demos_gguf: $(EXE) $(EXE_CL)
 	@echo Build $(EXE) $(EXE_CL) complete for $(ECHO_MESSAGE)
     
 demos: $(EXE)_mini $(EXE_CL)_mini $(EXE_VK)_mini
-	@echo Build complete for $(ECHO_MESSAGE)
-    
-demos_old: $(EXE) $(EXE_CL) $(EXE_VK)
 	@echo Build complete for $(ECHO_MESSAGE)
     
 tests: chatTest chatTest_cl chatTest_vk
@@ -973,9 +859,6 @@ all_gguf: $(EXE) $(EXE_CL) chatTest chatTest_cl
     
 gguf_cpu: $(EXE) chatTest
 	@echo Build $(EXE) chatTest complete for $(ECHO_MESSAGE)
-    
-all_ggml: $(EXE_GGML) chatTest_ggml
-	@echo Build $(EXE_GGML) chatTest_ggml complete for $(ECHO_MESSAGE)
 
 # MAIN EXE's    
     
@@ -987,14 +870,6 @@ $(EXE)_mini: $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h UI_simple.h llama_c
     
 chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
-    
-# test
-
-chatTest_t:class_chat.cpp $(OBJS_GGUF_TEST) chat_plain.h thread_chat.h
-	$(CXX) $(I_GGUF_TEST) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
-    
-chatTest_clt:class_chat.cpp                                  chat_plain.h thread_chat.h $(OBJS_GGUF_TEST_CL)
-	$(CXX) $(I_GGUF_TEST) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
     
 #CLBLAST
     
@@ -1034,53 +909,3 @@ $(EXE_VK2)_mini: $(OBJS) $(OBJS_VK2) chat_plain.h thread_chat.h UI_simple.h llam
 chatTest_vk2:class_chat.cpp $(OBJS_VK2) chat_plain.h thread_chat.h
 	$(CXX) -I. -Iinclude -IVULKAN2 $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
 
-# OTHER
-#OpenBLAS
-
-$(EXE_OB): $(OBJS) $(OBJS_GGUF_OB) tinyfiledialogs/tinyfiledialogs.c chat_plain.h thread_chat.h llama_chat1.res
-	$(CXX) -Ibase -Iinclude -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LDFLAGS_OB) $(LIBS)
-    
-chatTest_ob:class_chat.cpp $(OBJS_GGUF_OB) include/json.hpp chat_plain.h thread_chat.h
-	$(CXX) -Ibase -Iinclude $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) $(LDFLAGS_OB) -o $@
-    
-#GGML format
-
-$(EXE_GGML):$(OBJS) $(OBJS_GGML1) chat_plain.h thread_chat.h UI.h llama_chat1.res
-	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_GGML) $(LDFLAGS) $(LIBS)
-    
-chatTest_ggml:class_chat.cpp $(OBJS_GGML1) chat_plain.h thread_chat.h 
-	$(CXX) $(I_GGML) $(CXXFLAGS_GGML) $(filter-out %.h,$^) $(LDFLAGS) -o $@
-    
-#GGML format w CLBLAST
-
-$(EXE_CL_GGML):$(OBJS) $(OBJS_CL_GGML1) chat_plain.h thread_chat.h UI.h llama_chat1.res
-	$(CXX) $(I_GGML) $(FILE_D) -o $@ $(filter-out %.h,$^) $(CXXFLAGS_UI_CL_GGML) $(LDFLAGS_CL_GGML) $(LIBS)
-    
-chatTest_ggml_cl:class_chat.cpp chat_plain.h thread_chat.h   $(OBJS_CL_GGML1)
-	$(CXX) $(I_GGML) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL_GGML)
-    
-#CLBLAST pre-backend
-    
-$(EXE_CL)_mini_pre_backend: $(OBJS) $(OBJS_GGUF_CL_PRE_BACKEND) chat_plain.h thread_chat.h UI_simple.h llama_chat1.res
-	$(CXX) $(I_GGUF_PRE) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
-
-chatTest_cl_pre_backend:class_chat.cpp chat_plain.h thread_chat.h $(OBJS_GGUF_CL_PRE_BACKEND)
-	$(CXX) $(I_GGUF_PRE) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
-    
-# additional
-
-libss: $(TMP)libllama$(DSO_EXT) $(TMP)old_libllama$(DSO_EXT)
-
-libss_cl: $(TMP)cl_libllama$(DSO_EXT) $(TMP)old_cl_libllama$(DSO_EXT)
-
-chatTestHTTP:class_chat_http.cpp $(OBJS_GGUF) include/json.hpp include/httplib.h chat_plain.h thread_chat.h
-	$(CXX) $(CXXFLAGS) -Iinclude $(filter-out %.h,$^) -o $@ $(LWINSOCK2)
-    
-test-sampling_vk2:test-sampling.cpp $(OBJS_VK2)
-	$(CXX) -I. -Iinclude -IVULKAN2 $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
-    
-test-sampling_cl:test-sampling.cpp $(OBJS_GGUF_CL)
-	$(CXX) $(I_GGUF) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
-    
-test-sampling_cl_pre_backend:test-sampling.cpp $(OBJS_GGUF_CL_PRE_BACKEND)
-	$(CXX) $(I_GGUF_PRE) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)

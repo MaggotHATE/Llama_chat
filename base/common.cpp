@@ -1150,23 +1150,23 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
         }
     }
 
-    for (unsigned int i = 0; i < params.lora_adapter.size(); ++i) {
-        const std::string& lora_adapter = std::get<0>(params.lora_adapter[i]);
-        float lora_scale = std::get<1>(params.lora_adapter[i]);
-        int err = llama_model_apply_lora_from_file(model,
-                                             lora_adapter.c_str(),
-                                             lora_scale,
-                                             ((i > 0) || params.lora_base.empty())
-                                                ? NULL
-                                                : params.lora_base.c_str(),
-                                             params.n_threads);
-        if (err != 0) {
-            fprintf(stderr, "%s: error: failed to apply lora adapter\n", __func__);
-            llama_free(lctx);
-            llama_free_model(model);
-            return std::make_tuple(nullptr, nullptr);
-        }
-    }
+    // for (unsigned int i = 0; i < params.lora_adapter.size(); ++i) {
+        // const std::string& lora_adapter = std::get<0>(params.lora_adapter[i]);
+        // float lora_scale = std::get<1>(params.lora_adapter[i]);
+        // int err = llama_model_apply_lora_from_file(model,
+                                             // lora_adapter.c_str(),
+                                             // lora_scale,
+                                             // ((i > 0) || params.lora_base.empty())
+                                                // ? NULL
+                                                // : params.lora_base.c_str(),
+                                             // params.n_threads);
+        // if (err != 0) {
+            // fprintf(stderr, "%s: error: failed to apply lora adapter\n", __func__);
+            // llama_free(lctx);
+            // llama_free_model(model);
+            // return std::make_tuple(nullptr, nullptr);
+        // }
+    // }
 
     if (params.ignore_eos) {
         params.sparams.logit_bias[llama_token_eos(model)] = -INFINITY;
@@ -1207,38 +1207,26 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
 // Vocab utils
 //
 
-std::string string_strip(const std::string & str) {
-    size_t start = 0;
-    size_t end = str.size();
-    while (start < end && std::isspace(str[start])) {
-        start++;
-    }
-    while (end > start && std::isspace(str[end - 1])) {
-        end--;
-    }
-    return str.substr(start, end - start);
-}
-
 std::vector<llama_token> llama_tokenize(
   const struct llama_context * ctx,
            const std::string & text,
-                        bool   add_bos,
-                        bool   special) {
-    return llama_tokenize(llama_get_model(ctx), text, add_bos, special);
+                        bool   add_special,
+                        bool   parse_special) {
+    return llama_tokenize(llama_get_model(ctx), text, add_special, parse_special);
 }
 
 std::vector<llama_token> llama_tokenize(
     const struct llama_model * model,
            const std::string & text,
-                        bool   add_bos,
-                        bool   special) {
+                        bool   add_special,
+                        bool   parse_special) {
     // upper limit for the number of tokens
-    int n_tokens = text.length() + add_bos;
+    int n_tokens = text.length() + 2 * add_special;
     std::vector<llama_token> result(n_tokens);
-    n_tokens = llama_tokenize(model, text.data(), text.length(), result.data(), result.size(), add_bos, special);
+    n_tokens = llama_tokenize(model, text.data(), text.length(), result.data(), result.size(), add_special, parse_special);
     if (n_tokens < 0) {
         result.resize(-n_tokens);
-        int check = llama_tokenize(model, text.data(), text.length(), result.data(), result.size(), add_bos, special);
+        int check = llama_tokenize(model, text.data(), text.length(), result.data(), result.size(), add_special, parse_special);
         GGML_ASSERT(check == -n_tokens);
     } else {
         result.resize(n_tokens);
@@ -1246,52 +1234,36 @@ std::vector<llama_token> llama_tokenize(
     return result;
 }
 
-std::string llama_token_to_piece(const struct llama_context * ctx, llama_token token) {
-    std::vector<char> result(8, 0);
-    const int n_tokens = llama_token_to_piece(llama_get_model(ctx), token, result.data(), result.size(), true);
-    if (n_tokens < 0) {
-        result.resize(-n_tokens);
-        int check = llama_token_to_piece(llama_get_model(ctx), token, result.data(), result.size(), true);
-        GGML_ASSERT(check == -n_tokens);
-    } else {
-        result.resize(n_tokens);
+std::string llama_token_to_piece(const struct llama_context * ctx, llama_token token, bool special) {
+    std::string piece;
+    piece.resize(piece.capacity());  // using string internal cache, 15 bytes + '\n'
+    const int n_chars = llama_token_to_piece(llama_get_model(ctx), token, &piece[0], piece.size(), 0, special);
+    if (n_chars < 0) {
+        piece.resize(-n_chars);
+        int check = llama_token_to_piece(llama_get_model(ctx), token, &piece[0], piece.size(), 0, special);
+        GGML_ASSERT(check == -n_chars);
+    }
+    else {
+        piece.resize(n_chars);
     }
 
-    return std::string(result.data(), result.size());
+    return piece;
 }
 
-std::string llama_detokenize_spm(llama_context * ctx, const std::vector<llama_token> & tokens) {
-    const llama_token bos_id = llama_token_bos(llama_get_model(ctx));
-
-    std::string piece;
-    std::string result;
-
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        piece = llama_token_to_piece(ctx, tokens[i]);
-
-        // remove the leading space of the first non-BOS token
-        if (((tokens[0] == bos_id && i == 1) || (tokens[0] != bos_id && i == 0)) && piece[0] == ' ') {
-            piece = piece.substr(1);
-        }
-
-        result += piece;
+std::string llama_detokenize(llama_context * ctx, const std::vector<llama_token> & tokens, bool special) {
+    std::string text;
+    text.resize(std::max(text.capacity(), tokens.size()));
+    int32_t n_chars = llama_detokenize(llama_get_model(ctx), tokens.data(), (int32_t)tokens.size(), &text[0], (int32_t)text.size(), false, special);
+    if (n_chars < 0) {
+        text.resize(-n_chars);
+        n_chars = llama_detokenize(llama_get_model(ctx), tokens.data(), (int32_t)tokens.size(), &text[0], (int32_t)text.size(), false, special);
+        GGML_ASSERT(n_chars <= (int32_t)text.size());  // whitespace trimming is performed after per-token detokenization
     }
 
-    return result;
-}
-
-std::string llama_detokenize_bpe(llama_context * ctx, const std::vector<llama_token> & tokens) {
-    std::string piece;
-    std::string result;
-
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        piece = llama_token_to_piece(ctx, tokens[i]);
-
-        result += piece;
-    }
+    text.resize(n_chars);
 
     // NOTE: the original tokenizer decodes bytes after collecting the pieces.
-    return result;
+    return text;
 }
 
 bool llama_should_add_bos_token(const llama_model * model) {
