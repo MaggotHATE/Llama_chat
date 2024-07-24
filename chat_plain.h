@@ -1517,14 +1517,14 @@ public:
         
         
         if (input_echo) {
-            if (debug) printf("-pei");
+            printf("-pei");
             for (auto id : embd) { 
                 //std::string tknStr = llama_token_to_string(ctx, id); 
                 const std::string tknStr = llama_token_to_piece(ctx, id); 
                 //result += (std::string) tknStr;
                 result += tknStr;
                 //if (streaming) printf("%s", tknStr);
-                if (streaming) std::cout<<tknStr;
+                std::cout<<tknStr;
             }
 
         }
@@ -1618,8 +1618,8 @@ public:
                 const llama_token token = embd_inp[i];
                 //output_tokens.emplace_back(token);
                 output_tokens.push_back(token);
-                output_ss << llama_token_to_piece(ctx, token);
-                std::cout << "tkns = " << embd_inp.size() << std::endl;
+                //output_ss << llama_token_to_piece(ctx, token);
+                //std::cout << "tkns = " << embd_inp.size() << std::endl;
             }
 
             // n_remain -= line_inp.size();

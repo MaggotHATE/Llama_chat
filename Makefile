@@ -102,6 +102,12 @@ ARCH = -march=native -mtune=native
 TMP = o/
 endif
 
+# ggmlsrc_f = base/ggml
+# llamacpp_f = base/llamacpp
+ggmlsrc_f = base/ggml_llamacpp
+llamacpp_f = base/ggml_llamacpp
+
+
 # IMGUI_DIR = imgui
 IMGUI_DIR = imgui_f6836ff
 SOURCES = main.cpp
@@ -146,6 +152,7 @@ OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 
 FILE_D = -Itinyfiledialogs
 I_GGUF = -I. -Ibase -Iinclude
+I_GGUF_TEST = -I. -Ibase/ggml_llamacpp -Iinclude
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -531,7 +538,222 @@ $(TMP)sgemm.o: base/sgemm.cpp base/sgemm.h base/ggml.h
 $(TMP)grammar-parser.o: base/grammar-parser.cpp base/grammar-parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+############ Test #################
 
+GGUF_TEST_F = base/ggml_llamacpp
+
+OBJS_GGUF_TEST = \
+    $(TMP)t_ggml.o \
+    $(TMP)t_ggml-alloc.o \
+    $(TMP)t_ggml-backend.o \
+    $(TMP)t_ggml-aarch64.o \
+    $(TMP)t_llama.o \
+    $(TMP)t_llama-vocab.o \
+    $(TMP)t_llama-grammar.o \
+    $(TMP)t_llama-sampling.o \
+    $(TMP)t_llama-addon.o \
+    $(TMP)t_sampling.o \
+    $(TMP)t_common.o \
+    $(TMP)t_ggml-quants.o \
+    $(TMP)t_grammar-parser.o \
+    $(TMP)t_unicode.o \
+    $(TMP)t_unicode-data.o \
+    $(TMP)t_sgemm.o
+    
+$(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+
+$(TMP)t_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+	
+$(TMP)t_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+	
+$(TMP)t_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-backend.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+
+$(TMP)t_ggml-quants.o: \
+	$(ggmlsrc_f)/ggml-quants.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-quants.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS)    -c $< -o $@
+
+$(TMP)t_ggml-aarch64.o: \
+	$(ggmlsrc_f)/ggml-aarch64.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-aarch64.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS)    -c $< -o $@
+
+$(TMP)t_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+$(TMP)t_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_unicode-data.o: $(llamacpp_f)/unicode-data.cpp $(llamacpp_f)/unicode-data.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+$(TMP)t_llama.o: $(llamacpp_f)/llama.cpp \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-grammar.h \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/unicode.h \
+	$(llamacpp_f)/llama.h \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-alloc.h \
+	$(ggmlsrc_f)/ggml-backend.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_llama-vocab.o: \
+	$(llamacpp_f)/llama-vocab.cpp \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_llama-grammar.o: \
+	$(llamacpp_f)/llama-grammar.cpp \
+	$(llamacpp_f)/llama-grammar.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_llama-sampling.o: \
+	$(llamacpp_f)/llama-sampling.cpp \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+COMMON_H_DEPS = $(GGUF_TEST_F)/common.h $(GGUF_TEST_F)/sampling.h $(GGUF_TEST_F)/llama-addon.h $(llamacpp_f)/llama.h
+COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
+
+$(TMP)t_common.o: $(GGUF_TEST_F)/common.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_sampling.o: $(GGUF_TEST_F)/sampling.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_llama-addon.o: $(GGUF_TEST_F)/llama-addon.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)t_grammar-parser.o: $(GGUF_TEST_F)/grammar-parser.cpp $(GGUF_TEST_F)/grammar-parser.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# test CLBLAST
+
+GGUF_TEST_F = base/ggml_llamacpp
+
+OBJS_GGUF_TEST_CL = \
+    $(TMP)clt_ggml.o \
+    $(TMP)clt_ggml-alloc.o \
+    $(TMP)clt_ggml-backend.o \
+    $(TMP)clt_ggml-aarch64.o \
+    $(TMP)clt_ggml-opencl-gguf.o \
+    $(TMP)clt_llama.o \
+    $(TMP)clt_llama-vocab.o \
+    $(TMP)clt_llama-grammar.o \
+    $(TMP)clt_llama-sampling.o \
+    $(TMP)clt_llama-addon.o \
+    $(TMP)clt_sampling.o \
+    $(TMP)clt_common.o \
+    $(TMP)clt_ggml-quants.o \
+    $(TMP)clt_grammar-parser.o \
+    $(TMP)clt_unicode.o \
+    $(TMP)clt_unicode-data.o \
+    $(TMP)clt_sgemm.o
+    
+$(TMP)clt_ggml-opencl-gguf.o: base/ggml-opencl.cpp base/ggml-opencl.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+$(TMP)clt_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
+	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+	
+$(TMP)clt_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
+	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+	
+$(TMP)clt_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-backend.h
+	$(CC)  $(CFLAGS_CL)   -c $< -o $@
+
+$(TMP)clt_ggml-quants.o: \
+	$(ggmlsrc_f)/ggml-quants.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-quants.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS_CL)    -c $< -o $@
+
+$(TMP)clt_ggml-aarch64.o: \
+	$(ggmlsrc_f)/ggml-aarch64.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-aarch64.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS_CL)    -c $< -o $@
+
+$(TMP)clt_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
+$(TMP)clt_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_unicode-data.o: $(llamacpp_f)/unicode-data.cpp $(llamacpp_f)/unicode-data.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	
+$(TMP)clt_llama.o: $(llamacpp_f)/llama.cpp \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-grammar.h \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/unicode.h \
+	$(llamacpp_f)/llama.h \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-alloc.h \
+	$(ggmlsrc_f)/ggml-backend.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_llama-vocab.o: \
+	$(llamacpp_f)/llama-vocab.cpp \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_llama-grammar.o: \
+	$(llamacpp_f)/llama-grammar.cpp \
+	$(llamacpp_f)/llama-grammar.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama-vocab.h \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_llama-sampling.o: \
+	$(llamacpp_f)/llama-sampling.cpp \
+	$(llamacpp_f)/llama-sampling.h \
+	$(llamacpp_f)/llama-impl.h \
+	$(llamacpp_f)/llama.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+COMMON_H_DEPS = $(GGUF_TEST_F)/common.h $(GGUF_TEST_F)/sampling.h $(GGUF_TEST_F)/llama-addon.h $(llamacpp_f)/llama.h
+COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
+
+$(TMP)clt_common.o: $(GGUF_TEST_F)/common.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_sampling.o: $(GGUF_TEST_F)/sampling.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_llama-addon.o: $(GGUF_TEST_F)/llama-addon.cpp $(COMMON_H_DEPS)
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+$(TMP)clt_grammar-parser.o: $(GGUF_TEST_F)/grammar-parser.cpp $(GGUF_TEST_F)/grammar-parser.h
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+
+###########################################################################
 # Separate CLBLAST
 
 # Mac provides OpenCL as a framework
@@ -566,7 +788,7 @@ $(TMP)cl_ggml-backend.o: base/ggml-backend.c base/ggml.h base/ggml-backend.h
 	$(CC)  $(CFLAGS_CL)   -c $< -o $@
 	
 $(TMP)cl_ggml-quants.o: base/ggml-quants.c base/ggml.h base/ggml-quants.h base/ggml-common.h
-	$(CC) $(CFLAGS)    -c $< -o $@
+	$(CC) $(CFLAGS_CL)    -c $< -o $@
 	
 $(TMP)cl_unicode.o: base/unicode.cpp base/unicode.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
@@ -765,6 +987,14 @@ $(EXE)_mini: $(OBJS) $(OBJS_GGUF) chat_plain.h thread_chat.h UI_simple.h llama_c
     
 chatTest:class_chat.cpp $(OBJS_GGUF) chat_plain.h thread_chat.h
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+    
+# test
+
+chatTest_t:class_chat.cpp $(OBJS_GGUF_TEST) chat_plain.h thread_chat.h
+	$(CXX) $(I_GGUF_TEST) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+    
+chatTest_clt:class_chat.cpp                                  chat_plain.h thread_chat.h $(OBJS_GGUF_TEST_CL)
+	$(CXX) $(I_GGUF_TEST) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
     
 #CLBLAST
     
