@@ -1640,7 +1640,7 @@ static void ggml_cl_mul_mat_f32(const ggml_tensor * src0, const ggml_tensor * sr
                                                                &queue, &ev_sgemm);
 
                     if (status != clblast::StatusCode::kSuccess) {
-                        GGML_ASSERT(false);
+                        GGML_ABORT("fatal error");
                     }
 
                     // copy dst to host
@@ -1769,7 +1769,7 @@ static void ggml_cl_mul_mat_f16(const ggml_tensor * src0, const ggml_tensor * sr
                                                                &queue, &ev_sgemm);
 
                     if (status != clblast::StatusCode::kSuccess) {
-                        GGML_ASSERT(false);
+                        GGML_ABORT("fatal error");
                     }
 
                     // copy dst to host, then convert to float
@@ -1855,7 +1855,7 @@ static void ggml_cl_mul_mat_q_f32(const ggml_tensor * src0, const ggml_tensor * 
                 } else if (src0->backend == GGML_BACKEND_TYPE_GPU) {
                     d_Q = (cl_mem) src0->extra;
                 } else {
-                    GGML_ASSERT(false);
+                    GGML_ABORT("fatal error");
                 }
 
                 if (!mul_mat_vec) {
@@ -1907,7 +1907,7 @@ static void ggml_cl_mul_mat_q_f32(const ggml_tensor * src0, const ggml_tensor * 
                                                                    &queue, events.data() + ev_idx++);
 
                         if (status != clblast::StatusCode::kSuccess) {
-                            GGML_ASSERT(false);
+                            GGML_ABORT("fatal error");
                         }
                     }
 
@@ -1991,7 +1991,7 @@ void ggml_cl_mul_mat(const struct ggml_tensor * src0, const struct ggml_tensor *
         ggml_cl_mul_mat_q_f32(src0, src1, dst);
     }
     else {
-        GGML_ASSERT(false);
+        GGML_ABORT("fatal error");
     }
 }
 
@@ -2283,7 +2283,7 @@ static ggml_status ggml_backend_opencl_graph_compute(ggml_backend_t backend, ggm
                 ggml_cl_mul(node->src[0], node->src[1], node);
                 break;
             default:
-                GGML_ASSERT(false);
+                GGML_ABORT("fatal error");
         }
     }
 
