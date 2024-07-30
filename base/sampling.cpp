@@ -189,14 +189,22 @@ llama_token llama_sampling_sample(
     const float   smoothing_factor  = params.smoothing_factor;
     const float   smoothing_curve   = params.smoothing_curve;
     const float   dynatemp_range    = params.dynatemp_range;
+    //repetition
     const int32_t penalty_last_n    = params.penalty_last_n < 0 ? params.n_prev : params.penalty_last_n;
     const float   penalty_repeat    = params.penalty_repeat;
     const float   penalty_freq      = params.penalty_freq;
     const float   penalty_present   = params.penalty_present;
     const float   penalty_threshold = params.penalty_threshold;
+    // DRY
+    const float     dry_multiplier        = params.dry_multiplier;
+    const float     dry_base              = params.dry_base;
+    const uint32_t  dry_allowed_length    = params.dry_allowed_length;
+    const uint32_t  dry_penalty_last_n    = params.dry_penalty_last_n;
+    // mirostat
     const int     mirostat          = params.mirostat;
     const float   mirostat_tau      = params.mirostat_tau;
     const float   mirostat_eta      = params.mirostat_eta;
+
     const bool    penalize_nl       = params.penalize_nl;
 
     auto & prev = ctx_sampling->prev;
@@ -245,6 +253,17 @@ llama_token llama_sampling_sample(
                     break;
                 }
             }
+        }
+    }
+
+    // apply DRY penalties
+    {
+        const int penalty_tokens_used_size = std::min(prev.size(), (size_t)dry_penalty_last_n);
+        if (penalty_tokens_used_size) {
+            llama_sample_dry(&cur_p,
+                        prev.data() + prev.size() - penalty_tokens_used_size,
+                        penalty_tokens_used_size, dry_base, dry_multiplier, dry_allowed_length,
+                        params.dry_seq_breakers.data(), params.dry_seq_breakers.size());
         }
     }
 

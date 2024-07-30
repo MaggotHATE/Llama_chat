@@ -53,6 +53,10 @@ typedef struct llama_sampling_params {
     float       mirostat_tau          = 5.00f;    // target entropy
     float       mirostat_eta          = 0.10f;    // learning rate
     bool        penalize_nl           = true;     // consider newlines as a repeatable token
+    float       dry_multiplier        = 0.0f;               // 0.0f = disabled, recommended value: 0.8f
+    float       dry_base              = 1.75f;
+    uint32_t    dry_allowed_length    = 2;
+    int32_t     dry_penalty_last_n    = -1;                 // DRY last n tokens to penalize (0 = disable penalty, -1 = context size)
     //std::string samplers_sequence     = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
     std::string samplers_sequence     = "kfysmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
 
@@ -64,6 +68,7 @@ typedef struct llama_sampling_params {
     float       cfg_scale     = 1.f; // how strong is guidance
 
     std::unordered_map<llama_token, float> logit_bias; // logit bias for specific tokens
+    std::vector<llama_token> dry_seq_breakers; // sequence breakers for the DRY sampler
 } llama_sampling_params;
 
 // general sampler context

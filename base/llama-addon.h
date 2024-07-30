@@ -39,3 +39,14 @@
                            float   temp,
                            float   smoothing_factor,
                            float   smoothing_curve);
+
+    ///  @details DRY sampler as described in: https://github.com/oobabooga/text-generation-webui/pull/5677
+    LLAMA_API void llama_sample_dry(
+          llama_token_data_array * candidates,
+               const llama_token * last_tokens,
+                          size_t   last_tokens_size,
+                           float   dry_base,
+                           float   dry_multiplier,
+                             int   dry_allowed_length,
+               const llama_token * dry_seq_breakers,
+                          size_t   dry_seq_breakers_size);

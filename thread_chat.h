@@ -1306,11 +1306,17 @@ struct configurableChat{
             modelConfig[model]["p_step"]["p_mul"] = params.sparams.p_step_func.p_mul;
             std::cout << "Object created! " << std::endl;
         } else if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
-        
+        // penalties
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;
-        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_threshold;
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["penalty_threshold"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["frequency_penalty"] = params.sparams.penalty_freq;
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) modelConfig[model]["presence_penalty"] = params.sparams.penalty_present;
+        // DRY
+        if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) modelConfig[model]["dry_multiplier"] = params.sparams.dry_multiplier;
+        if (params.sparams.dry_base != paramsDefault.sparams.dry_base) modelConfig[model]["dry_base"] = params.sparams.dry_base;
+        if (params.sparams.dry_allowed_length != paramsDefault.sparams.dry_allowed_length) modelConfig[model]["dry_allowed_length"] = params.sparams.dry_allowed_length;
+        if (params.sparams.dry_penalty_last_n != paramsDefault.sparams.dry_penalty_last_n) modelConfig[model]["dry_penalty_last_n"] = params.sparams.dry_penalty_last_n;
+        //mirostat
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) modelConfig[model]["mirostat"] = params.sparams.mirostat;
         if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) modelConfig[model]["mirostat_tau"] = params.sparams.mirostat_tau;
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) modelConfig[model]["mirostat_eta"] = params.sparams.mirostat_eta;
@@ -1406,10 +1412,17 @@ struct configurableChat{
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;
-        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) newCard["repeat_penalty"] = params.sparams.penalty_threshold;
+        //penalties
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) newCard["penalty_threshold"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) newCard["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) newCard["frequency_penalty"] = params.sparams.penalty_freq;
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) newCard["presence_penalty"] = params.sparams.penalty_present;
+        //DRY
+        if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) newCard["dry_multiplier"] = params.sparams.dry_multiplier;
+        if (params.sparams.dry_base != paramsDefault.sparams.dry_base) newCard["dry_base"] = params.sparams.dry_base;
+        if (params.sparams.dry_allowed_length != paramsDefault.sparams.dry_allowed_length) newCard["frequency_penalty"] = params.sparams.dry_allowed_length;
+        if (params.sparams.dry_penalty_last_n != paramsDefault.sparams.dry_penalty_last_n) newCard["dry_penalty_last_n"] = params.sparams.dry_penalty_last_n;
+        //mirostat
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) newCard["mirostat"] = params.sparams.mirostat;
         if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) newCard["mirostat_tau"] = params.sparams.mirostat_tau;
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) newCard["mirostat_eta"] = params.sparams.mirostat_eta;

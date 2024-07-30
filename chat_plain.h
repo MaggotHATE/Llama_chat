@@ -505,6 +505,11 @@ public:
         std::string name_penalty_threshold = fullnames ? "penalty_threshold" : "p_t";
         std::string name_penalty_freq = fullnames ? "penalty_freq" : "p_f";
         std::string name_penalty_present = fullnames ? "penalty_present" : "p_p";
+        //DRY
+        std::string name_dry_multiplier = fullnames ? "dry_multiplier" : "d_m";
+        std::string name_dry_base = fullnames ? "dry_base" : "d_b";
+        std::string name_dry_allowed_length = fullnames ? "dry_allowed_length" : "d_l";
+        std::string name_dry_penalty_last_n = fullnames ? "dry_penalty_last_n" : "d_n";
 
         std::string name_temp = fullnames ? "temp" : "T";
         std::string name_dynatemp_range = fullnames ? "dynatemp_range" : "dT";
@@ -520,12 +525,15 @@ public:
         std::string name_top_p = fullnames ? "top_p" : "P";
         std::string name_min_p = fullnames ? "min_p" : "I";
 
-        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += "->" + name_penalty_repeat + " = " + std::to_string(params.sparams.penalty_repeat); 
-        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += "->" + name_penalty_threshold + " = " + std::to_string(params.sparams.penalty_threshold); 
-        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += "->" + name_penalty_freq + " = " + std::to_string(params.sparams.penalty_freq); 
-        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += "->" + name_penalty_present + " = " + std::to_string(params.sparams.penalty_present); 
-        
-        
+        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += std::format("-> {} = {:.3f}", name_penalty_repeat, params.sparams.penalty_repeat);
+        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format("-> {} = {:.3f}", name_penalty_threshold, params.sparams.penalty_threshold); 
+        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format("-> {} = {:.3f}", name_penalty_freq, params.sparams.penalty_freq);
+        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format("-> {} = {:.3f}", name_penalty_present, params.sparams.penalty_present);
+        //DRY
+        if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) result += std::format("-> {} = {:.3f}", name_dry_multiplier, params.sparams.dry_multiplier);
+        if (params.sparams.dry_base != paramsDefault.sparams.dry_base) result += std::format("-> {} = {:.3f}", name_dry_base, params.sparams.dry_base); 
+        if (params.sparams.dry_allowed_length != paramsDefault.sparams.dry_allowed_length) result += std::format("-> {} = {}", name_dry_allowed_length, params.sparams.dry_allowed_length);
+        if (params.sparams.dry_penalty_last_n != paramsDefault.sparams.dry_penalty_last_n) result += std::format("-> {} = {}", name_dry_penalty_last_n, params.sparams.dry_penalty_last_n);
         // mirostat is special 
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
             if (params.sparams.dynatemp_range > 0) {
@@ -537,7 +545,7 @@ public:
                 result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
             }
             result += "-> " + name_mirostat + " = " + std::to_string(params.sparams.mirostat); 
-            result += std::format("; {} =  {:.2f}", name_mirostat_tau, params.sparams.mirostat_tau); 
+            result += std::format("; {} = {:.2f}", name_mirostat_tau, params.sparams.mirostat_tau); 
             result += std::format("; {} = {:.2f}", name_mirostat_eta, params.sparams.mirostat_eta);
         } else {
             for (auto s : params.sparams.samplers_sequence){
@@ -1517,14 +1525,14 @@ public:
         
         
         if (input_echo) {
-            printf("-pei");
+            //printf("-pei");
             for (auto id : embd) { 
                 //std::string tknStr = llama_token_to_string(ctx, id); 
                 const std::string tknStr = llama_token_to_piece(ctx, id); 
                 //result += (std::string) tknStr;
                 result += tknStr;
                 //if (streaming) printf("%s", tknStr);
-                std::cout<<tknStr;
+                //std::cout<<tknStr;
             }
 
         }
@@ -1638,7 +1646,7 @@ public:
 // initial (instruct) processing
     std::string process_prompt(bool consoleOutput = true, bool verbose = false) {
 
-        printf("Starting initial prompt processing...\n");
+        if (debug) printf("Starting initial prompt processing...\n");
 
         std::string result;
         //std::cout << " * " << std::endl;
@@ -1684,7 +1692,7 @@ public:
                     if (verbose) {
                         if (!streaming) std::cout << result << " ";
 
-                        printf("Return generate: prompt processed\n");
+                        if (debug) printf("Return generate: prompt processed\n");
                     }
 
                     // get_speed();

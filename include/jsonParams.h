@@ -480,8 +480,8 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
     if (checkJString(config, "bos")) params.bos = config["bos"];
     if (checkJString(config, "eos")) params.eos = config["eos"];
-    
     if (checkJNum(config, "seed")) params.seed = config["seed"];
+    // threading
     if (checkJNum(config, "n_threads")) params.n_threads = config["n_threads"];
     if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = config["n_threads_batch"];
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
@@ -493,7 +493,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
-    
+    //sampling
     load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
     load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
 
@@ -507,14 +507,23 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
+    //penalties
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
+    if (checkJNum(config, "penalty_repeat")) params.sparams.penalty_repeat = config["penalty_repeat"];
     if (checkJNum(config, "penalty_threshold")) params.sparams.penalty_threshold = config["penalty_threshold"];
     if (checkJNum(config, "frequency_penalty")) params.sparams.penalty_freq = config["frequency_penalty"];
     if (checkJNum(config, "presence_penalty")) params.sparams.penalty_present = config["presence_penalty"];
+    //DRY
+    if (checkJNum(config, "dry_multiplier")) params.sparams.dry_multiplier = config["dry_multiplier"];
+    if (checkJNum(config, "dry_base")) params.sparams.dry_base = config["dry_base"];
+    if (checkJNum(config, "dry_allowed_length")) params.sparams.dry_allowed_length = config["dry_allowed_length"];
+    if (checkJNum(config, "dry_penalty_last_n")) params.sparams.dry_penalty_last_n = config["dry_penalty_last_n"];
+    //mirostat
     if (checkJNum(config, "mirostat")) params.sparams.mirostat = config["mirostat"];
     if (checkJNum(config, "mirostat_tau")) params.sparams.mirostat_tau = config["mirostat_tau"];
     if (checkJNum(config, "mirostat_eta")) params.sparams.mirostat_eta = config["mirostat_eta"];
     //if (config["color"].is_boolean()) params.use_color = config["color"];
+    // misc
     if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
     if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
     if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
