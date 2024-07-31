@@ -239,7 +239,7 @@ struct modelThread{
         if (penalize_nl) std::cout << "penalize_nl = true" << '\n' << std::endl;
         //#endif
         //std::cout << lastTimings << std::endl;
-        std::cout << std::format("Eval speed: {:.3f} t/s", lastSpeedPrompt) << std::format(" | Gen speed: {:.3f} t/s", lastSpeed) << std::endl;
+        std::cout << std::format("Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s", lastSpeedPrompt, lastSpeed) << std::endl;
         std::cout << "----------------------------------------\n"<< std::endl;
         
         for (auto r : resultsStringPairs){

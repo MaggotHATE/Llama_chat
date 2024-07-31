@@ -62,10 +62,11 @@ Tested on Windows only for now. AVX2 releases only for now, older releases were 
 * [llama.cpp](https://github.com/ggerganov/llama.cpp)
 * [imgui](https://github.com/ocornut/imgui)
 * Retro theme based on https://github.com/ocornut/imgui/issues/707#issuecomment-254610737
-* Vulkan experimental build uses [this PR](https://github.com/ggerganov/llama.cpp/pull/2059)
-* [redmond-puffin-13b](https://huggingface.co/TheBloke/Redmond-Puffin-13B-GGUF) from config.json (q4_K_S version works faster)
-* [mistral-7b-instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF) from config.json (q4_K_S version works faster)
+* [mistral-7b-instruct-v0.1](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF) from config.json (q4_K_S version works faster)
+* [Mistral-Nemo-Instruct-2407-GGUF](https://huggingface.co/ZeroWw/Mistral-Nemo-Instruct-2407-GGUF) from config.json (specific quants with output and embed tensors quantized to f16, q5 is the smallest)
+* [redmond-puffin-13b (previously recommended)](https://huggingface.co/TheBloke/Redmond-Puffin-13B-GGUF) from config.json (q4_K_S version works faster)
 
 ### Additional notes
 
+* Vulkan experimental build used [this PR](https://github.com/ggerganov/llama.cpp/pull/2059)
 * ggmlv3 version is very old and almost deprecated for now, as almost no new models are using the old format

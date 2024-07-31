@@ -1,5 +1,5 @@
 ﻿{
-    "model": "models/redmond-puffin-13b.Q4_K_S.gguf",
+    "model": "models/Mistral-Nemo-Instruct-2407.q5_k.gguf",
     "prompt": "TASK:",
     "input_suffix": "RESULT:",
     "reverse-prompt": "TASK:",
@@ -28,21 +28,29 @@
     "mirostat_tau": 5.0,
     "mirostat_eta": 0.1,
     "samplers_sequence": "tkm",
-    "models/redmond-puffin-13b.Q4_K_S.gguf":
+    "models/Mistral-Nemo-Instruct-2407.q5_k.gguf":
         {
-            "prompt": "### SYSTEM: A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.\n\n### USER:",
-            "reverse-prompt": "### USER:",
-            "input_suffix": "### ASSISTANT:",
-            "ctx-size": 4096,
-            "preset": "Midnight Enigma"
+            "ctx-size": 8192,
+            "n_gpu_layers_vk": 6,
+            "n_gpu_layers_clblast": 7,
+            "samplers_sequence": "ts",
+            "smoothing_factor": 0.1,
+            "smoothing_curve": 1.1,
+            "temp": 0.2,
+            "dynatemp_range": 0.2,
+            "group":
+            {
+                "prompt": " ",
+                "reverse-prompt": "\n[INST] ",
+                "input_suffix": "[/INST]\n"
+            }
         },
     "models/mistral-7b-instruct-v0.2.Q4_K_S.gguf":
         {
-            "prompt": "Below is an instruction that describes a task. Write an accurate response that appropriately completes the request.\n\n### Instruction:\n",
-            "reverse-prompt": "### Instruction:\n",
-            "input_suffix": "\n### Response:\n",
-            "n_gpu_layers": 8,
+            "n_gpu_layers_vk": 8,
+            "n_gpu_layers_clblast": 9,
             "ctx-size": 8192,
-            "temp": 0.9
+            "preset": "Midnight Enigma",
+            "format_file": "formats/Mistral.txt"
         }
 }
