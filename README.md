@@ -3,6 +3,8 @@
 
 ![image](https://github.com/MaggotHATE/Llama_chat/blob/main/pics/Llama_chat.PNG)
 
+A highly configurable chat application for running LLMs, based on [llama.cpp](https://github.com/ggerganov/llama.cpp).
+
 This project started from the main example of llama.cpp - the idea was to read parameters from .json files. Now it's a class, separate threads for running llama.cpp, structs for managing and settings - and only then wrapped into UI.
 
 Additionally, chatTest console app is also added for testing purposes, since certain information (like memory used by the model) is printed outside of the original example (in llama.cpp, common.cpp, etc.).
@@ -36,17 +38,21 @@ Tested on Windows only for now. AVX2 releases only for now, older releases were 
 
 ### Requirements
 
+Code:
 * tinyfiledialogs https://sourceforge.net/projects/tinyfiledialogs/
-* Vulkan SDK (installer is preferred) https://vulkan.lunarg.com/#new_tab
 * imgui https://github.com/ocornut/imgui
+
+Libraries:
+* Vulkan SDK (installer is preferred) https://vulkan.lunarg.com/#new_tab
 * SDL2 https://github.com/libsdl-org/SDL
-* OpenCL and CLBLAST if needed (see https://github.com/ggerganov/llama.cpp#clblast for installation guide)
+* If CLBLAST is needed: use releases of [OpenCL SDK](https://github.com/KhronosGroup/OpenCL-SDK) and [Clblast](https://github.com/CNugteren/CLBlast).
 
 ### Building on Windows
 
 * Download this repo or `git clone` it
 * Use w64devkit https://github.com/skeeto/w64devkit/releases
-* Install all prerequisites according to w64devkit installation
+* Install all prerequisite libraries according to w64devkit installation (which is, in most cases, copying `lib` and `include` folders into `w64devkit/x86_64-w64-mingw32`)
+* Download and copy all prerequisite code according to Makefile
 * Launch w64devkit.exe and navigate to the project folder
 * `make chat` for CPU-only
 * `make chat_cl` for Clblast build
