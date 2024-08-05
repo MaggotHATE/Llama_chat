@@ -788,7 +788,10 @@ public:
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
-        std::tie(model, ctx) = llama_init_from_gpt_params(params);
+        llama_init_result llama_init = llama_init_from_gpt_params(params);
+
+        model = llama_init.model;
+        ctx = llama_init.context;
         printf("..............Model initialized................\n");
         
         
@@ -818,7 +821,10 @@ public:
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
-        std::tie(model, ctx) = llama_init_from_gpt_params(params);
+        llama_init_result llama_init = llama_init_from_gpt_params(params);
+
+        model = llama_init.model;
+        ctx = llama_init.context;
         printf("..............Model initialized................\n");
         
         
@@ -883,7 +889,10 @@ public:
             printf("..............Backend initialized common................\n");
 #endif
             // load the model and apply lora adapter, if any
-            std::tie(model, ctx) = llama_init_from_gpt_params(params);
+            llama_init_result llama_init = llama_init_from_gpt_params(params);
+
+            model = llama_init.model;
+            ctx = llama_init.context;
             printf("..............Model initialized................\n");
             if (sparams.cfg_scale > 1.f) {
                 struct llama_context_params lparams = llama_context_params_from_gpt_params(params);

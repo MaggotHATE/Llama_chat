@@ -106,10 +106,7 @@ endif
 base = base
 ggmlsrc_f = $(base)/ggml
 llamacpp_f = $(base)/llama
-#common_f = $(base)/common
 common_f = $(base)
-# ggmlsrc_f = base/ggml_llamacpp
-# llamacpp_f = base/ggml_llamacpp
 
 
 # IMGUI_DIR = imgui
@@ -319,12 +316,12 @@ endif
 
 ifndef SDL2
 LIBS += -lshell32 -lvulkan
-LDFLAGS_VK = -lvulkan
+LDFLAGS_VK = $(shell pkg-config --libs vulkan)
 #LDFLAGS_VK+ = -lclblast
 else
 #LDFLAGS_VK = 
 #LDFLAGS_VK+ = -lvulkan-1 -lclblast
-LDFLAGS_VK+ = -lvulkan
+LDFLAGS_VK+ = $(shell pkg-config --libs vulkan)
 #CXXFLAGS_UI += -I$(VULKAN_DIR)/include
 endif
 
@@ -672,7 +669,7 @@ OBJS_VK    = \
     $(TMP)vkt_sgemm.o
     
 GLSLC_CMD  = glslc
-_ggml_vk_genshaders_cmd = $(shell pwd)/vulkan-shaders-gen
+_ggml_vk_genshaders_cmd = $(shell pwd)/vkt-shaders-gen
 _ggml_vk_header = $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
 _ggml_vk_source = $(ggmlsrc_f)/ggml-vulkan-shaders.cpp
 _ggml_vk_input_dir = $(ggmlsrc_f)/vulkan-shaders

@@ -441,6 +441,12 @@ void ggml_bf16_to_fp32_row(const ggml_bf16_t * x, float * y, int64_t n) {
     }
 }
 
+void ggml_fp32_to_bf16_row_ref(const float * x, ggml_bf16_t * y, int64_t n) {
+    for (int i = 0; i < n; i++) {
+        y[i] = ggml_compute_fp32_to_bf16(x[i]);
+    }
+}
+
 void ggml_fp32_to_bf16_row(const float * x, ggml_bf16_t * y, int64_t n) {
   int i = 0;
 #if defined(__AVX512BF16__)
@@ -923,7 +929,7 @@ static const ggml_type_traits_t type_traits[GGML_TYPE_COUNT] = {
         .is_quantized             = false,
         .to_float                 = (ggml_to_float_t) ggml_bf16_to_fp32_row,
         .from_float               = (ggml_from_float_t) ggml_fp32_to_bf16_row,
-        .from_float_ref           = (ggml_from_float_t) ggml_fp32_to_bf16_row,
+        .from_float_ref           = (ggml_from_float_t) ggml_fp32_to_bf16_row_ref,
         .vec_dot                  = (ggml_vec_dot_t) ggml_vec_dot_bf16,
         .vec_dot_type             = GGML_TYPE_BF16,
         .nrows                    = 1,
@@ -2263,7 +2269,7 @@ inline static void ggml_vec_abs_f32  (const int n, float * y, const float * x) {
 inline static void ggml_vec_sgn_f32  (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = (x[i] > 0.f) ? 1.f : ((x[i] < 0.f) ? -1.f : 0.f); }
 inline static void ggml_vec_step_f32 (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = (x[i] > 0.f) ? 1.f : 0.f; }
 inline static void ggml_vec_tanh_f32 (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = tanhf(x[i]);  }
-inline static void ggml_vec_elu_f32  (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = (x[i] > 0.f) ? x[i] : expf(x[i])-1; }
+inline static void ggml_vec_elu_f32  (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = (x[i] > 0.f) ? x[i] : expm1f(x[i]); }
 inline static void ggml_vec_relu_f32 (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = (x[i] > 0.f) ? x[i] : 0.f; }
 inline static void ggml_vec_leaky_relu_f32 (const int n, float * y, const float * x, const float ns) { for (int i = 0; i < n; ++i) y[i] = ((x[i] > 0.f) ? x[i] : 0.f) + ns * ((x[i] < 0.0f) ? x[i] : 0.f); }
 inline static void ggml_vec_sigmoid_f32 (const int n, float * y, const float * x) { for (int i = 0; i < n; ++i) y[i] = 1.f / (1.f + expf(-x[i])); }
@@ -20652,7 +20658,7 @@ size_t ggml_quantize_chunk(
         case GGML_TYPE_BF16:
             {
                 size_t elemsize = sizeof(ggml_bf16_t);
-                ggml_fp32_to_bf16_row(src + start, (ggml_bf16_t *)dst + start, n);
+                ggml_fp32_to_bf16_row_ref(src + start, (ggml_bf16_t *)dst + start, n);
                 result = n * elemsize;
             } break;
         case GGML_TYPE_F32:
