@@ -1,0 +1,8 @@
+{
+    "samplers_sequence": "st",
+    "temp": 0.2,
+    "dynatemp_range": 0.2,
+    "smoothing_factor": 0.04,
+    "smoothing_curve": 0.8,
+    "p_step": 0.08
+}

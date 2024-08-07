@@ -71,6 +71,7 @@ Libraries:
 * [mistral-7b-instruct-v0.1](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF) from config.json (q4_K_S version works faster)
 * [Mistral-Nemo-Instruct-2407-GGUF](https://huggingface.co/ZeroWw/Mistral-Nemo-Instruct-2407-GGUF) from config.json (specific quants with output and embed tensors quantized to f16, q5 is the smallest)
 * [redmond-puffin-13b (previously recommended)](https://huggingface.co/TheBloke/Redmond-Puffin-13B-GGUF) from config.json (q4_K_S version works faster)
+* Exceptionally useful tool for visualizing sampling results and finding the pest combination: https://artefact2.github.io/llm-sampling/index.xhtml
 
 ### Additional notes
 

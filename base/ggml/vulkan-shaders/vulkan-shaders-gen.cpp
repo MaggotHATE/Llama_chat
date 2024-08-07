@@ -22,6 +22,7 @@
 #ifdef _WIN32
     #include <windows.h>
     #include <direct.h> // For _mkdir on Windows
+    #include <algorithm> // For std::replace on w64devkit
 #else
     #include <unistd.h>
     #include <sys/wait.h>
@@ -29,20 +30,6 @@
 #endif
 
 #define ASYNCIO_CONCURRENCY 64
-
-// define prototypes
-void execute_command(const std::string& command, std::string& stdout_str, std::string& stderr_str);
-bool directory_exists(const std::string& path);
-bool create_directory(const std::string& path);
-std::string to_uppercase(const std::string& input);
-bool string_ends_with(const std::string& str, const std::string& suffix);
-std::string join_paths(const std::string& path1, const std::string& path2);
-std::string basename(const std::string &path);
-void string_to_spv(const std::string& _name, const std::string& in_fname, const std::map<std::string, std::string>& defines, bool fp16);
-std::map<std::string, std::string> merge_maps(const std::map<std::string, std::string>& a, const std::map<std::string, std::string>& b);
-void matmul_shaders(std::vector<std::future<void>>& tasks, bool fp16, bool matmul_id);
-void process_shaders(std::vector<std::future<void>>& tasks);
-void write_output_files();
 
 std::mutex lock;
 std::vector<std::pair<std::string, std::string>> shader_fnames;
@@ -193,11 +180,7 @@ bool string_ends_with(const std::string& str, const std::string& suffix) {
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
 }
 
-#ifdef _WIN32
-    static const char path_separator = '\\';
-#else
-    static const char path_separator = '/';
-#endif
+static const char path_separator = '/';
 
 std::string join_paths(const std::string& path1, const std::string& path2) {
     return path1 + path_separator + path2;
@@ -212,7 +195,11 @@ void string_to_spv(const std::string& _name, const std::string& in_fname, const 
     std::string out_fname = join_paths(output_dir, name + ".spv");
     std::string in_path = join_paths(input_dir, in_fname);
 
-    std::vector<std::string> cmd = {GLSLC, "-fshader-stage=compute", "--target-env=vulkan1.2", "-O", in_path, "-o", out_fname};
+    #ifdef _WIN32
+        std::vector<std::string> cmd = {GLSLC, "-fshader-stage=compute", "--target-env=vulkan1.2", "-O", "\"" + in_path + "\"", "-o", "\"" + out_fname + "\""};
+    #else
+        std::vector<std::string> cmd = {GLSLC, "-fshader-stage=compute", "--target-env=vulkan1.2", "-O", in_path, "-o",  out_fname};
+    #endif
     for (const auto& define : defines) {
         cmd.push_back("-D" + define.first + "=" + define.second);
     }
@@ -496,10 +483,16 @@ void write_output_files() {
 
     for (const auto& pair : shader_fnames) {
         const std::string& name = pair.first;
-        const std::string& path = pair.second;
+        #ifdef _WIN32
+            std::string path = pair.second;
+            std::replace(path.begin(), path.end(), '/', '\\' );
+        #else
+            const std::string& path = pair.second;
+        #endif
+
         FILE* spv = fopen(path.c_str(), "rb");
         if (!spv) {
-            std::cerr << "Error opening SPIR-V file: " << path << "\n";
+            std::cerr << "Error opening SPIR-V file: " << path << " (" << strerror(errno) << ")\n";
             continue;
         }
 
@@ -511,7 +504,7 @@ void write_output_files() {
         size_t read_size = fread(data.data(), 1, size, spv);
         fclose(spv);
         if (read_size != size) {
-            std::cerr << "Error reading SPIR-V file: " << path << "\n";
+            std::cerr << "Error reading SPIR-V file: " << path << " (" << strerror(errno) << ")\n";
             continue;
         }
 
@@ -540,19 +533,6 @@ int main(int argc, char** argv) {
         if (i + 1 < argc) {
             args[argv[i]] = argv[i + 1];
         }
-    }
-
-    if (argc <= 1 || args.find("--help") != args.end()) {
-        std::cout << "Usage:\n"
-                     "\tvulkan-shaders-gen [options]\n\n"
-                     "Options:\n"
-                     "\t--glslc <path>        Path to glslc executable (default: /usr/bin/glslc)\n"
-                     "\t--input-dir           Directory containing shader sources (required)\n"
-                     "\t--output-dir          Output directory for generated SPIR-V files and optional C++ headers\n"
-                     "\t--target-hpp <path>   Path to generate a header file with shader declarations in C++ format\n"
-                     "\t--target-cpp <path>   Path to generate a source code file implementing the declared shaders (optional)\n"
-                     "\t--no-clean            Keep temporary SPIR-V files after build (default: remove them)\n";
-        return EXIT_SUCCESS;
     }
 
     if (args.find("--glslc") != args.end()) {

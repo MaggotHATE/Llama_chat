@@ -475,7 +475,7 @@ static void sliderPStep(float& p_step, float& default_p_step){
         }
         ImGui::SameLine();
     }
-    ImGui::SliderFloat("p_step", &p_step, 0.5f, 1.0f);
+    ImGui::SliderFloat("p_step", &p_step, 0.1f, 1.0f);
     if (ImGui::BeginPopupContextItem("p_step"))
     {
         if (ImGui::Selectable("Reset to default")){
@@ -1672,7 +1672,7 @@ struct chatUI{
         newChat.startGen();
         output = "...";
         //newChat.getResultAsyncStringFull2(false, true);
-        newChat.getResultAsyncStringRepeat3();
+        newChat.getResultAsyncStringFull3();
         copiedDialog = false;
         copiedTimings = false;
         scrolled = false;
