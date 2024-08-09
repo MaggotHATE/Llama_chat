@@ -186,6 +186,21 @@ std::string getStringFromJson(std::string fileName, std::string stringName){
     return "NULL";
 }
 
+static void buttonOnTextChanges(std::string& stringBase, std::string& stringChanged) {
+    if (stringBase != stringChanged) {
+        if (ImGui::Button("Apply")) {
+            stringBase = stringChanged;
+        }
+    }
+}
+
+static void reserveEmpty(std::string& stringBase) {
+    if (stringBase.empty()) {
+        stringBase.reserve(1048576);
+        stringBase.resize(1, ' ');
+    }
+}
+
 static void sliderTemp(float& temp, float& default_temp)
 {
     {
@@ -2388,7 +2403,7 @@ struct chatUI{
                 
             if (localSettings.inputInstructFile == "NULL" && localSettings.instructFileFromJson != "NULL") ImGui::TextWrapped( "This model has an instruct file set for it in config. Prompt and antiprompt will not be used!" );
                 
-            if (!localSettings.checkInputPrompt() | !localSettings.checkInputAntiprompt() | !localSettings.checkInputAntiCFG() | !localSettings.checkInputSuffix() | !localSettings.checkInputPrefix()) {
+            //if (!localSettings.checkAll()) {
             
                 if (ImGui::Button("Apply to config")) {
                     //localSettings.getFromJson("config.json");
@@ -2402,7 +2417,7 @@ struct chatUI{
                 
                 
                 //ImGui::Separator();
-            }
+            //}
             
             
             if (localSettings.inputInstructFile == "NULL") {
@@ -2551,21 +2566,18 @@ struct chatUI{
             float initWidth = baseWidth * 0.8f;
             //ImGui::EndChild();
             ImGui::InputTextMultiline("Prompt", &localSettings.inputPrompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 15)); ImGui::SameLine(); HelpMarker( "Prompt can be used as a start of the dialog, providing context and/or format of dialog." ); 
+
             ImGui::InputTextMultiline("Antiprompt", &localSettings.inputAntiprompt, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Antiprompt is needed to control when to stop generating and wait for your input." ); 
-            // if (ImGui::Button("Apply antiprompt")) {
-                        // localSettings.inputAntiprompt = inputAntiprompt;
-                    // } ImGui::SameLine(); if (ImGui::Button("Clear antiprompt")) {
-                        // localSettings.inputAntiprompt = "NULL";
-                    // }
-            ImGui::InputTextMultiline("Prefix", &localSettings.inputPrefix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );        
-                    
+
+            ImGui::InputTextMultiline("Prefix", &localSettings.inputPrefix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Prefix sets your character for each input." );
+
             ImGui::InputTextMultiline("Suffix", &localSettings.inputSuffix, ImVec2(initWidth, ImGui::GetTextLineHeight() * 3)); ImGui::SameLine(); HelpMarker( "Suffix is added after your prompt - can be used to instantly set the charater for NN." );
-            
-            ImGui::InputText("Grammar file", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );        
+
+            ImGui::InputText("Grammar file", &inputGrammar); ImGui::SameLine(); HelpMarker( "Grammars are more strict rules that help fomratting teh dialog." );
             if (ImGui::Button("Choose grammar")) {
                     inputGrammar = openGrammar();
                 }
-                
+
             ImGui::InputTextMultiline("CFG Antiprompt", &localSettings.inputAntiCFG, ImVec2(initWidth, ImGui::GetTextLineHeight() * 5)); ImGui::SameLine(); HelpMarker( "CFG Antiprompt is used to guide the output by defining what should NOT be in it. cfg_scale must be higher than 1.0 to activate CFG." );
             // if (ImGui::Button("Apply CFG antiprompt")) {
                         // localSettings.inputAntiCFG = inputAntiCFG;
@@ -3173,7 +3185,7 @@ struct chatUI{
             if (ImGui::BeginMenu("Settings..."))
             {
                 
-                ImGui::CheckboxFlags("Send messages by Enter", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);
+                ImGui::CheckboxFlags("Send messages with Enter", &inputFlags, ImGuiInputTextFlags_CtrlEnterForNewLine);
                 
                 ImGui::EndMenu();
             }
@@ -3821,19 +3833,6 @@ struct chatUI{
         modelToConfig(localSettings.modelFromJson);
         
         fillImagesData();
-        
-        //inputPrompt = localSettings.params.prompt;
-        
-        //n_ctx_idx = sqrt( localSettings.params.n_ctx / 2048 );
-
-        // if(localSettings.params.antiprompt.size()) inputAntiprompt = localSettings.params.antiprompt[0];
-// #if GGML_OLD_FORMAT
-        // inputAntiCFG = localSettings.params.cfg_negative_prompt;
-// #elif GGML_USE_VULKAN2
-        // inputAntiCFG = localSettings.params.sampling_params.cfg_negative_prompt;
-// #else
-        // inputAntiCFG = localSettings.params.sparams.cfg_negative_prompt;
-// #endif
 
         switch (themeIdx)
         {
@@ -3843,7 +3842,7 @@ struct chatUI{
             case 3: retroTheme(); break;
             default: retroTheme(); break;
         }
-        
+
         if (localSettings.modelsFromConfig.size() > 0){
             for (int n = 0; n < localSettings.modelsFromConfig.size(); n++){
                 if (localSettings.modelName == localSettings.modelsFromConfig[n].first) {
