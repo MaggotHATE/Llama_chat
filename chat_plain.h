@@ -514,16 +514,16 @@ public:
         std::string name_temp = fullnames ? "temp" : "T";
         std::string name_dynatemp_range = fullnames ? "dynatemp_range" : "dT";
 
-        std::string name_mirostat = fullnames ? "mirostat" : "M";
-        std::string name_mirostat_tau = fullnames ? "mirostat_tau" : "M_t";
-        std::string name_mirostat_eta = fullnames ? "mirostat_eta" : "M_e";
+        std::string name_mirostat = fullnames ? "mirostat" : "I";
+        std::string name_mirostat_tau = fullnames ? "mirostat_tau" : "I_t";
+        std::string name_mirostat_eta = fullnames ? "mirostat_eta" : "I_e";
 
         std::string name_top_k = fullnames ? "top_k" : "K";
-        std::string name_tfs_z = fullnames ? "tfs_z" : "Z";
+        std::string name_tfs_z = fullnames ? "tfs_z" : "F";
         std::string name_typical_p = fullnames ? "typical_p" : "Y";
         std::string name_p_step = fullnames ? "p_step" : "S";
         std::string name_top_p = fullnames ? "top_p" : "P";
-        std::string name_min_p = fullnames ? "min_p" : "I";
+        std::string name_min_p = fullnames ? "min_p" : "M";
 
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += std::format("-> {}={:.3f}", name_penalty_repeat, params.sparams.penalty_repeat);
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format("-> {}={:.3f}", name_penalty_threshold, params.sparams.penalty_threshold); 
@@ -560,13 +560,13 @@ public:
                     case 't': {
                             if (params.sparams.dynatemp_range > 0) {
                                 result += std::format("{}({:.3f}-{:.3f})",name_dynatemp_range, params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
-                                if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.3f}", params.sparams.smoothing_factor);
                                 if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) result += std::format("*{:.3f}", params.sparams.smoothing_curve);
-                            } else { 
-                                result += name_temp; 
-                                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("={:.2f}",params.sparams.temp); 
-                                result += std::format("/{:.3f}*{:.3f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
+                            } else {
+                                result += name_temp;
+                                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("={:.3f}",params.sparams.temp);
+                                // smoothing_curve doesn't work without dynatemp anyway
                             }
+                            if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("^{:.3f}", params.sparams.smoothing_factor);
                             break;
                         }
                     default : break;

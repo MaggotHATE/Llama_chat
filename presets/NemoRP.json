@@ -1,0 +1,6 @@
+{
+    "samplers_sequence": "kst",
+    "temp": 0.3,
+    "p_step": 0.2,
+    "top_k": 40
+}

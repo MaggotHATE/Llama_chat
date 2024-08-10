@@ -577,6 +577,9 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
     if (checkJNum(config, "n_threads_vk")) params.n_threads = config["n_threads_vk"];
     if (checkJNum(config, "n_threads_batch_vk")) params.n_threads_batch = config["n_threads_batch_vk"];
+    if (config["use_mmap_vk"].is_boolean()) params.use_mmap = config["use_mmap_vk"];
+    if (config["flash_attn_vk"].is_boolean()) params.flash_attn = config["flash_attn_vk"];
+    if (config["no_kv_offload_vk"].is_boolean()) params.no_kv_offload = config["no_kv_offload_vk"];
 #elif GGML_USE_CLBLAST
     if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
     if (checkJNum(config, "n_threads_clblast")) params.n_threads = config["n_threads_clblast"];

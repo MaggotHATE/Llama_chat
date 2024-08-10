@@ -351,6 +351,10 @@ ifdef VK_VALID
 	CXXFLAGS_VK += -DGGML_VULKAN_VALIDATE
 endif # VK_VALID
 
+ifdef VK_PERF
+	CXXFLAGS_VK  += -DGGML_VULKAN_PERF
+endif
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------
@@ -806,6 +810,9 @@ chat_cl: $(EXE_CL)_mini
 chat_vk: $(EXE_VK)_mini
 	@echo Build $(EXE_VK)_mini complete for $(ECHO_MESSAGE)
     
+chats: $(EXE)_mini $(EXE_CL)_mini $(EXE_VK)_mini
+	@echo Build complete for $(ECHO_MESSAGE)
+    
 demo: $(EXE)
 	@echo Build $(EXE) complete for $(ECHO_MESSAGE) 
      
@@ -840,6 +847,9 @@ demos: $(EXE)_mini $(EXE_CL)_mini $(EXE_VK)_mini
 	@echo Build complete for $(ECHO_MESSAGE)
     
 tests: chatTest chatTest_cl chatTest_vk
+	@echo Build chatTest chatTest_cl complete for $(ECHO_MESSAGE)
+    
+chatTests: chatTest chatTest_cl chatTest_vk
 	@echo Build chatTest chatTest_cl complete for $(ECHO_MESSAGE)
     
 all: $(EXE)_mini $(EXE_CL)_mini chatTest chatTest_cl chatTest_vk

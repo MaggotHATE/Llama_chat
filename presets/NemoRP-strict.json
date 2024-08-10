@@ -1,0 +1,7 @@
+{
+    "samplers_sequence": "ksmt",
+    "temp": 0.3,
+    "p_step": 0.2,
+    "min_p": 0.07,
+    "top_k": 40
+}

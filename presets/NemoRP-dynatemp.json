@@ -1,0 +1,9 @@
+{
+    "samplers_sequence": "kst",
+    "temp": 0.3,
+    "dynatemp_range": 0.3,
+    "smoothing_curve": 0.9,
+    "smoothing_factor": 0.44,
+    "p_step": 0.2,
+    "top_k": 40
+}

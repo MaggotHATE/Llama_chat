@@ -236,7 +236,10 @@ struct modelThread{
         
         //#ifdef GGML_EXPERIMENTAL1
         std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
-        if (penalize_nl) std::cout << "penalize_nl = true" << '\n' << std::endl;
+        if (penalize_nl) std::cout << "penalize_nl = true" << std::endl;
+        if (newChat.params.use_mmap) std::cout << "use_mmap = true" << std::endl;
+        if (newChat.params.no_kv_offload) std::cout << "no_kv_offload = true" << std::endl;
+        if (newChat.params.flash_attn) std::cout << "flash_attn = true" << '\n' << std::endl;
         //#endif
         //std::cout << lastTimings << std::endl;
         std::cout << std::format("Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s", lastSpeedPrompt, lastSpeed) << std::endl;
