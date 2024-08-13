@@ -138,7 +138,7 @@ struct modelThread{
                     if (cutAntiPos != std::string::npos){
                         context.erase(cutAntiPos);
                     }
-                    
+
                 }
             }
         } else {
@@ -215,7 +215,9 @@ struct modelThread{
         std::cout << "GPU: " << GGML_OPENCL_RESULT_DEVICE_NAME << std::endl;
 #endif
         std::cout << "----------------------------------------" << std::endl;
-        if (newChat.params.antiprompt.size()) std::cout << "Antiprompt: " << newChat.params.antiprompt[0] << std::endl;
+        if (newChat.params.antiprompt.size()) {
+            for (auto antiprompt : newChat.params.antiprompt) std::cout << "Antiprompt: " << antiprompt << std::endl;
+        }
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
         std::cout << "input_suffix: " << newChat.params.input_suffix << "\n----------------------------------------" << std::endl;
         //std::cout << newChat.formatRepresentation << std::endl;
@@ -1314,6 +1316,7 @@ struct configurableChat{
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["penalty_threshold"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) modelConfig[model]["frequency_penalty"] = params.sparams.penalty_freq;
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) modelConfig[model]["presence_penalty"] = params.sparams.penalty_present;
+        if (params.sparams.penalty_last_n != paramsDefault.sparams.penalty_last_n) modelConfig[model]["penalty_last_n"] = params.sparams.penalty_last_n;
         // DRY
         if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) modelConfig[model]["dry_multiplier"] = params.sparams.dry_multiplier;
         if (params.sparams.dry_base != paramsDefault.sparams.dry_base) modelConfig[model]["dry_base"] = params.sparams.dry_base;
@@ -1364,10 +1367,10 @@ struct configurableChat{
         
         modelConfig[model]["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;
         if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;
-        else {
-            modelConfig[model]["prompt"] = "### Instruction:";
-            params.prompt = "### Instruction:";
-        }
+        // else {
+            // modelConfig[model]["prompt"] = "### Instruction:";
+            // params.prompt = "### Instruction:";
+        // }
         if(params.antiprompt.size()) modelConfig[model]["reverse-prompt"] = params.antiprompt[0];
         else {
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
@@ -1420,6 +1423,7 @@ struct configurableChat{
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) newCard["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) newCard["frequency_penalty"] = params.sparams.penalty_freq;
         if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) newCard["presence_penalty"] = params.sparams.penalty_present;
+        if (params.sparams.penalty_last_n != paramsDefault.sparams.penalty_last_n) newCard["penalty_last_n"] = params.sparams.penalty_last_n;
         //DRY
         if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) newCard["dry_multiplier"] = params.sparams.dry_multiplier;
         if (params.sparams.dry_base != paramsDefault.sparams.dry_base) newCard["dry_base"] = params.sparams.dry_base;
@@ -1463,10 +1467,10 @@ struct configurableChat{
         
         newCard["cfg-negative-prompt"] = params.sparams.cfg_negative_prompt;
         if (params.prompt.size()) newCard["prompt"] = params.prompt;
-        else {
-            newCard["prompt"] = "### Instruction:";
-            params.prompt = "### Instruction:";
-        }
+        // else {
+            // newCard["prompt"] = "### Instruction:";
+            // params.prompt = "### Instruction:";
+        // }
         if(params.antiprompt.size()) newCard["reverse-prompt"] = params.antiprompt[0];
         else {
             newCard["reverse-prompt"] = "### Instruction:";

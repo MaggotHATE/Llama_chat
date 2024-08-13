@@ -355,6 +355,7 @@ ifdef VK_PERF
 	CXXFLAGS_VK  += -DGGML_VULKAN_PERF
 endif
 
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------
@@ -440,6 +441,20 @@ OBJS_GGUF = \
     $(TMP)t_unicode-data.o \
     $(TMP)t_sgemm.o
     
+ifdef OPENBLAS64
+	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
+	CFLAGS   += $(shell pkg-config --cflags-only-other openblas64)
+	LDFLAGS  += $(shell pkg-config --libs openblas64)
+	OBJS_GGUF    += $(TMP)t_ggml-blas.o
+endif # GGML_OPENBLAS
+
+ifdef OPENBLAS
+	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
+	CFLAGS   += $(shell pkg-config --cflags-only-other openblas)
+	LDFLAGS  += $(shell pkg-config --libs openblas)
+	OBJS_GGUF    += $(TMP)t_ggml-blas.o
+endif # GGML_OPENBLAS
+    
 $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
@@ -465,6 +480,11 @@ $(TMP)t_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-aarch64.h \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
+
+$(TMP)t_ggml-blas.o: \
+	$(ggmlsrc_f)/ggml-blas.cpp \
+	$(ggmlsrc_f)/ggml-blas.h
+	$(CXX) $(CXXFLAGS)    -c $< -o $@
 
 $(TMP)t_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@

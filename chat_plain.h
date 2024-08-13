@@ -965,7 +965,7 @@ public:
         params.interactive = true;
 
         if (!params.antiprompt.size()) params.antiprompt.emplace_back("You:");
-        if (params.prompt.empty()) params.prompt = params.antiprompt.back();
+        //if (params.prompt.empty()) params.prompt = params.antiprompt.back();
         // instruct mode was removed since its format is not universal enough
 
         const bool add_bos = llama_should_add_bos_token(model);
