@@ -968,9 +968,9 @@ public:
         //if (params.prompt.empty()) params.prompt = params.antiprompt.back();
         // instruct mode was removed since its format is not universal enough
 
-        const bool add_bos = llama_should_add_bos_token(model);
+        const bool add_bos = llama_add_bos_token(model);
         if (!llama_model_has_encoder(model)) {
-            GGML_ASSERT(llama_add_eos_token(model) != 1);
+            GGML_ASSERT(!llama_add_eos_token(model));
         }
         printf("add_bos: %d\n", add_bos);
 

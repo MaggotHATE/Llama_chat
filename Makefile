@@ -444,14 +444,14 @@ OBJS_GGUF = \
 ifdef OPENBLAS64
 	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
 	CFLAGS   += $(shell pkg-config --cflags-only-other openblas64)
-	LDFLAGS  += $(shell pkg-config --libs openblas64)
+	LDFLAGS  += $(shell pkg-config --libs openblas64) --static
 	OBJS_GGUF    += $(TMP)t_ggml-blas.o
 endif # GGML_OPENBLAS
 
 ifdef OPENBLAS
 	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
 	CFLAGS   += $(shell pkg-config --cflags-only-other openblas)
-	LDFLAGS  += $(shell pkg-config --libs openblas)
+	LDFLAGS  += $(shell pkg-config --libs openblas) --static
 	OBJS_GGUF    += $(TMP)t_ggml-blas.o
 endif # GGML_OPENBLAS
     
@@ -563,7 +563,6 @@ endif
 CXXFLAGS_CL += -lclblast -lOpenCL
 CXXFLAGS_UI_CL += -lclblast -lOpenCL
 
-
 #OBJS_GGUF_CL    = $(TMP)cl_ggml-quants.o $(TMP)cl_ggml-opencl-gguf.o $(TMP)cl_ggml.o $(TMP)cl_ggml-alloc.o $(TMP)cl_ggml-backend.o $(TMP)cl_llama.o $(TMP)cl_sampling.o $(TMP)cl_common.o $(TMP)cl_grammar-parser.o
 OBJS_GGUF_CL    = \
     $(TMP)clt_ggml.o \
@@ -583,7 +582,7 @@ OBJS_GGUF_CL    = \
     $(TMP)clt_unicode.o \
     $(TMP)clt_unicode-data.o \
     $(TMP)clt_sgemm.o
-    
+
 $(TMP)clt_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/ggml-opencl.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
     

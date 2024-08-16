@@ -58,6 +58,7 @@ Libraries:
 * `make chat_cl` for Clblast build
 * `make chat_vk` for Vulkan build
 * `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
+* for CPU-only builds use `OPENBLAS64=1` to enable OpenBLAS (helps with prompt processing)
 * if your GPU/iGPU don't support Vulkan, compile with SDL2=1
 * if you need Windows console for debugging, compile with CONW=1
 * see more in makefile
