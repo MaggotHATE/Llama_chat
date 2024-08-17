@@ -24,13 +24,13 @@ Additionally, chatTest console app is also added for testing purposes, since cer
 
 ### About chatTest
 
-ChatTest is a debugging-oriented version that uses the same internal processing, but alaos allows bulk generation tests as a way of evaluating models and prompts. After loading a model, input one of these instead of dialog.
+ChatTest is a debugging-oriented version that uses the same internal processing, but also allows bulk generation tests as a way of evaluating models and prompts. After loading a model, input one of these instead of dialog.
 
 * cycle - generates X amount of results by a given prompt. It also has wildcards support for additional randomization. See sci.json as an example.
 * test - generates results for each given params preset on the same prompt and seed. See presetsTest.json as an example, which will be used by default.
 * regens - generates 20 results by a given prompt, but using regeneration of the last result. You can also drag-n-drop a text file with a prompt, but the file name needs to have "regens.txt" at the end.
 
-In first two cases it will ask you to enter file name or a prompt, cycle will also ask for a custom amount of cycles if no file given. Regens is instant as it relies on the prompt.
+In first two cases it will ask you to enter file name or a prompt, cycle will also ask for a custom amount of cycles if no file given. Regens is instant as it relies on the prompt. All results are saved in separate text files inside `tales` folder which needs to be created manually.
 
 ## Building
 
