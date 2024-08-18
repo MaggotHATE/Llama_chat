@@ -423,79 +423,87 @@ GGML_F = GGML
   
 #####################################
 ################################ GGUF
+PREFIX = t
+
 OBJS_GGUF = \
-    $(TMP)t_ggml.o \
-    $(TMP)t_ggml-alloc.o \
-    $(TMP)t_ggml-backend.o \
-    $(TMP)t_ggml-quants.o \
-    $(TMP)t_ggml-aarch64.o \
-    $(TMP)t_llama.o \
-    $(TMP)t_llama-vocab.o \
-    $(TMP)t_llama-grammar.o \
-    $(TMP)t_llama-sampling.o \
-    $(TMP)t_llama-addon.o \
-    $(TMP)t_sampling.o \
-    $(TMP)t_common.o \
-    $(TMP)t_grammar-parser.o \
-    $(TMP)t_unicode.o \
-    $(TMP)t_unicode-data.o \
-    $(TMP)t_sgemm.o
+    $(TMP)$(PREFIX)_ggml.o \
+    $(TMP)$(PREFIX)_ggml-alloc.o \
+    $(TMP)$(PREFIX)_ggml-backend.o \
+    $(TMP)$(PREFIX)_ggml-quants.o \
+    $(TMP)$(PREFIX)_ggml-aarch64.o \
+    $(TMP)$(PREFIX)_llama.o \
+    $(TMP)$(PREFIX)_llama-vocab.o \
+    $(TMP)$(PREFIX)_llama-grammar.o \
+    $(TMP)$(PREFIX)_llama-sampling.o \
+    $(TMP)$(PREFIX)_llama-addon.o \
+    $(TMP)$(PREFIX)_sampling.o \
+    $(TMP)$(PREFIX)_common.o \
+    $(TMP)$(PREFIX)_grammar-parser.o \
+    $(TMP)$(PREFIX)_unicode.o \
+    $(TMP)$(PREFIX)_unicode-data.o \
+    $(TMP)$(PREFIX)_sgemm.o
     
 ifdef OPENBLAS64
 	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
+	CXXFLAGS_UI += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
 	CFLAGS   += $(shell pkg-config --cflags-only-other openblas64)
 	LDFLAGS  += $(shell pkg-config --libs openblas64) --static
-	OBJS_GGUF    += $(TMP)t_ggml-blas.o
+	OBJS_GGUF    += $(TMP)$(PREFIX)_ggml-blas.o
+	override EXE = Llama_Chat_gguf$(ARCH_NAME)$(RENDERER)_OPENBLAS
+	override PREFIX = obt
 endif # GGML_OPENBLAS
 
 ifdef OPENBLAS
 	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
+	CXXFLAGS_UI += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
 	CFLAGS   += $(shell pkg-config --cflags-only-other openblas)
 	LDFLAGS  += $(shell pkg-config --libs openblas) --static
-	OBJS_GGUF    += $(TMP)t_ggml-blas.o
+	OBJS_GGUF    += $(TMP)$(PREFIX)_ggml-blas.o
+	override EXE = Llama_Chat_gguf$(ARCH_NAME)$(RENDERER)_OPENBLAS
+	override PREFIX = obt
 endif # GGML_OPENBLAS
     
 $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
-$(TMP)t_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
+$(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 	
-$(TMP)t_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
+$(TMP)$(PREFIX)_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 	
-$(TMP)t_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-backend.h
+$(TMP)$(PREFIX)_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-backend.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
-$(TMP)t_ggml-quants.o: \
+$(TMP)$(PREFIX)_ggml-quants.o: \
 	$(ggmlsrc_f)/ggml-quants.c \
 	$(ggmlsrc_f)/ggml.h \
 	$(ggmlsrc_f)/ggml-quants.h \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
 
-$(TMP)t_ggml-aarch64.o: \
+$(TMP)$(PREFIX)_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-aarch64.c \
 	$(ggmlsrc_f)/ggml.h \
 	$(ggmlsrc_f)/ggml-aarch64.h \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
 
-$(TMP)t_ggml-blas.o: \
+$(TMP)$(PREFIX)_ggml-blas.o: \
 	$(ggmlsrc_f)/ggml-blas.cpp \
 	$(ggmlsrc_f)/ggml-blas.h
 	$(CXX) $(CXXFLAGS)    -c $< -o $@
 
-$(TMP)t_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+$(TMP)$(PREFIX)_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
-$(TMP)t_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
+$(TMP)$(PREFIX)_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_unicode-data.o: $(llamacpp_f)/unicode-data.cpp $(llamacpp_f)/unicode-data.h
+$(TMP)$(PREFIX)_unicode-data.o: $(llamacpp_f)/unicode-data.cpp $(llamacpp_f)/unicode-data.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
-$(TMP)t_llama.o: $(llamacpp_f)/llama.cpp \
+$(TMP)$(PREFIX)_llama.o: $(llamacpp_f)/llama.cpp \
 	$(llamacpp_f)/llama-impl.h \
 	$(llamacpp_f)/llama-vocab.h \
 	$(llamacpp_f)/llama-grammar.h \
@@ -507,14 +515,14 @@ $(TMP)t_llama.o: $(llamacpp_f)/llama.cpp \
 	$(ggmlsrc_f)/ggml-backend.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_llama-vocab.o: \
+$(TMP)$(PREFIX)_llama-vocab.o: \
 	$(llamacpp_f)/llama-vocab.cpp \
 	$(llamacpp_f)/llama-vocab.h \
 	$(llamacpp_f)/llama-impl.h \
 	$(llamacpp_f)/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_llama-grammar.o: \
+$(TMP)$(PREFIX)_llama-grammar.o: \
 	$(llamacpp_f)/llama-grammar.cpp \
 	$(llamacpp_f)/llama-grammar.h \
 	$(llamacpp_f)/llama-impl.h \
@@ -523,7 +531,7 @@ $(TMP)t_llama-grammar.o: \
 	$(llamacpp_f)/llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_llama-sampling.o: \
+$(TMP)$(PREFIX)_llama-sampling.o: \
 	$(llamacpp_f)/llama-sampling.cpp \
 	$(llamacpp_f)/llama-sampling.h \
 	$(llamacpp_f)/llama-impl.h \
@@ -531,18 +539,18 @@ $(TMP)t_llama-sampling.o: \
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f)/llama.h
-COMMON_DEPS   = $(TMP)common.o $(TMP)sampling.o $(TMP)grammar-parser.o
+COMMON_DEPS   = $(TMP)$(PREFIX)_common.o $(TMP)$(PREFIX)_sampling.o $(TMP)$(PREFIX)_grammar-parser.o
 
-$(TMP)t_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
+$(TMP)$(PREFIX)_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
+$(TMP)$(PREFIX)_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
+$(TMP)$(PREFIX)_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)t_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
+$(TMP)$(PREFIX)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # test CLBLAST

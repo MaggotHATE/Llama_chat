@@ -45,21 +45,23 @@ Code:
 Libraries:
 * Vulkan SDK (installer is preferred) https://vulkan.lunarg.com/#new_tab
 * SDL2 https://github.com/libsdl-org/SDL
+* If OpenBLAS is needed: use [releases](https://github.com/OpenMathLib/OpenBLAS/releases) and [Clblast](https://github.com/CNugteren/CLBlast).
 * If CLBLAST is needed: use releases of [OpenCL SDK](https://github.com/KhronosGroup/OpenCL-SDK) and [Clblast](https://github.com/CNugteren/CLBlast).
 
 ### Building on Windows
 
-* Download this repo or `git clone` it
-* Use w64devkit https://github.com/skeeto/w64devkit/releases
-* Install all prerequisite libraries according to w64devkit installation (which is, in most cases, copying `lib` and `include` folders into `w64devkit/x86_64-w64-mingw32`)
-* Download and copy all prerequisite code according to Makefile
-* Launch w64devkit.exe and navigate to the project folder
-* `make chat` for CPU-only
-* `make chat_cl` for Clblast build
-* `make chat_vk` for Vulkan build
-* `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
-* for CPU-only builds use `OPENBLAS64=1` to enable OpenBLAS (helps with prompt processing)
-* if your GPU/iGPU don't support Vulkan, compile with SDL2=1
+1. Use `git clone https://github.com/MaggotHATE/Llama_chat`, or download this repo and unpack it
+2. Download w64devkit https://github.com/skeeto/w64devkit/releases and unpack it to a desireable folder
+3. Install all prerequisite libraries according to w64devkit installation: in most cases it means copying `lib` and `include` folders into `w64devkit/x86_64-w64-mingw32`
+* for example, OpenBLAS has `bin`, `include` and `lib` folders - unpack them into `w64devkit/x86_64-w64-mingw32`
+4. Download and copy all prerequisite code: specific version of [imgui](https://github.com/ocornut/imgui/tree/f6836ff37fd361010829621f610837686aa00944) and [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/)
+5. Launch w64devkit.exe and navigate to the project folder, then build:
+* `make chat` for CPU-only UI version
+* `make chat_cl` for Clblast UI version
+* `make chat_vk` for Vulkan UI version
+6. `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
+* for CPU-only builds add `OPENBLAS64=1` to compile with OpenBLAS (helps with prompt processing)
+* if your GPU/iGPU don't support Vulkan, compile UI with SDL2=1
 * if you need Windows console for debugging, compile with CONW=1
 * see more in makefile
 
