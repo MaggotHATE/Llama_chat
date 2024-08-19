@@ -1,0 +1,6 @@
+{
+    "samplers_sequence": "mx",
+    "min_p": 0.02,
+    "xtc_probability": 0.6,
+    "xtc_threshold": 0.15
+}
