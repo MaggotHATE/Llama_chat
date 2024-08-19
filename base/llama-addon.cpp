@@ -52,6 +52,11 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
         }
     }
 
+    candidates->sorted = false;
+
+    // Re-normalize probabilities
+    llama_sample_softmax(ctx, candidates);
+
     llama_set_time(ctx, t_start_sample_us);
 }
 
