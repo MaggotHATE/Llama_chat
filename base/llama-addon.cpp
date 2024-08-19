@@ -45,17 +45,18 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
     const int64_t t_start_sample_us = ggml_time_us();
 
-    for (size_t i = 0; i < candidates->size ; ++i) {
+    for (size_t i = 0; i < (candidates->size - 1); ++i) { // let's not penalize the last candidate even if it can be, may help with spaces
         if (candidates->data[i].p >= xtc_threshold) {
                 std::srand(std::time(nullptr));
-                if(std::rand() <= xtc_probability) candidates->data[i].p *= 0;
+                if (std::rand() <= xtc_probability) {
+                    candidates->data[i].p *= 0;
+                    candidates->sorted = false;
+                }
         }
     }
 
-    candidates->sorted = false;
-
-    // Re-normalize probabilities
-    llama_sample_softmax(ctx, candidates);
+    // Re-normalize probabilities if required
+    if (candidates->sorted == false) llama_sample_softmax(ctx, candidates);
 
     llama_set_time(ctx, t_start_sample_us);
 }
