@@ -1311,6 +1311,8 @@ struct configurableChat{
             modelConfig[model]["p_step"]["p_mul"] = params.sparams.p_step_func.p_mul;
             std::cout << "Object created! " << std::endl;
         } else if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
+        if (params.sparams.xtc_probability != paramsDefault.sparams.xtc_probability) modelConfig[model]["xtc_probability"] = params.sparams.xtc_probability;
+        if (params.sparams.xtc_threshold != paramsDefault.sparams.xtc_threshold) modelConfig[model]["xtc_threshold"] = params.sparams.xtc_threshold;
         // penalties
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) modelConfig[model]["repeat_penalty"] = params.sparams.penalty_repeat;
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) modelConfig[model]["penalty_threshold"] = params.sparams.penalty_threshold;
@@ -1418,6 +1420,8 @@ struct configurableChat{
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;
+        if (params.sparams.xtc_probability != paramsDefault.sparams.xtc_probability) newCard["xtc_probability"] = params.sparams.xtc_probability;
+        if (params.sparams.xtc_threshold != paramsDefault.sparams.xtc_threshold) newCard["xtc_threshold"] = params.sparams.xtc_threshold;
         //penalties
         if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) newCard["penalty_threshold"] = params.sparams.penalty_threshold;
         if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) newCard["repeat_penalty"] = params.sparams.penalty_repeat;

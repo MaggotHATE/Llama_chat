@@ -522,6 +522,8 @@ public:
         std::string name_tfs_z = fullnames ? "tfs_z" : "F";
         std::string name_typical_p = fullnames ? "typical_p" : "Y";
         std::string name_p_step = fullnames ? "p_step" : "S";
+        std::string name_xtc_probability = fullnames ? "xtc_probability" : "x_p";
+        std::string name_xtc_threshold = fullnames ? "xtc_threshold" : "x_t";
         std::string name_top_p = fullnames ? "top_p" : "P";
         std::string name_min_p = fullnames ? "min_p" : "M";
 
@@ -555,6 +557,7 @@ public:
                     case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.3f}",params.sparams.tfs_z); break;
                     case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.3f}",params.sparams.typical_p); break;
                     case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.3f}",params.sparams.p_step); break;
+                    case 'x': result += std::format("xtc={:.3f}-{:.03f}%",params.sparams.xtc_threshold,params.sparams.xtc_probability); break;
                     case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.3f}",params.sparams.top_p); break;
                     case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); break;
                     case 't': {

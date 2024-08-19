@@ -36,6 +36,25 @@
 #include <type_traits>
 #include <unordered_map>
 
+void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, size_t min_keep) {
+    if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || candidates->size <= 1) {
+        return;
+    }
+
+    llama_sample_softmax(nullptr, candidates);
+
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    for (size_t i = 0; i < candidates->size ; ++i) {
+        if (candidates->data[i].p >= xtc_threshold) {
+                std::srand(std::time(nullptr));
+                if(std::rand() <= xtc_probability) candidates->data[i].p *= 0;
+        }
+    }
+
+    llama_set_time(ctx, t_start_sample_us);
+}
+
 void llama_sample_p_step_addon(struct llama_context * ctx, llama_token_data_array * candidates, float step, size_t min_keep) {
     if (step <= 0.0f || candidates->size <= 1) {
         return;

@@ -118,6 +118,7 @@ std::string llama_sampling_order_print(const llama_sampling_params & params) {
                 case 'p': result += "-> top_p "; break;
                 case 'm': result += "-> min_p "; break;
                 case 't': result += "-> temp "; break;
+                case 's': result += "-> p_step "; break;
                 default : break;
             }
         }
@@ -143,16 +144,19 @@ void sampler_queue(
     const float       tfs_z             = params.tfs_z;
     const float       typical_p         = params.typical_p;
     const float       p_step            = params.p_step;
+    const float       xtc_probability   = params.xtc_probability;
+    const float       xtc_threshold     = params.xtc_threshold;
     const std::string samplers_sequence = params.samplers_sequence;
                       
     for (auto s : samplers_sequence){
         switch (s){
-            case 'k': llama_sample_top_k    (ctx_main, &cur_p, top_k,     min_keep); break;
-            case 'f': llama_sample_tail_free(ctx_main, &cur_p, tfs_z,     min_keep); break;
-            case 'y': llama_sample_typical  (ctx_main, &cur_p, typical_p, min_keep); break;
-            case 'p': llama_sample_top_p    (ctx_main, &cur_p, top_p,     min_keep); break;
-            case 'm': llama_sample_min_p_addon    (ctx_main, &cur_p, min_p,     min_keep); break;
-            case 's': llama_sample_p_step_addon   (ctx_main, &cur_p, p_step,    min_keep); break;
+            case 'k': llama_sample_top_k        (ctx_main, &cur_p, top_k,     min_keep); break;
+            case 'f': llama_sample_tail_free    (ctx_main, &cur_p, tfs_z,     min_keep); break;
+            case 'y': llama_sample_typical      (ctx_main, &cur_p, typical_p, min_keep); break;
+            case 'p': llama_sample_top_p        (ctx_main, &cur_p, top_p,     min_keep); break;
+            case 'm': llama_sample_min_p_addon  (ctx_main, &cur_p, min_p,     min_keep); break;
+            case 's': llama_sample_p_step_addon (ctx_main, &cur_p, p_step,    min_keep); break;
+            case 'x': llama_sample_xtc_addon    (ctx_main, &cur_p, xtc_probability, xtc_threshold, min_keep); break;
             case 't': {
                 if (dynatemp_range>0)
                 {

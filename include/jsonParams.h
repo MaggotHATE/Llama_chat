@@ -486,6 +486,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_threads_batch")) params.n_threads_batch = config["n_threads_batch"];
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
 
+// context-related
     if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
     if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
     if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
@@ -493,7 +494,8 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
-    //sampling
+
+//sampling
     load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
     load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
 
@@ -507,23 +509,28 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
-    //penalties
+    if (checkJNum(config, "xtc_probability")) params.sparams.xtc_probability = config["xtc_probability"];
+    if (checkJNum(config, "xtc_threshold")) params.sparams.xtc_threshold = config["xtc_threshold"];
+
+//penalties
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
     if (checkJNum(config, "penalty_repeat")) params.sparams.penalty_repeat = config["penalty_repeat"];
     if (checkJNum(config, "penalty_threshold")) params.sparams.penalty_threshold = config["penalty_threshold"];
     if (checkJNum(config, "frequency_penalty")) params.sparams.penalty_freq = config["frequency_penalty"];
     if (checkJNum(config, "presence_penalty")) params.sparams.penalty_present = config["presence_penalty"];
-    //DRY
+    if (checkJNum(config, "penalty_last_n")) params.sparams.penalty_last_n = config["penalty_last_n"];
+//DRY
     if (checkJNum(config, "dry_multiplier")) params.sparams.dry_multiplier = config["dry_multiplier"];
     if (checkJNum(config, "dry_base")) params.sparams.dry_base = config["dry_base"];
     if (checkJNum(config, "dry_allowed_length")) params.sparams.dry_allowed_length = config["dry_allowed_length"];
     if (checkJNum(config, "dry_penalty_last_n")) params.sparams.dry_penalty_last_n = config["dry_penalty_last_n"];
-    //mirostat
+
+//mirostat
     if (checkJNum(config, "mirostat")) params.sparams.mirostat = config["mirostat"];
     if (checkJNum(config, "mirostat_tau")) params.sparams.mirostat_tau = config["mirostat_tau"];
     if (checkJNum(config, "mirostat_eta")) params.sparams.mirostat_eta = config["mirostat_eta"];
     //if (config["color"].is_boolean()) params.use_color = config["color"];
-    // misc
+// misc
     if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
     if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
     if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
@@ -555,24 +562,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
     
     std::cout << "headless: " << headless << std::endl;
-    
-    // separated for better compatibility and less redundancy
-    // if (checkJString(config, "card")) {
-        // std::string cardPath = config["card"];
-        
-        // nlohmann::json card = getJson(cardPath);
-        
-        // getParamsFromJson(card, params, hasFile, headless);
-    // }
-    
-    // if (checkJString(config, "preset")) {
-        // std::string presetPath = config["preset"];
-        
-        // nlohmann::json preset = getJson(presetPath);
-        
-        // getParamsFromJson(preset, params, hasFile, headless);
-    // }
-    
+
 #ifdef GGML_USE_VULKAN
     if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
     if (checkJNum(config, "n_threads_vk")) params.n_threads = config["n_threads_vk"];

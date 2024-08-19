@@ -1,6 +1,14 @@
 #pragma once
 #include "llama.h"
 
+    /// https://github.com/oobabooga/text-generation-webui/pull/6335
+    LLAMA_API void llama_sample_xtc_addon(
+            struct llama_context * ctx,
+          llama_token_data_array * candidates,
+                           float   xtc_probability,
+                           float   xtc_threshold,
+                          size_t   min_keep);
+
     /// @details P-Step sampling as described in [THIS PR]
     LLAMA_API void llama_sample_p_step_addon(
             struct llama_context * ctx,
