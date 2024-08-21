@@ -56,8 +56,11 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
                 }
         }
     }
-
-    candidates->sorted = false;
+    // sorting with new logits
+    std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
+        return a.logit > b.logit;
+    });
+    //resizing now that penalized tokens are at the back
     candidates->size = candidates->size - removed;
 
     llama_set_time(ctx, t_start_sample_us);
