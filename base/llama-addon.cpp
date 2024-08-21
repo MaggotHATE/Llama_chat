@@ -44,16 +44,21 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
     llama_sample_softmax(nullptr, candidates);
 
     const int64_t t_start_sample_us = ggml_time_us();
-
-    for (size_t i = 0; i < candidates->size; ++i) {
+    size_t removed = 0;
+    for (size_t i = 0; i < (candidates->size - 1); ++i) {
         if (candidates->data[i].p >= xtc_threshold) {
                 std::random_device rd;
                 float chance = (float)(rd()%100)/100;
+
                 if (chance <= xtc_probability) {
-                    candidates->data[i].p *= 0;
+                    candidates->data[i].logit = -999.0f; // .p will be recalculated in llama_sample_softmax_impl later based on .logit, so we need to change these
+                    ++removed;
                 }
         }
     }
+
+    candidates->sorted = false;
+    candidates->size = candidates->size - removed;
 
     llama_set_time(ctx, t_start_sample_us);
 }
