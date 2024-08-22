@@ -7,6 +7,7 @@
           llama_token_data_array * candidates,
                            float   xtc_probability,
                            float   xtc_threshold,
+                           float   xtc_probability_once,
                           size_t   min_keep);
 
     /// @details P-Step sampling as described in [THIS PR]

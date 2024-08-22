@@ -156,6 +156,8 @@ std::string get_system_info(const gpt_params & params);
 
 std::string gpt_random_prompt(std::mt19937 & rng);
 
+void string_replace_all(std::string & s, const std::string & search, const std::string & replace);
+
 void process_escapes(std::string& input);
 
 //

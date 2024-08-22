@@ -134,19 +134,20 @@ void sampler_queue(
                  llama_token_data_array & cur_p,
                                  size_t & min_keep) {
 
-    const float       temp              = params.temp;
-    const float       smoothing_factor  = params.smoothing_factor;
-    const float       smoothing_curve   = params.smoothing_curve;
-    const float       dynatemp_range    = params.dynatemp_range;
-    const int32_t     top_k             = params.top_k;
-    const float       top_p             = params.top_p;
-    const float       min_p             = params.min_p;
-    const float       tfs_z             = params.tfs_z;
-    const float       typical_p         = params.typical_p;
-    const float       p_step            = params.p_step;
-    const float       xtc_probability   = params.xtc_probability;
-    const float       xtc_threshold     = params.xtc_threshold;
-    const std::string samplers_sequence = params.samplers_sequence;
+    const float       temp                 = params.temp;
+    const float       smoothing_factor     = params.smoothing_factor;
+    const float       smoothing_curve      = params.smoothing_curve;
+    const float       dynatemp_range       = params.dynatemp_range;
+    const int32_t     top_k                = params.top_k;
+    const float       top_p                = params.top_p;
+    const float       min_p                = params.min_p;
+    const float       tfs_z                = params.tfs_z;
+    const float       typical_p            = params.typical_p;
+    const float       p_step               = params.p_step;
+    const float       xtc_probability      = params.xtc_probability;
+    const float       xtc_threshold        = params.xtc_threshold;
+    const float       xtc_probability_once = params.xtc_probability_once;
+    const std::string samplers_sequence    = params.samplers_sequence;
                       
     for (auto s : samplers_sequence){
         switch (s){
@@ -156,7 +157,7 @@ void sampler_queue(
             case 'p': llama_sample_top_p        (ctx_main, &cur_p, top_p,     min_keep); break;
             case 'm': llama_sample_min_p_addon  (ctx_main, &cur_p, min_p,     min_keep); break;
             case 's': llama_sample_p_step_addon (ctx_main, &cur_p, p_step,    min_keep); break;
-            case 'x': llama_sample_xtc_addon    (ctx_main, &cur_p, xtc_probability, xtc_threshold, min_keep); break;
+            case 'x': llama_sample_xtc_addon    (ctx_main, &cur_p, xtc_probability, xtc_threshold, xtc_probability_once, min_keep); break;
             case 't': {
                 if (dynatemp_range>0)
                 {

@@ -180,6 +180,16 @@ int get_math_cpu_count() {
     return get_num_physical_cores();
 }
 
+void string_replace_all(std::string & s, const std::string & search, const std::string & replace) {
+    if (search.empty()) {
+        return; // Avoid infinite loop if 'search' is an empty string
+    }
+    size_t pos = 0;
+    while ((pos = s.find(search, pos)) != std::string::npos) {
+        s.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+}
 
 void process_escapes(std::string& input) {
     std::size_t input_len = input.length();

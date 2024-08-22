@@ -111,6 +111,14 @@ static bool checkJNum(nlohmann::json& config, std::string name){
     return false;
 }
 
+static bool checkJBool(nlohmann::json& config, std::string name){
+    if(config.contains(name)){
+        if(config[name].is_boolean()) return true;
+    }
+    
+    return false;
+}
+
 static bool checkJObj(nlohmann::json& config, std::string name){
     if(config.contains(name)){
         if(config[name].is_object()) {
@@ -511,6 +519,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
     if (checkJNum(config, "xtc_probability")) params.sparams.xtc_probability = config["xtc_probability"];
     if (checkJNum(config, "xtc_threshold")) params.sparams.xtc_threshold = config["xtc_threshold"];
+    if (checkJBool(config, "xtc_probability_once")) params.sparams.xtc_probability_once = config["xtc_probability_once"];
 
 //penalties
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];
