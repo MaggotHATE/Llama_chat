@@ -36,7 +36,7 @@
 #include <type_traits>
 #include <unordered_map>
 
-void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, float xtc_probability_once, size_t min_keep) {
+void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, bool xtc_probability_once, int xtc_min, size_t min_keep) {
     if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || candidates->size <= 1) {
         return;
     }
@@ -48,25 +48,32 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
     llama_sample_softmax(nullptr, candidates);
 
     const int64_t t_start_sample_us = ggml_time_us();
+    int id_first = -1;
     size_t removed = 0;
     for (size_t i = 0; i < (candidates->size - 1); ++i) {
         if (candidates->data[i].p >= xtc_threshold) {
-                if (xtc_probability_once || chance <= xtc_probability) {
+                if (id_first == -1) {
+                    id_first = i;
+                    ++removed;
+                } else if (xtc_probability_once || chance <= xtc_probability) {
                     // .logits are used for sorting and calculating .p in llama_sample_softmax_impl
                     candidates->data[i].logit = -999.0f;
-                    ++removed;
                     if (!xtc_probability_once) chance = (float)(rd()%100)/100;
+                    ++removed;
                 }
         }
     }
 
-    // sorting with new logits
-    std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
-        return a.logit > b.logit;
-    });
-    //resizing now that penalized tokens are at the back
-    candidates->size = candidates->size - removed;
-
+    if (removed >= xtc_min) {
+        // penalizing by first id
+        if (xtc_probability_once || chance <= xtc_probability) candidates->data[id_first].logit = -999.0f;
+        // sorting with new logits
+        std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
+            return a.logit > b.logit;
+        });
+        //resizing now that penalized tokens are at the back
+        candidates->size = candidates->size - removed;
+    }
     llama_set_time(ctx, t_start_sample_us);
 }
 

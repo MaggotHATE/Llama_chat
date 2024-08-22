@@ -519,6 +519,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
     if (checkJNum(config, "xtc_probability")) params.sparams.xtc_probability = config["xtc_probability"];
     if (checkJNum(config, "xtc_threshold")) params.sparams.xtc_threshold = config["xtc_threshold"];
+    if (checkJNum(config, "xtc_min")) params.sparams.xtc_min = config["xtc_min"];
     if (checkJBool(config, "xtc_probability_once")) params.sparams.xtc_probability_once = config["xtc_probability_once"];
 
 //penalties
