@@ -50,7 +50,8 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
     const int64_t t_start_sample_us = ggml_time_us();
     int id_first = -1;
     size_t removed = 0;
-    for (size_t i = 0; i < (candidates->size - 1); ++i) {
+    // going through all candidates to correctly trigget the effect
+    for (size_t i = 0; i < candidates->size; ++i) {
         if (candidates->data[i].p >= xtc_threshold) {
                 if (id_first == -1) {
                     id_first = i;
@@ -66,13 +67,17 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
     if (removed >= xtc_min) {
         // penalizing by first id
-        if (xtc_probability_once || chance <= xtc_probability) candidates->data[id_first].logit = -999.0f;
-        // sorting with new logits
+        if (xtc_probability_once || chance <= xtc_probability) {
+            candidates->data[id_first].logit = -999.0f;
+        }
+        // sorting with new logits, but prioritizing last token since we'll resize later
         std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
-            return a.logit > b.logit;
+            return a.logit >= b.logit;
         });
-        //resizing now that penalized tokens are at the back
-        candidates->size = candidates->size - removed;
+
+        // resizing now that penalized tokens are at the back, but leave at least 1 token
+        // this ensures that if only 2 tokens are present, at least one (more probable) is penalized
+        candidates->size = (candidates->size > removed ? candidates->size - removed : 1);
     }
     llama_set_time(ctx, t_start_sample_us);
 }
