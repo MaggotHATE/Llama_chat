@@ -1313,6 +1313,7 @@ struct configurableChat{
         } else if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
         if (params.sparams.xtc_probability != paramsDefault.sparams.xtc_probability) modelConfig[model]["xtc_probability"] = params.sparams.xtc_probability;
         if (params.sparams.xtc_threshold != paramsDefault.sparams.xtc_threshold) modelConfig[model]["xtc_threshold"] = params.sparams.xtc_threshold;
+        if (params.sparams.xtc_threshold_max != paramsDefault.sparams.xtc_threshold_max) modelConfig[model]["xtc_threshold_max"] = params.sparams.xtc_threshold_max;
         if (params.sparams.xtc_min != paramsDefault.sparams.xtc_min) modelConfig[model]["xtc_min"] = params.sparams.xtc_min;
         if (params.sparams.xtc_probability_once != paramsDefault.sparams.xtc_probability_once) modelConfig[model]["xtc_probability_once"] = params.sparams.xtc_probability_once;
         // penalties
@@ -1424,6 +1425,7 @@ struct configurableChat{
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;
         if (params.sparams.xtc_probability != paramsDefault.sparams.xtc_probability) newCard["xtc_probability"] = params.sparams.xtc_probability;
         if (params.sparams.xtc_threshold != paramsDefault.sparams.xtc_threshold) newCard["xtc_threshold"] = params.sparams.xtc_threshold;
+        if (params.sparams.xtc_threshold_max != paramsDefault.sparams.xtc_threshold_max) newCard["xtc_threshold_max"] = params.sparams.xtc_threshold_max;
         if (params.sparams.xtc_min != paramsDefault.sparams.xtc_min) newCard["xtc_min"] = params.sparams.xtc_min;
         if (params.sparams.xtc_probability_once != paramsDefault.sparams.xtc_probability_once) newCard["xtc_probability_once"] = params.sparams.xtc_probability_once;
         //penalties

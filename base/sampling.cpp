@@ -146,6 +146,7 @@ void sampler_queue(
     const float       p_step               = params.p_step;
     const float       xtc_probability      = params.xtc_probability;
     const float       xtc_threshold        = params.xtc_threshold;
+    const float       xtc_threshold_max    = params.xtc_threshold_max;
     const float       xtc_probability_once = params.xtc_probability_once;
     const float       xtc_min              = params.xtc_min;
     const std::string samplers_sequence    = params.samplers_sequence;
@@ -158,7 +159,7 @@ void sampler_queue(
             case 'p': llama_sample_top_p        (ctx_main, &cur_p, top_p,     min_keep); break;
             case 'm': llama_sample_min_p_addon  (ctx_main, &cur_p, min_p,     min_keep); break;
             case 's': llama_sample_p_step_addon (ctx_main, &cur_p, p_step,    min_keep); break;
-            case 'x': llama_sample_xtc_addon    (ctx_main, &cur_p, xtc_probability, xtc_threshold, xtc_probability_once, xtc_min, min_keep); break;
+            case 'x': llama_sample_xtc_addon    (ctx_main, &cur_p, xtc_probability, xtc_threshold, xtc_threshold_max, xtc_probability_once, xtc_min, min_keep); break;
             case 't': {
                 if (dynatemp_range>0)
                 {

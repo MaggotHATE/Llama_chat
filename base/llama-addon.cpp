@@ -36,8 +36,8 @@
 #include <type_traits>
 #include <unordered_map>
 
-void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, bool xtc_probability_once, int xtc_min, size_t min_keep) {
-    if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || candidates->size <= 1) {
+void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, float xtc_threshold_max, bool xtc_probability_once, int xtc_min, size_t min_keep) {
+    if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || xtc_threshold_max == xtc_threshold || xtc_min < 1 || candidates->size <= 1) {
         return;
     }
 
@@ -52,7 +52,7 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
     size_t removed = 0;
     // going through all candidates to correctly trigget the effect
     for (size_t i = 0; i < candidates->size; ++i) {
-        if (candidates->data[i].p >= xtc_threshold) {
+        if (candidates->data[i].p >= xtc_threshold && candidates->data[i].p <= xtc_threshold_max) {
                 if (id_first == -1) {
                     id_first = i;
                     ++removed;

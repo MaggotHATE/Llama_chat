@@ -59,6 +59,7 @@ typedef struct llama_sampling_params {
     int32_t     dry_penalty_last_n    = -1;                 // DRY last n tokens to penalize (0 = disable penalty, -1 = context size)
     float       xtc_probability       = 0.5; // probability of removing a top token
     float       xtc_threshold         = 0.1; // minimum tokens probablitity for this to run
+    float       xtc_threshold_max     = 1.0; // maximum tokens probablitity for this to run
     bool        xtc_probability_once  = false; // should we calculate chances one or for each token
     int         xtc_min               = 2; // minimum number of penalizeable tokens
     std::string samplers_sequence     = "kfypmts"; // top_k, tail_free, typical_p, top_p, min_p, temp, p_step

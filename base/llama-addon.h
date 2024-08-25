@@ -7,6 +7,7 @@
           llama_token_data_array * candidates,
                            float   xtc_probability,
                            float   xtc_threshold,
+                           float   xtc_threshold_max,
                            bool    xtc_probability_once,
                            int     xtc_min,
                           size_t   min_keep);
