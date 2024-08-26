@@ -33,9 +33,15 @@ static void replace_all(std::string & s, const std::string & search, const std::
     if (search.empty()) {
         return; // Avoid infinite loop if 'search' is an empty string
     }
+    std::string builder;
+    builder.reserve(s.length());
     size_t pos = 0;
-    while ((pos = s.find(search, pos)) != std::string::npos) {
-        s.replace(pos, search.length(), replace);
-        pos += replace.length();
+    size_t last_pos = 0;
+    while ((pos = s.find(search, last_pos)) != std::string::npos) {
+        builder.append(s, last_pos, pos - last_pos);
+        builder.append(replace);
+        last_pos = pos + search.length();
     }
+    builder.append(s, last_pos, std::string::npos);
+    s = std::move(builder);
 }

@@ -37,7 +37,7 @@
 #include <unordered_map>
 
 void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, float xtc_threshold_max, bool xtc_probability_once, int xtc_min, size_t min_keep) {
-    if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || xtc_threshold_max == xtc_threshold || xtc_min < 1 || candidates->size <= 1) {
+    if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || xtc_min < 1 || candidates->size <= 1) {
         return;
     }
 
@@ -48,37 +48,32 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
     llama_sample_softmax(nullptr, candidates);
 
     const int64_t t_start_sample_us = ggml_time_us();
-    int id_first = -1;
-    size_t removed = 0;
-    // going through all candidates to correctly trigget the effect
-    for (size_t i = 0; i < candidates->size; ++i) {
+    int removed = 0;
+    // going through all candidates from back to front, easier to keep the last of probables
+    for (int i = (candidates->size - 1); i >= 0; --i) {
         if (candidates->data[i].p >= xtc_threshold && candidates->data[i].p <= xtc_threshold_max) {
-                if (id_first == -1) {
-                    id_first = i;
-                    ++removed;
-                } else if (xtc_probability_once || chance <= xtc_probability) {
+            if (removed == 0 || xtc_probability_once || chance <= xtc_probability) {
+                ++removed;
+                if (removed >= xtc_min) {
                     // .logits are used for sorting and calculating .p in llama_sample_softmax_impl
                     candidates->data[i].logit = -999.0f;
                     if (!xtc_probability_once) chance = (float)(rd()%100)/100;
-                    ++removed;
                 }
+            }
         }
     }
 
+    // still need this check
     if (removed >= xtc_min) {
-        // penalizing by first id
-        if (xtc_probability_once || chance <= xtc_probability) {
-            candidates->data[id_first].logit = -999.0f;
-        }
-        // sorting with new logits, but prioritizing last token since we'll resize later
+        // sorting with new logits, ex-last probable will be the first anyway
         std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
-            return a.logit >= b.logit;
+            return a.logit > b.logit;
         });
 
-        // resizing now that penalized tokens are at the back, but leave at least 1 token
-        // this ensures that if only 2 tokens are present, at least one (more probable) is penalized
-        candidates->size = (candidates->size > removed ? candidates->size - removed : 1);
+        // resizing now that penalized tokens are at the back
+        candidates->size = candidates->size - removed + 1;
     }
+
     llama_set_time(ctx, t_start_sample_us);
 }
 
