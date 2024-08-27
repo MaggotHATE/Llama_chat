@@ -5843,7 +5843,7 @@ static bool ggml_vk_build_graph(ggml_backend_vk_context * ctx, ggml_tensor * nod
 
         // TODO probably it'd be better to pass a exit_node flag to ggml_vk_compute_forward
         if (last_node) {
-            compute_ctx->exit_tensor_idx = node_idx_begin; 
+            compute_ctx->exit_tensor_idx = node_idx_begin;
         }
         else {
             compute_ctx->exit_tensor_idx = -1;
@@ -5931,10 +5931,6 @@ static bool ggml_vk_compute_forward(ggml_backend_vk_context * ctx, ggml_tensor *
 
     VK_LOG_DEBUG("ggml_vk_compute_forward(" << tensor << ", name=" << tensor->name << ", op=" << ggml_op_name(tensor->op) << ", type=" << tensor->type << ", ne0=" << tensor->ne[0] << ", ne1=" << tensor->ne[1] << ", ne2=" << tensor->ne[2] << ", ne3=" << tensor->ne[3] << ", nb0=" << tensor->nb[0] << ", nb1=" << tensor->nb[1] << ", nb2=" << tensor->nb[2] << ", nb3=" << tensor->nb[3] << ", view_src=" << tensor->view_src << ", view_offs=" << tensor->view_offs << ")");
 
-#ifdef GGML_VULKAN_CHECK_RESULTS
-    ggml_vk_check_results_0(tensor);
-#endif
-
     vk_context subctx = ctx->tensor_ctxs[tensor_idx].lock();
 
     // always wait for the GPU work to be done for the last submit
@@ -5942,22 +5938,28 @@ static bool ggml_vk_compute_forward(ggml_backend_vk_context * ctx, ggml_tensor *
         use_fence = true;
     }
 
-    vk::Fence fence = use_fence ? ctx->fence : vk::Fence{};
-
     // Only run if ctx hasn't been submitted yet
     if (!subctx->seqs.empty()) {
+#ifdef GGML_VULKAN_CHECK_RESULTS
+        ggml_vk_check_results_0(tensor);
+        use_fence = true;
+#endif
+
         // Do staging buffer copies
         for (auto& cpy : subctx->in_memcpys) {
             memcpy(cpy.dst, cpy.src, cpy.n);
         }
 
-        ggml_vk_submit(subctx, fence);
-    }
+        ggml_vk_submit(subctx, use_fence ? ctx->fence : vk::Fence{});
 
-    if (use_fence) {
-        VK_CHECK(ctx->device->device.waitForFences({ ctx->fence }, true, UINT64_MAX), "ggml_vk_compute_forward waitForFences");
+        if (use_fence) {
+            VK_CHECK(ctx->device->device.waitForFences({ ctx->fence }, true, UINT64_MAX), "ggml_vk_compute_forward waitForFences");
 
-        ctx->device->device.resetFences({ ctx->fence });
+            ctx->device->device.resetFences({ ctx->fence });
+        }
+#ifdef GGML_VULKAN_CHECK_RESULTS
+        ggml_vk_check_results_1(tensor);
+#endif
     }
 
     if (tensor_idx == subctx->exit_tensor_idx) {
@@ -6468,21 +6470,27 @@ GGML_CALL static ggml_status ggml_backend_vk_graph_compute(ggml_backend_t backen
     int submit_node_idx = 0; // index to first node in a batch
 
     // submit work every submit_count node to overlap CPU cmdbuffer generation with GPU execution
-    constexpr int submit_count = 50;
+    constexpr int submit_count = 100;
+    int submitted_nodes = 0;
     for (int i = 0; i < cgraph->n_nodes; i++) {
         if (first_node_in_batch) {
             submit_node_idx = i;
         }
 
-        // TODO probably it's better to move the submit conter to ggml_vk_build_graph since a lot of nodes might not contain actual vulkan work
-        bool submit = i && ((i % submit_count) == 0);
+        bool submit = (submitted_nodes >= submit_count) || (i == last_node);
         bool enqueued = ggml_vk_build_graph(ctx, cgraph->nodes[i], i, cgraph->nodes[submit_node_idx], submit_node_idx, false, i == last_node, submit);
 
-        if (first_node_in_batch && enqueued) {
-            first_node_in_batch = false;
+        if (enqueued) {
+            ++submitted_nodes;
+
+            if (first_node_in_batch) {
+                first_node_in_batch = false;
+            }
         }
+
         if (submit) {
             first_node_in_batch = true;
+            submitted_nodes = 0;
         }
     }
 
