@@ -40,3 +40,5 @@
 *.rar
 /base/common — копия.cpp
 /base/ggml-opencl-bu.cpp
+/base/ggml/ggml-vulkan-shaders.cpp
+/base/ggml/ggml-vulkan-shaders.hpp
