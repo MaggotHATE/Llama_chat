@@ -61,6 +61,7 @@ Libraries:
 * `make chat_vk` for Vulkan UI version
 6. `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
 * for CPU-only builds add `OPENBLAS64=1` to compile with OpenBLAS (helps with prompt processing)
+* if you want to use OpenMP, add `OPENMP=1` (might be slower after Threadpool 2)
 * if your GPU/iGPU don't support Vulkan, compile UI with SDL2=1
 * if you need Windows console for debugging, compile with CONW=1
 * see more in makefile

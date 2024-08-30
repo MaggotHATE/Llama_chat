@@ -257,11 +257,11 @@ endif
 LIBS =
 LDFLAGS  =
 
-ifndef LLAMA_NO_OPENMP
+ifdef OPENMP
 	CXXFLAGS += -fopenmp -DGGML_USE_OPENMP
 	CXXFLAGS_UI += -fopenmp -DGGML_USE_OPENMP
 	CFLAGS += -fopenmp -DGGML_USE_OPENMP
-endif # LLAMA_NO_OPENMP
+endif # OPENMP
 
 # Windows Sockets 2 (Winsock) for network-capable apps
 ifeq ($(_WIN32),1)

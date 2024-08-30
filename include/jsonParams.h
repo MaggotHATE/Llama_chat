@@ -495,10 +495,10 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "n_threads_sched_priority")) {
         int sched_priority = config["n_threads_sched_priority"];
         switch (sched_priority){
-            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
-            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
-            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
-            default: params.cpuparams_batch.priority = GGML_SCHED_PRIO_NORMAL; break;
+            case 1: params.cpuparams.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 2: params.cpuparams.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 3: params.cpuparams.priority = GGML_SCHED_PRIO_REALTIME; break;
+            default: params.cpuparams.priority = GGML_SCHED_PRIO_NORMAL; break;
         }
     }
     // threading prompt processing
