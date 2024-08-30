@@ -237,7 +237,7 @@ struct modelThread{
         std::cout << "n_consumed_last  : " << newChat.n_consumed_last << '\n' << std::endl;
         
         //#ifdef GGML_EXPERIMENTAL1
-        std::cout << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << std::endl;
+        std::cout << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << '\n' << std::endl;
         if (penalize_nl) std::cout << "penalize_nl = true" << std::endl;
         if (newChat.params.use_mmap) std::cout << "use_mmap = true" << std::endl;
         if (newChat.params.no_kv_offload) std::cout << "no_kv_offload = true" << std::endl;
@@ -323,7 +323,7 @@ struct modelThread{
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
             file << sparamsList << DELIMINER;
-            file << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+            file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
             file << lastTimings << std::endl;
             file << "Prompt:" << consumed_tokens << std::endl;
             file << "Result: " << last_tokens << std::endl;
@@ -349,7 +349,7 @@ struct modelThread{
         if (file_i.is_open() && file_o.is_open()) {
             file_i << shortModelName << DELIMINER;
             file_i << sparamsList << DELIMINER;
-            file_i << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+            file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
             file_i << lastTimings << std::endl;
             file_i << "Prompt:" << consumed_tokens << std::endl;
             file_i << "Result: " << last_tokens << std::endl;
@@ -379,7 +379,7 @@ struct modelThread{
                 if (file_i.is_open()) {
                     file_i << shortModelName << DELIMINER;
                     file_i << sparamsList << DELIMINER;
-                    file_i << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+                    file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
                     file_i << lastTimings << std::endl;
                     file_i << "Prompt:" << consumed_tokens << std::endl;
                     file_i << "Result: " << last_tokens << std::endl;
@@ -417,7 +417,7 @@ struct modelThread{
             file << shortModelName << DELIMINER;
             file << std::to_string(newChat.params.seed) << DELIMINER;
             file << sparamsList << DELIMINER;
-            file << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << std::endl;
+            file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
             file << lastTimings << std::endl;
             file << "Prompt:" << consumed_tokens << std::endl;
             file << "Result: " << last_tokens << std::endl;
@@ -440,7 +440,7 @@ struct modelThread{
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << shortModelName << DELIMINER;
-            file << "Threads: " << newChat.params.n_threads << "/" << newChat.params.n_threads_batch << '\n' << DELIMINER;
+            file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << '\n' << DELIMINER;
             file << lastTimings << DELIMINER;
             file << "Seed = " << std::to_string(newChat.params.seed) << DELIMINER;
             file << sparamsList << DELIMINER;
@@ -1339,7 +1339,7 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) modelConfig[model]["n_ubatch"] = params.n_ubatch;
-        if (params.n_threads != paramsDefault.n_threads) modelConfig[model]["n_threads"] = params.n_threads;
+        if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) modelConfig[model]["n_threads"] = params.cpuparams.n_threads;
         if (params.clblast_platform_id != paramsDefault.clblast_platform_id) modelConfig[model]["clblast_platform_id"] = params.clblast_platform_id;
         if (params.format_instruct != paramsDefault.format_instruct) modelConfig[model]["format_instruct"] = params.format_instruct;
         if (params.format_dialog != paramsDefault.format_dialog) modelConfig[model]["format_dialog"] = params.format_dialog;
@@ -1348,16 +1348,10 @@ struct configurableChat{
         if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
         
         //#if GGML_EXPERIMENTAL1
-        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
+        if (params.cpuparams_batch.n_threads != paramsDefault.cpuparams_batch.n_threads) modelConfig[model]["n_threads_batch"] = params.cpuparams_batch.n_threads;
         //#endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
-        
-        #if GGML_OLD_FORMAT
-        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) modelConfig[model]["rms-norm-eps"] = params.rms_norm_eps;
-        #else 
-        if (params.n_threads_batch != paramsDefault.n_threads_batch) modelConfig[model]["n_threads_batch"] = params.n_threads_batch;
-        #endif
-        
+
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
         if (params.rope_freq_scale != paramsDefault.rope_freq_scale) modelConfig[model]["rope_freq_scale"] = params.rope_freq_scale;
         if (params.yarn_beta_slow != paramsDefault.yarn_beta_slow) modelConfig[model]["yarn_beta_slow"] = params.yarn_beta_slow;
@@ -1449,20 +1443,14 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) newCard["n_ubatch"] = params.n_ubatch;
-        if (params.n_threads != paramsDefault.n_threads) newCard["n_threads"] = params.n_threads;
+        if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) newCard["n_threads"] = params.cpuparams.n_threads;
         if (params.clblast_platform_id != paramsDefault.clblast_platform_id) newCard["clblast_platform_id"] = params.clblast_platform_id;
 
         //#if GGML_EXPERIMENTAL1
-        if (params.n_threads_batch != paramsDefault.n_threads_batch) newCard["n_threads_batch"] = params.n_threads_batch;
+        if (params.cpuparams_batch.n_threads != paramsDefault.cpuparams_batch.n_threads) newCard["n_threads_batch"] = params.cpuparams_batch.n_threads;
         //#endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) newCard["n_gpu_layers"] = params.n_gpu_layers;
-        
-        #if GGML_OLD_FORMAT
-        if (params.rms_norm_eps != paramsDefault.rms_norm_eps) newCard["rms-norm-eps"] = params.rms_norm_eps;
-        #else 
-        if (params.n_threads_batch != paramsDefault.n_threads_batch) newCard["n_threads_batch"] = params.n_threads_batch;
-        #endif
-        
+
         if (params.rope_freq_base != paramsDefault.rope_freq_base) newCard["rope_freq_base"] = params.rope_freq_base;
         if (params.rope_freq_scale != paramsDefault.rope_freq_scale) newCard["rope_freq_scale"] = params.rope_freq_scale;
         if (params.yarn_beta_slow != paramsDefault.yarn_beta_slow) newCard["yarn_beta_slow"] = params.yarn_beta_slow;

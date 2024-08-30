@@ -682,11 +682,11 @@ static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
         
         
         
-        ImGui::SliderInt("Generation threads", &params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+        ImGui::SliderInt("Generation threads", &params.cpuparams.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
         
         
         //#ifdef GGML_EXPERIMENTAL1
-        ImGui::SliderInt("Evaluation threads", &params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+        ImGui::SliderInt("Evaluation threads", &params.cpuparams_batch.n_threads, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
         //#endif
         // ImGui::SliderFloat("cfg_smooth_factor", &localSettings.cfg_smooth_factor, 0.0f, 2.0f); ImGui::SameLine(); HelpMarker("Desfines the mix between outpus with and without cfg.");
     #if GGML_USE_CLBLAST || GGML_USE_VULKAN
@@ -941,7 +941,8 @@ struct chatUI{
     bool initTokens = false;
     bool hasModel = false;
     //int totalThreads = get_num_physical_cores();
-    int totalThreads = get_math_cpu_count();
+    //int totalThreads = get_math_cpu_count();
+    int totalThreads = cpu_get_num_physical_cores();
     
     int n_ctx_idx = 0;
     int tokens_this_session = 0;
@@ -1784,7 +1785,8 @@ struct chatUI{
             
             if (newChat.isContinue == 'i' && ( localResultPairs.size() > 2 || !newChat.lastResult.empty())) {
                 if (regen_cycles > 0) {
-                    newChat.writeTextFile("tales/",std::to_string(regen_cycles));
+                    //newChat.writeTextFile("tales/",std::to_string(regen_cycles));
+                    newChat.writeTextFileUnified("tales/",std::to_string(regen_cycles), regen_cycles == 10);
                     --regen_cycles;
                     regenPrompt();
                 } else {
@@ -2626,9 +2628,9 @@ struct chatUI{
     void immediateSettings(){
         //ImGui::SetNextItemAllowOverlap();
         if (ImGui::BeginChild("Immediate settings", ImVec2( ImGui::GetContentRegionAvail().x * 0.77f, fontSize + 70.0f))){ 
-            ImGui::SliderInt("n_threads", &newChat.newChat.params.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
+            ImGui::SliderInt("n_threads", &newChat.newChat.params.cpuparams.n_threads, 1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads to use for generation, doesn't have to be maximum at the moment - try to find a sweetspot.");
     
-            ImGui::SliderInt("n_threads_batch", &newChat.newChat.params.n_threads_batch, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
+            ImGui::SliderInt("n_threads_batch", &newChat.newChat.params.cpuparams_batch.n_threads, -1, totalThreads); ImGui::SameLine(); HelpMarker("Number of threads for prompt evaluation, recommended to set to maximum.");
 #if GGML_USE_CLBLAST || GGML_USE_VULKAN
             ImGui::SliderInt("n_gpu_layers", &newChat.newChat.params.n_gpu_layers, 0, 100); ImGui::SameLine(); HelpMarker("Number of layers to offload onto GPU.");
 #endif

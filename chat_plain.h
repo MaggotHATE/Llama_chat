@@ -252,6 +252,9 @@ private:
     std::vector<int>   output_tokens;
     std::ostringstream output_ss; 
     
+    struct ggml_threadpool * threadpool;
+    struct ggml_threadpool * threadpool_batch = NULL;
+    
 public:
     gpt_params params;
     bool tempFirst           = true;
@@ -375,6 +378,8 @@ public:
             //}
             llama_sampling_free(ctx_sampling);
             llama_backend_free();
+            ggml_threadpool_free(threadpool);
+            ggml_threadpool_free(threadpool_batch);
             
             clearSoft();
             
@@ -488,7 +493,7 @@ public:
                 argv[i] = const_cast<char*>(blank.c_str());
             }
         }
-        
+
         if (gpt_params_parse(argc, argv, params) == false) {
             return -1;
         }
@@ -744,12 +749,6 @@ public:
         }
 
         //fprintf(stderr, "%s: seed  = %d\n", __func__, params.seed);
-
-        std::mt19937 rng(params.seed);
-        if (params.random_prompt) {
-            params.prompt = gpt_random_prompt(rng);
-        }
-        
         return 2;
     }
     
@@ -782,6 +781,38 @@ public:
         }
 
         return 0;
+    }
+
+    int assignThreads() {
+        struct ggml_threadpool_params tpp_batch =
+            ggml_threadpool_params_from_cpu_params(params.cpuparams_batch);
+        struct ggml_threadpool_params tpp =
+                ggml_threadpool_params_from_cpu_params(params.cpuparams);
+
+        set_process_priority(params.cpuparams.priority);
+
+        threadpool_batch = NULL;
+        if (!ggml_threadpool_params_match(&tpp, &tpp_batch)) {
+            threadpool_batch = ggml_threadpool_new(&tpp_batch);
+            if (!threadpool_batch) {
+                printf("%s: batch threadpool create failed : n_threads %d\n", __func__, tpp_batch.n_threads);
+                exit(1);
+            }
+
+            // Start the non-batch threadpool in the paused state
+            tpp.paused = true;
+        }
+
+        threadpool = ggml_threadpool_new(&tpp);
+        if (!threadpool) {
+            printf("%s: threadpool create failed : n_threads %d\n", __func__, tpp.n_threads);
+            exit(1);
+        }
+
+        llama_attach_threadpool(ctx, threadpool, threadpool_batch);
+        if (ctx_guidance) {
+            llama_attach_threadpool(ctx_guidance, threadpool, threadpool_batch);
+        }
     }
 
     int loadModel(){

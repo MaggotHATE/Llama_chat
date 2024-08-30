@@ -49,7 +49,10 @@
 #define GGML_USE_CUDA_SYCL_VULKAN
 #endif
 
-int32_t get_num_physical_cores() {
+//
+// CPU utils
+//
+int32_t cpu_get_num_physical_cores() {
 #ifdef __linux__
     // enumerate the set of thread siblings, num entries is num cores
     std::unordered_set<std::string> siblings;
@@ -78,64 +81,55 @@ int32_t get_num_physical_cores() {
     if (result == 0) {
         return num_physical_cores;
     }
-#elif defined(_WIN32)
-    //returns number of physical processor on windows
-    unsigned int fallback_threads = std::thread::hardware_concurrency();
-    DWORD length = 0;
-    GetLogicalProcessorInformationEx(RelationAll, nullptr, &length);
-
-    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-        std::cerr << "GLIPEx INSUFFICIENT_BUFFER" << std::endl;
-        return fallback_threads > 0 ? (fallback_threads <= 4 ? fallback_threads : fallback_threads / 2) : 4;
-    }
-
-    std::vector<uint8_t> buffer(length);
-    if (!GetLogicalProcessorInformationEx(RelationAll, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()), &length)) {
-        std::cerr << "GLIPEx: Unable to get processor information" << std::endl;
-        return fallback_threads > 0 ? (fallback_threads <= 4 ? fallback_threads : fallback_threads / 2) : 4;
-    }
-
-    DWORD physicalCoreCount = 0;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data());
-    while (reinterpret_cast<uint8_t*>(info) < buffer.data() + buffer.size()) {
-        if (info->Relationship == RelationProcessorCore) {
-            physicalCoreCount++;
+#elif defined(_WIN32) && (_WIN32_WINNT >= 0x0601) && !defined(__MINGW64__) // windows 7 and later
+    // TODO: windows + arm64 + mingw64
+    unsigned int n_threads_win = std::thread::hardware_concurrency();
+    unsigned int default_threads = n_threads_win > 0 ? (n_threads_win <= 4 ? n_threads_win : n_threads_win / 2) : 4;
+    DWORD buffer_size = 0;
+    if (!GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &buffer_size)) {
+        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+            return default_threads;
         }
-        info = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(reinterpret_cast<uint8_t*>(info) + info->Size);
     }
-    return physicalCoreCount;
-
+    std::vector<char> buffer(buffer_size);
+    if (!GetLogicalProcessorInformationEx(RelationProcessorCore, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()), &buffer_size)) {
+        return default_threads;
+    }
+    int32_t num_physical_cores = 0;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data());
+    while (buffer_size > 0) {
+        if (info->Relationship == RelationProcessorCore) {
+            num_physical_cores += info->Processor.GroupCount;
+        }
+        buffer_size -= info->Size;
+        info = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(reinterpret_cast<char*>(info) + info->Size);
+    }
+    return num_physical_cores > 0 ? num_physical_cores : default_threads;
 #endif
     unsigned int n_threads = std::thread::hardware_concurrency();
     return n_threads > 0 ? (n_threads <= 4 ? n_threads : n_threads / 2) : 4;
 }
-
-
-#if defined(__x86_64__) && defined(__linux__)
+#if defined(__x86_64__) && defined(__linux__) && !defined(__ANDROID__)
 #include <pthread.h>
-
 static void cpuid(unsigned leaf, unsigned subleaf,
                   unsigned *eax, unsigned *ebx, unsigned *ecx, unsigned *edx) {
-  __asm__("movq\t%%rbx,%%rsi\n\t"
-          "cpuid\n\t"
-          "xchgq\t%%rbx,%%rsi"
-          : "=a"(*eax), "=S"(*ebx), "=c"(*ecx), "=d"(*edx)
-          : "0"(leaf), "2"(subleaf));
+    __asm__("movq\t%%rbx,%%rsi\n\t"
+            "cpuid\n\t"
+            "xchgq\t%%rbx,%%rsi"
+            : "=a"(*eax), "=S"(*ebx), "=c"(*ecx), "=d"(*edx)
+            : "0"(leaf), "2"(subleaf));
 }
-
 static int pin_cpu(int cpu) {
     cpu_set_t mask;
     CPU_ZERO(&mask);
     CPU_SET(cpu, &mask);
     return pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask);
 }
-
 static bool is_hybrid_cpu(void) {
     unsigned eax, ebx, ecx, edx;
     cpuid(7, 0, &eax, &ebx, &ecx, &edx);
     return !!(edx & (1u << 15));
 }
-
 static bool is_running_on_efficiency_core(void) {
     unsigned eax, ebx, ecx, edx;
     cpuid(0x1a, 0, &eax, &ebx, &ecx, &edx);
@@ -143,42 +137,94 @@ static bool is_running_on_efficiency_core(void) {
     int core_type = (eax & 0xff000000u) >> 24;
     return core_type == intel_atom;
 }
-
-static int count_math_cpus(int cpu_count) {
+static int cpu_count_math_cpus(int n_cpu) {
     int result = 0;
-    for (int cpu = 0; cpu < cpu_count; ++cpu) {
-        if (pin_cpu(cpu))
+    for (int cpu = 0; cpu < n_cpu; ++cpu) {
+        if (pin_cpu(cpu)) {
             return -1;
-        if (is_running_on_efficiency_core())
+        }
+        if (is_running_on_efficiency_core()) {
             continue; // efficiency cores harm lockstep threading
+        }
         ++cpu; // hyperthreading isn't useful for linear algebra
         ++result;
     }
     return result;
 }
-
 #endif // __x86_64__ && __linux__
-
 /**
  * Returns number of CPUs on system that are useful for math.
  */
-int get_math_cpu_count() {
-#if defined(__x86_64__) && defined(__linux__)
-    int cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
-    if (cpu_count < 1)
-        return get_num_physical_cores();
+int32_t cpu_get_num_math() {
+#if defined(__x86_64__) && defined(__linux__) && !defined(__ANDROID__)
+    int n_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+    if (n_cpu < 1) {
+        return cpu_get_num_physical_cores();
+    }
     if (is_hybrid_cpu()) {
         cpu_set_t affinity;
         if (!pthread_getaffinity_np(pthread_self(), sizeof(affinity), &affinity)) {
-            int result = count_math_cpus(cpu_count);
+            int result = cpu_count_math_cpus(n_cpu);
             pthread_setaffinity_np(pthread_self(), sizeof(affinity), &affinity);
-            if (result > 0)
+            if (result > 0) {
                 return result;
+            }
         }
     }
 #endif
-    return get_num_physical_cores();
+    return cpu_get_num_physical_cores();
 }
+
+// Helper for setting process priority
+
+#if defined(_WIN32)
+
+bool set_process_priority(enum ggml_sched_priority prio) {
+    if (prio == GGML_SCHED_PRIO_NORMAL) {
+        return true;
+    }
+
+    DWORD p = NORMAL_PRIORITY_CLASS;
+    switch (prio) {
+        case GGML_SCHED_PRIO_NORMAL:   p = NORMAL_PRIORITY_CLASS;       break;
+        case GGML_SCHED_PRIO_MEDIUM:   p = ABOVE_NORMAL_PRIORITY_CLASS; break;
+        case GGML_SCHED_PRIO_HIGH:     p = HIGH_PRIORITY_CLASS;         break;
+        case GGML_SCHED_PRIO_REALTIME: p = REALTIME_PRIORITY_CLASS;     break;
+    }
+
+    if (!SetPriorityClass(GetCurrentProcess(), p)) {
+        fprintf(stderr, "warn: failed to set process priority class %d : (%d)\n", prio, (int) GetLastError());
+        return false;
+    }
+
+    return true;
+}
+
+#else // MacOS and POSIX
+#include <sys/types.h>
+#include <sys/resource.h>
+
+bool set_process_priority(enum ggml_sched_priority prio) {
+    if (prio == GGML_SCHED_PRIO_NORMAL) {
+        return true;
+    }
+
+    int p = 0;
+    switch (prio) {
+        case GGML_SCHED_PRIO_NORMAL:   p =  0;  break;
+        case GGML_SCHED_PRIO_MEDIUM:   p = -5;  break;
+        case GGML_SCHED_PRIO_HIGH:     p = -10; break;
+        case GGML_SCHED_PRIO_REALTIME: p = -20; break;
+    }
+
+    if (!setpriority(PRIO_PROCESS, 0, p)) {
+        fprintf(stderr, "warn: failed to set process priority %d : %s (%d)\n", prio, strerror(errno), errno);
+        return false;
+    }
+    return true;
+}
+
+#endif
 
 void string_replace_all(std::string & s, const std::string & search, const std::string & replace) {
     if (search.empty()) {
@@ -225,659 +271,51 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
     bool result = true;
     try {
         if (!gpt_params_parse_ex(argc, argv, params)) {
-            gpt_print_usage(argc, argv, gpt_params());
+            //gpt_print_usage(argc, argv, gpt_params());
+            printf("Conflags are disabled, please use .json");
             exit(0);
         }
     }
     catch (const std::invalid_argument & ex) {
         fprintf(stderr, "%s\n", ex.what());
-        gpt_print_usage(argc, argv, gpt_params());
+        //gpt_print_usage(argc, argv, gpt_params());
+        printf("Conflags are disabled, please use .json");
         exit(1);
     }
     return result;
 }
 
+void postprocess_cpu_params(cpu_params& cpuparams, const cpu_params* role_model) {
+    int32_t n_set = 0;
+
+    if (cpuparams.n_threads < 0) {
+        // Assuming everything about cpuparams is invalid
+        if (role_model != nullptr) {
+            cpuparams = *role_model;
+        } else {
+            cpuparams.n_threads = cpu_get_num_math();
+        }
+    }
+
+    for (int32_t i = 0; i < GGML_MAX_N_THREADS; i++) {
+        if (cpuparams.cpumask[i]) {
+            n_set++;
+        }
+    }
+
+    if (n_set && n_set < cpuparams.n_threads) {
+        // Not enough set bits, may experience performance issues.
+        fprintf(stderr, "warn: Not enough set bits in CPU mask (%d) to satisfy requested thread count: %d\n", n_set, cpuparams.n_threads);
+    }
+}
+
 bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
-    bool invalid_param = false;
-    std::string arg;
-    const std::string arg_prefix = "--";
     llama_sampling_params & sparams = params.sparams;
 
-    for (int i = 1; i < argc; i++) {
-        arg = argv[i];
-        if (arg.compare(0, arg_prefix.size(), arg_prefix) == 0) {
-            std::replace(arg.begin(), arg.end(), '_', '-');
-        }
-
-        if (arg == "-s" || arg == "--seed") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.seed = std::stoul(argv[i]);
-        } else if (arg == "-t" || arg == "--threads") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_threads = std::stoi(argv[i]);
-            if (params.n_threads <= 0) {
-                params.n_threads = std::thread::hardware_concurrency();
-            }
-        } else if (arg == "-tb" || arg == "--threads-batch") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_threads_batch = std::stoi(argv[i]);
-            if (params.n_threads_batch <= 0) {
-                params.n_threads_batch = std::thread::hardware_concurrency();
-            }
-        } else if (arg == "-p" || arg == "--prompt") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.prompt = argv[i];
-        } else if (arg == "-e" || arg == "--escape") {
-            params.escape = true;
-        } else if (arg == "--prompt-cache") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.path_prompt_cache = argv[i];
-        } else if (arg == "--prompt-cache-all") {
-            params.prompt_cache_all = true;
-        } else if (arg == "--prompt-cache-ro") {
-            params.prompt_cache_ro = true;
-        } else if (arg == "-f" || arg == "--file") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::ifstream file(argv[i]);
-            if (!file) {
-                fprintf(stderr, "error: failed to open file '%s'\n", argv[i]);
-                invalid_param = true;
-                break;
-            }
-            // store the external file name in params
-            params.prompt_file = argv[i];
-            std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(params.prompt));
-            if (!params.prompt.empty() && params.prompt.back() == '\n') {
-                params.prompt.pop_back();
-            }
-        } else if (arg == "-n" || arg == "--n-predict") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_predict = std::stoi(argv[i]);
-        } else if (arg == "--top-k") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.top_k = std::stoi(argv[i]);
-        } else if (arg == "-c" || arg == "--ctx-size") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_ctx = std::stoi(argv[i]);
-        } else if (arg == "--grp-attn-n" || arg == "-gan") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-
-            params.grp_attn_n = std::stoi(argv[i]);
-        } else if (arg == "--grp-attn-w" || arg == "-gaw") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-
-            params.grp_attn_w = std::stoi(argv[i]);
-        } else if (arg == "--rope-freq-base") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.rope_freq_base = std::stof(argv[i]);
-        } else if (arg == "--rope-freq-scale") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.rope_freq_scale = std::stof(argv[i]);
-        } else if (arg == "--rope-scaling") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::string value(argv[i]);
-            /**/ if (value == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
-            else if (value == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
-            else if (value == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
-            else { invalid_param = true; break; }
-        } else if (arg == "--rope-scale") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.rope_freq_scale = 1.0f/std::stof(argv[i]);
-        } else if (arg == "--yarn-orig-ctx") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.yarn_orig_ctx = std::stoi(argv[i]);
-        } else if (arg == "--yarn-ext-factor") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.yarn_ext_factor = std::stof(argv[i]);
-        } else if (arg == "--yarn-attn-factor") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.yarn_attn_factor = std::stof(argv[i]);
-        } else if (arg == "--yarn-beta-fast") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.yarn_beta_fast = std::stof(argv[i]);
-        } else if (arg == "--yarn-beta-slow") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.yarn_beta_slow = std::stof(argv[i]);
-        } else if (arg == "--defrag-thold" || arg == "-dt") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.defrag_thold = std::stof(argv[i]);
-        } else if (arg == "-ctk" || arg == "--cache-type-k") {
-            params.cache_type_k = argv[++i];
-        } else if (arg == "-ctv" || arg == "--cache-type-v") {
-            params.cache_type_v = argv[++i];
-        } else if (arg == "--top-p") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.top_p = std::stof(argv[i]);
-        } else if (arg == "--min-p") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.min_p = std::stof(argv[i]);
-        } else if (arg == "--temp") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.temp = std::stof(argv[i]);
-            sparams.temp = std::max(sparams.temp, 0.0f);
-        } else if (arg == "--tfs") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.tfs_z = std::stof(argv[i]);
-        } else if (arg == "--typical") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.typical_p = std::stof(argv[i]);
-        } else if (arg == "--repeat-last-n") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.penalty_last_n = std::stoi(argv[i]);
-            sparams.n_prev = std::max(sparams.n_prev, sparams.penalty_last_n);
-        } else if (arg == "--repeat-penalty") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.penalty_repeat = std::stof(argv[i]);
-        } else if (arg == "--frequency-penalty") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.penalty_freq = std::stof(argv[i]);
-        } else if (arg == "--presence-penalty") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.penalty_present = std::stof(argv[i]);
-        } else if (arg == "--mirostat") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.mirostat = std::stoi(argv[i]);
-        } else if (arg == "--mirostat-lr") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.mirostat_eta = std::stof(argv[i]);
-        } else if (arg == "--mirostat-ent") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.mirostat_tau = std::stof(argv[i]);
-        } else if (arg == "--cfg-negative-prompt") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.cfg_negative_prompt = argv[i];
-        } else if (arg == "--cfg-negative-prompt-file") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::ifstream file(argv[i]);
-            if (!file) {
-                fprintf(stderr, "error: failed to open file '%s'\n", argv[i]);
-                invalid_param = true;
-                break;
-            }
-            std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(sparams.cfg_negative_prompt));
-            if (!sparams.cfg_negative_prompt.empty() && sparams.cfg_negative_prompt.back() == '\n') {
-                sparams.cfg_negative_prompt.pop_back();
-            }
-        } else if (arg == "--cfg-scale") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.cfg_scale = std::stof(argv[i]);
-        } else if (arg == "-b" || arg == "--batch-size") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_batch = std::stoi(argv[i]);
-        } else if (arg == "-ub" || arg == "--ubatch-size") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_ubatch = std::stoi(argv[i]);
-        } else if (arg == "--keep") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_keep = std::stoi(argv[i]);
-        } else if (arg == "--draft") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_draft = std::stoi(argv[i]);
-        } else if (arg == "--chunks") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_chunks = std::stoi(argv[i]);
-        } else if (arg == "-np" || arg == "--parallel") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_parallel = std::stoi(argv[i]);
-        } else if (arg == "-ns" || arg == "--sequences") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_sequences = std::stoi(argv[i]);
-        } else if (arg == "-m" || arg == "--model") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.model = argv[i];
-        } else if (arg == "-md" || arg == "--model-draft") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.model_draft = argv[i];
-        } else if (arg == "-a" || arg == "--alias") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.model_alias = argv[i];
-        } else if (arg == "--lora") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.lora_adapter.emplace_back(std::make_tuple(argv[i], 1.0f));
-            params.use_mmap = false;
-        } else if (arg == "--lora-scaled") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            const char * lora_adapter = argv[i];
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.lora_adapter.emplace_back(std::make_tuple(lora_adapter, std::stof(argv[i])));
-            params.use_mmap = false;
-        } else if (arg == "--lora-base") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.lora_base = argv[i];
-        } else if (arg == "--control-vector") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.control_vectors.push_back({ 1.0f, argv[i], });
-        } else if (arg == "--control-vector-scaled") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            const char * fname = argv[i];
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.control_vectors.push_back({ std::stof(argv[i]), fname, });
-        } else if (arg == "--control-vector-layer-range") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.control_vector_layer_start = std::stoi(argv[i]);
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.control_vector_layer_end = std::stoi(argv[i]);
-        } else if (arg == "--mmproj") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.mmproj = argv[i];
-        } else if (arg == "--image") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.image = argv[i];
-        } else if (arg == "-i" || arg == "--interactive") {
-            params.interactive = true;
-        } else if (arg == "--embedding") {
-            params.embedding = true;
-        } else if (arg == "--interactive-first") {
-            params.interactive_first = true;
-        } else if (arg == "-ins" || arg == "--instruct") {
-            params.instruct = true;
-        } else if (arg == "--infill") {
-            params.infill = true;
-        } else if (arg == "--multiline-input") {
-            params.multiline_input = true;
-        } else if (arg == "--simple-io") {
-            params.simple_io = true;
-        } else if (arg == "-cb" || arg == "--cont-batching") {
-            params.cont_batching = true;
-        } else if (arg == "--color") {
-            params.use_color = true;
-        } else if (arg == "-fa" || arg == "--flash-attn") {
-            params.flash_attn = true;
-        } else if (arg == "--mlock") {
-            params.use_mlock = true;
-        } else if (arg == "--gpu-layers" || arg == "-ngl" || arg == "--n-gpu-layers") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_gpu_layers = std::stoi(argv[i]);
-            if (!llama_supports_gpu_offload()) {
-                fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers option will be ignored\n");
-                fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
-            }
-        } else if (arg == "--gpu-layers-draft" || arg == "-ngld" || arg == "--n-gpu-layers-draft") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.n_gpu_layers_draft = std::stoi(argv[i]);
-            if (!llama_supports_gpu_offload()) {
-                fprintf(stderr, "warning: not compiled with GPU offload support, --n-gpu-layers-draft option will be ignored\n");
-                fprintf(stderr, "warning: see main README.md for information on enabling GPU BLAS support\n");
-            }
-        } else if (arg == "--main-gpu" || arg == "-mg") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.main_gpu = std::stoi(argv[i]);
-#ifndef GGML_USE_CUDA_SYCL
-            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS/SYCL. Setting the main GPU has no effect.\n");
-#endif // GGML_USE_CUDA_SYCL
-        } else if (arg == "--split-mode" || arg == "-sm") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::string arg_next = argv[i];
-            if (arg_next == "none") {
-                params.split_mode = LLAMA_SPLIT_MODE_NONE;
-            } else if (arg_next == "layer") {
-                params.split_mode = LLAMA_SPLIT_MODE_LAYER;
-            } else if (arg_next == "row") {
-                params.split_mode = LLAMA_SPLIT_MODE_ROW;
-            } else {
-                invalid_param = true;
-                break;
-            }
-#ifndef GGML_USE_CUDA_SYCL
-            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS/SYCL. Setting the split mode has no effect.\n");
-#endif // GGML_USE_CUDA_SYCL
-        } else if (arg == "--tensor-split" || arg == "-ts") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::string arg_next = argv[i];
-
-            // split string by , and /
-            const std::regex regex{R"([,/]+)"};
-            std::sregex_token_iterator it{arg_next.begin(), arg_next.end(), regex, -1};
-            std::vector<std::string> split_arg{it, {}};
-            if (split_arg.size() >= llama_max_devices()) {
-                invalid_param = true;
-                break;
-            }
-            for (size_t i = 0; i < llama_max_devices(); ++i) {
-                if (i < split_arg.size()) {
-                    params.tensor_split[i] = std::stof(split_arg[i]);
-                } else {
-                    params.tensor_split[i] = 0.0f;
-                }
-            }
-#ifndef GGML_USE_CUDA_SYCL_VULKAN
-            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS/SYCL/Vulkan. Setting a tensor split has no effect.\n");
-#endif // GGML_USE_CUDA_SYCL
-        } else if (arg == "--no-mmap") {
-            params.use_mmap = false;
-        } else if (arg == "--numa") {
-            //params.numa = true;
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::string value(argv[i]);
-            /**/ if (value == "distribute" || value == "") { params.numa = GGML_NUMA_STRATEGY_DISTRIBUTE; }
-            else if (value == "isolate") { params.numa = GGML_NUMA_STRATEGY_ISOLATE; }
-            else if (value == "numactl") { params.numa = GGML_NUMA_STRATEGY_NUMACTL; }
-            else { invalid_param = true; break; }
-        } else if (arg == "--verbose-prompt") {
-            params.verbose_prompt = true;
-        } else if (arg == "-r" || arg == "--reverse-prompt") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.antiprompt.emplace_back(argv[i]);
-        } else if (arg == "-ld" || arg == "--logdir") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.logdir = argv[i];
-
-            if (params.logdir.back() != DIRECTORY_SEPARATOR) {
-                params.logdir += DIRECTORY_SEPARATOR;
-            }
-        } else if (arg == "--perplexity" || arg == "--all-logits") {
-            params.logits_all = true;
-        } else if (arg == "--ppl-stride") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.ppl_stride = std::stoi(argv[i]);
-        } else if (arg == "--ppl-output-type") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.ppl_output_type = std::stoi(argv[i]);
-        } else if (arg == "--hellaswag") {
-            params.hellaswag = true;
-        } else if (arg == "--hellaswag-tasks") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.hellaswag_tasks = std::stoi(argv[i]);
-        } else if (arg == "--ignore-eos") {
-            params.ignore_eos = true;
-        } else if (arg == "--no-penalize-nl") {
-            sparams.penalize_nl = false;
-        } else if (arg == "-l" || arg == "--logit-bias") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::stringstream ss(argv[i]);
-            llama_token key;
-            char sign;
-            std::string value_str;
-            try {
-                if (ss >> key && ss >> sign && std::getline(ss, value_str) && (sign == '+' || sign == '-')) {
-                    sparams.logit_bias[key] = std::stof(value_str) * ((sign == '-') ? -1.0f : 1.0f);
-                } else {
-                    throw std::exception();
-                }
-            } catch (const std::exception&) {
-                invalid_param = true;
-                break;
-            }
-        } else if (arg == "-h" || arg == "--help") {
-            return false;
-
-        } else if (arg == "--random-prompt") {
-            params.random_prompt = true;
-        } else if (arg == "--in-prefix-bos") {
-            params.input_prefix_bos = true;
-        } else if (arg == "--in-prefix") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.input_prefix = argv[i];
-        } else if (arg == "--in-suffix") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            params.input_suffix = argv[i];
-        } else if (arg == "--grammar") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            sparams.grammar = argv[i];
-        } else if (arg == "--grammar-file") {
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            std::ifstream file(argv[i]);
-            if (!file) {
-                fprintf(stderr, "error: failed to open file '%s'\n", argv[i]);
-                invalid_param = true;
-                break;
-            }
-            std::copy(
-                std::istreambuf_iterator<char>(file),
-                std::istreambuf_iterator<char>(),
-                std::back_inserter(sparams.grammar)
-            );
-#ifndef LOG_DISABLE_LOGS
-        // Parse args for logging parameters
-        } else if ( log_param_single_parse( argv[i] ) ) {
-            // Do nothing, log_param_single_parse automatically does it's thing
-            //  and returns if a match was found and parsed.
-        } else if ( log_param_pair_parse( /*check_but_dont_parse*/ true, argv[i] ) ) {
-            // We have a matching known parameter requiring an argument,
-            //  now we need to check if there is anything after this argv
-            //  and flag invalid_param or parse it.
-            if (++i >= argc) {
-                invalid_param = true;
-                break;
-            }
-            if( !log_param_pair_parse( /*check_but_dont_parse*/ false, argv[i-1], argv[i]) ) {
-                invalid_param = true;
-                break;
-            }
-        // End of Parse args for logging parameters
-#endif // LOG_DISABLE_LOGS
-        } else {
-            throw std::invalid_argument("error: unknown argument: " + arg);
-        }
-    }
-    if (invalid_param) {
-        throw std::invalid_argument("error: invalid parameter for argument: " + arg);
-    }
-    if (params.prompt_cache_all &&
-            (params.interactive || params.interactive_first ||
-             params.instruct)) {
-
-        throw std::invalid_argument("error: --prompt-cache-all not supported in interactive mode yet\n");
-    }
+    postprocess_cpu_params(params.cpuparams, nullptr);
+    postprocess_cpu_params(params.cpuparams_batch, &params.cpuparams);
+    postprocess_cpu_params(params.draft_cpuparams, &params.cpuparams);
+    postprocess_cpu_params(params.draft_cpuparams_batch, &params.cpuparams_batch);
 
     if (params.escape) {
         process_escapes(params.prompt);
@@ -892,166 +330,94 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
     return true;
 }
 
-void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
-    const llama_sampling_params & sparams = params.sparams;
+bool parse_cpu_range(const std::string & range, bool (&boolmask)[GGML_MAX_N_THREADS]) {
+    size_t dash_loc = range.find('-');
+    if (dash_loc == std::string::npos) {
+        fprintf(stderr, "Format of CPU range is invalid! Expected [<start>]-[<end>].\n");
+        return false;
+    }
 
-    printf("\n");
-    printf("usage: %s [options]\n", argv[0]);
-    printf("\n");
-    printf("options:\n");
-    printf("  -h, --help            show this help message and exit\n");
-    printf("  -i, --interactive     run in interactive mode\n");
-    printf("  --interactive-first   run in interactive mode and wait for input right away\n");
-    printf("  -ins, --instruct      run in instruction mode (use with Alpaca models)\n");
-    printf("  --multiline-input     allows you to write or paste multiple lines without ending each in '\\'\n");
-    printf("  -r PROMPT, --reverse-prompt PROMPT\n");
-    printf("                        halt generation at PROMPT, return control in interactive mode\n");
-    printf("                        (can be specified more than once for multiple prompts).\n");
-    printf("  --color               colorise output to distinguish prompt and user input from generations\n");
-    printf("  -s SEED, --seed SEED  RNG seed (default: -1, use random seed for < 0)\n");
-    printf("  -t N, --threads N     number of threads to use during generation (default: %d)\n", params.n_threads);
-    printf("  -tb N, --threads-batch N\n");
-    printf("                        number of threads to use during batch and prompt processing (default: same as --threads)\n");
-    printf("  -p PROMPT, --prompt PROMPT\n");
-    printf("                        prompt to start generation with (default: empty)\n");
-    printf("  -e, --escape          process prompt escapes sequences (\\n, \\r, \\t, \\', \\\", \\\\)\n");
-    printf("  --prompt-cache FNAME  file to cache prompt state for faster startup (default: none)\n");
-    printf("  --prompt-cache-all    if specified, saves user input and generations to cache as well.\n");
-    printf("                        not supported with --interactive or other interactive options\n");
-    printf("  --prompt-cache-ro     if specified, uses the prompt cache but does not update it.\n");
-    printf("  --random-prompt       start with a randomized prompt.\n");
-    printf("  --in-prefix-bos       prefix BOS to user inputs, preceding the `--in-prefix` string\n");
-    printf("  --in-prefix STRING    string to prefix user inputs with (default: empty)\n");
-    printf("  --in-suffix STRING    string to suffix after user inputs with (default: empty)\n");
-    printf("  -f FNAME, --file FNAME\n");
-    printf("                        prompt file to start generation.\n");
-    printf("  -n N, --n-predict N   number of tokens to predict (default: %d, -1 = infinity, -2 = until context filled)\n", params.n_predict);
-    printf("  -c N, --ctx-size N    size of the prompt context (default: %d, 0 = loaded from model)\n", params.n_ctx);
-    printf("  -b N, --batch-size N  batch size for prompt processing (default: %d)\n", params.n_batch);
-    printf("  --top-k N             top-k sampling (default: %d, 0 = disabled)\n", sparams.top_k);
-    printf("  --top-p N             top-p sampling (default: %.1f, 1.0 = disabled)\n", (double)sparams.top_p);
-    printf("  --min-p N             min-p sampling (default: %.1f, 0.0 = disabled)\n", (double)sparams.min_p);
-    printf("  --tfs N               tail free sampling, parameter z (default: %.1f, 1.0 = disabled)\n", (double)sparams.tfs_z);
-    printf("  --typical N           locally typical sampling, parameter p (default: %.1f, 1.0 = disabled)\n", (double)sparams.typical_p);
-    printf("  --repeat-last-n N     last n tokens to consider for penalize (default: %d, 0 = disabled, -1 = ctx_size)\n", sparams.penalty_last_n);
-    printf("  --repeat-penalty N    penalize repeat sequence of tokens (default: %.1f, 1.0 = disabled)\n", (double)sparams.penalty_repeat);
-    printf("  --presence-penalty N  repeat alpha presence penalty (default: %.1f, 0.0 = disabled)\n", (double)sparams.penalty_present);
-    printf("  --frequency-penalty N repeat alpha frequency penalty (default: %.1f, 0.0 = disabled)\n", (double)sparams.penalty_freq);
-    printf("  --mirostat N          use Mirostat sampling.\n");
-    printf("                        Top K, Nucleus, Tail Free and Locally Typical samplers are ignored if used.\n");
-    printf("                        (default: %d, 0 = disabled, 1 = Mirostat, 2 = Mirostat 2.0)\n", sparams.mirostat);
-    printf("  --mirostat-lr N       Mirostat learning rate, parameter eta (default: %.1f)\n", (double)sparams.mirostat_eta);
-    printf("  --mirostat-ent N      Mirostat target entropy, parameter tau (default: %.1f)\n", (double)sparams.mirostat_tau);
-    printf("  -l TOKEN_ID(+/-)BIAS, --logit-bias TOKEN_ID(+/-)BIAS\n");
-    printf("                        modifies the likelihood of token appearing in the completion,\n");
-    printf("                        i.e. `--logit-bias 15043+1` to increase likelihood of token ' Hello',\n");
-    printf("                        or `--logit-bias 15043-1` to decrease likelihood of token ' Hello'\n");
-    printf("  --grammar GRAMMAR     BNF-like grammar to constrain generations (see samples in grammars/ dir)\n");
-    printf("  --grammar-file FNAME  file to read grammar from\n");
-    printf("  --cfg-negative-prompt PROMPT\n");
-    printf("                        negative prompt to use for guidance. (default: empty)\n");
-    printf("  --cfg-negative-prompt-file FNAME\n");
-    printf("                        negative prompt file to use for guidance. (default: empty)\n");
-    printf("  --cfg-scale N         strength of guidance (default: %f, 1.0 = disable)\n", sparams.cfg_scale);
-    printf("  --rope-scaling {none,linear,yarn}\n");
-    printf("                        RoPE frequency scaling method, defaults to linear unless specified by the model\n");
-    printf("  --rope-scale N        RoPE context scaling factor, expands context by a factor of N\n");
-    printf("  --rope-freq-base N    RoPE base frequency, used by NTK-aware scaling (default: loaded from model)\n");
-    printf("  --rope-freq-scale N   RoPE frequency scaling factor, expands context by a factor of 1/N\n");
-    printf("  --yarn-orig-ctx N     YaRN: original context size of model (default: 0 = model training context size)\n");
-    printf("  --yarn-ext-factor N   YaRN: extrapolation mix factor (default: 1.0, 0.0 = full interpolation)\n");
-    printf("  --yarn-attn-factor N  YaRN: scale sqrt(t) or attention magnitude (default: 1.0)\n");
-    printf("  --yarn-beta-slow N    YaRN: high correction dim or alpha (default: %.1f)\n", params.yarn_beta_slow);
-    printf("  --yarn-beta-fast N    YaRN: low correction dim or beta (default: %.1f)\n", params.yarn_beta_fast);
-    printf("  --ignore-eos          ignore end of stream token and continue generating (implies --logit-bias 2-inf)\n");
-    printf("  --no-penalize-nl      do not penalize newline token\n");
-    printf("  --memory-f32          use f32 instead of f16 for memory key+value (default: disabled)\n");
-    printf("                        not recommended: doubles context memory required and no measurable increase in quality\n");
-    printf("  --temp N              temperature (default: %.1f)\n", (double)sparams.temp);
-    printf("  --logits-all          return logits for all tokens in the batch (default: disabled)\n");
-    printf("  --hellaswag           compute HellaSwag score over random tasks from datafile supplied with -f\n");
-    printf("  --hellaswag-tasks N   number of tasks to use when computing the HellaSwag score (default: %zu)\n", params.hellaswag_tasks);
-    printf("  --keep N              number of tokens to keep from the initial prompt (default: %d, -1 = all)\n", params.n_keep);
-    printf("  --draft N             number of tokens to draft for speculative decoding (default: %d)\n", params.n_draft);
-    printf("  --chunks N            max number of chunks to process (default: %d, -1 = all)\n", params.n_chunks);
-    printf("  -np N, --parallel N   number of parallel sequences to decode (default: %d)\n", params.n_parallel);
-    printf("  -ns N, --sequences N  number of sequences to decode (default: %d)\n", params.n_sequences);
-    printf("  -cb, --cont-batching  enable continuous batching (a.k.a dynamic batching) (default: disabled)\n");
-    printf("  --mmproj MMPROJ_FILE  path to a multimodal projector file for LLaVA. see examples/llava/README.md\n");
-    printf("  --image IMAGE_FILE    path to an image file. use with multimodal models\n");
-    if (llama_supports_mlock()) {
-        printf("  --mlock               force system to keep model in RAM rather than swapping or compressing\n");
+    size_t start_i;
+    size_t end_i;
+
+    if (dash_loc == 0) {
+        start_i = 0;
+    } else {
+        start_i = std::stoull(range.substr(0, dash_loc));
+        if (start_i >= GGML_MAX_N_THREADS) {
+            fprintf(stderr, "Start index out of bounds!\n");
+            return false;
+        }
     }
-    if (llama_supports_mmap()) {
-        printf("  --no-mmap             do not memory-map model (slower load but may reduce pageouts if not using mlock)\n");
+
+    if (dash_loc == range.length() - 1) {
+        end_i = GGML_MAX_N_THREADS - 1;
+    } else {
+        end_i = std::stoull(range.substr(dash_loc + 1));
+        if (end_i >= GGML_MAX_N_THREADS) {
+            fprintf(stderr, "End index out of bounds!\n");
+            return false;
+        }
     }
-    //printf("  --numa                attempt optimizations that help on some NUMA systems\n");
-    printf("  --numa TYPE           attempt optimizations that help on some NUMA systems\n");
-    printf("                          - distribute: spread execution evenly over all nodes\n");
-    printf("                          - isolate: only spawn threads on CPUs on the node that execution started on\n");
-    printf("                          - numactl: use the CPU map provided by numactl\n");
-    printf("                        if run without this previously, it is recommended to drop the system page cache before using this\n");
-    printf("                        see https://github.com/ggerganov/llama.cpp/issues/1437\n");
-    if (llama_supports_gpu_offload()) {
-        printf("  -ngl N, --n-gpu-layers N\n");
-        printf("                        number of layers to store in VRAM\n");
-        printf("  -ngld N, --n-gpu-layers-draft N\n");
-        printf("                        number of layers to store in VRAM for the draft model\n");
-        printf("  -sm SPLIT_MODE, --split-mode SPLIT_MODE\n");
-        printf("                        how to split the model across multiple GPUs, one of:\n");
-        printf("                          - none: use one GPU only\n");
-        printf("                          - layer (default): split layers and KV across GPUs\n");
-        printf("                          - row: split rows across GPUs\n");
-        printf("  -ts SPLIT, --tensor-split SPLIT\n");
-        printf("                        fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1\n");
-        printf("  -mg i, --main-gpu i   the GPU to use for the model (with split-mode = none),\n");
-        printf("                        or for intermediate results and KV (with split-mode = row) (default: %d)\n", params.main_gpu);
+
+    for (size_t i = start_i; i <= end_i; i++) {
+        boolmask[i] = true;
     }
-    printf("  --verbose-prompt      print prompt before generation\n");
-    printf("  --simple-io           use basic IO for better compatibility in subprocesses and limited consoles\n");
-    printf("  --lora FNAME          apply LoRA adapter (implies --no-mmap)\n");
-    printf("  --lora-scaled FNAME S apply LoRA adapter with user defined scaling S (implies --no-mmap)\n");
-    printf("  --lora-base FNAME     optional model to use as a base for the layers modified by the LoRA adapter\n");
-    printf("  -m FNAME, --model FNAME\n");
-    printf("                        model path (default: %s)\n", params.model.c_str());
-    printf("  -md FNAME, --model-draft FNAME\n");
-    printf("                        draft model for speculative decoding (default: %s)\n", params.model.c_str());
-    printf("  -ld LOGDIR, --logdir LOGDIR\n");
-    printf("                        path under which to save YAML logs (no logging if unset)\n");
-    printf("\n");
-#ifndef LOG_DISABLE_LOGS
-    log_print_usage();
-#endif // LOG_DISABLE_LOGS
+
+    return true;
+}
+
+bool parse_cpu_mask(const std::string & mask, bool (&boolmask)[GGML_MAX_N_THREADS]) {
+    // Discard potential 0x prefix
+    size_t start_i = 0;
+    if (mask.length() >= 2 && mask.substr(0, 2) == "0x") {
+        start_i = 2;
+    }
+
+    size_t num_digits = mask.length() - start_i;
+    if (num_digits > 128) num_digits = 128;
+
+    size_t end_i = num_digits + start_i;
+
+    for (size_t i = start_i, n = (num_digits*4 - 1); i < end_i; i++, n-=4) {
+        char c = mask.at(i);
+        int8_t id = c;
+
+        if ((c >= '0' && c <= '9')) {
+            id -= '0';
+        } else if (c >= 'a' && c <= 'f') {
+            id -= 'a' - 10;
+        } else if (c >= 'A' && c <= 'F') {
+            id -= 'A' - 10;
+        } else {
+            fprintf(stderr, "Invalid hex character '%c' at position %d\n", c, int32_t(i));
+            return false;
+        }
+
+        boolmask[  n  ] = boolmask[  n  ] || ((id & 8) != 0);
+        boolmask[n - 1] = boolmask[n - 1] || ((id & 4) != 0);
+        boolmask[n - 2] = boolmask[n - 2] || ((id & 2) != 0);
+        boolmask[n - 3] = boolmask[n - 3] || ((id & 1) != 0);
+    }
+
+    return true;
 }
 
 std::string get_system_info(const gpt_params & params) {
     std::ostringstream os;
 
-    os << "system_info: n_threads = " << params.n_threads;
-    if (params.n_threads_batch != -1) {
-        os << " (n_threads_batch = " << params.n_threads_batch << ")";
+    os << "system_info: n_threads = " << params.cpuparams.n_threads;
+    if (params.cpuparams_batch.n_threads != -1) {
+        os << " (n_threads_batch = " << params.cpuparams_batch.n_threads << ")";
     }
+#if defined(_WIN32) && (_WIN32_WINNT >= 0x0601) && !defined(__MINGW64__) // windows 7 and later
+    // TODO: windows + arm64 + mingw64
+    DWORD logicalProcessorCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    os << " / " << logicalProcessorCount << " | " << llama_print_system_info();
+#else
     os << " / " << std::thread::hardware_concurrency() << " | " << llama_print_system_info();
-
+#endif
     return os.str();
-}
-
-std::string gpt_random_prompt(std::mt19937 & rng) {
-    const int r = rng() % 10;
-    switch (r) {
-        case 0: return "So";
-        case 1: return "Once upon a time";
-        case 2: return "When";
-        case 3: return "The";
-        case 4: return "After";
-        case 5: return "If";
-        case 6: return "import";
-        case 7: return "He";
-        case 8: return "She";
-        case 9: return "They";
-    }
-
-    GGML_UNREACHABLE();
 }
 
 //
@@ -1105,8 +471,9 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.n_ctx             = params.n_ctx;
     cparams.n_batch           = params.n_batch;
     cparams.n_ubatch          = params.n_ubatch;
-    cparams.n_threads         = params.n_threads;
-    cparams.n_threads_batch   = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
+    cparams.n_threads         = params.cpuparams.n_threads;
+    cparams.n_threads_batch   = params.cpuparams_batch.n_threads == -1 ?
+                                    params.cpuparams.n_threads : params.cpuparams_batch.n_threads;
     cparams.seed              = params.seed;
     cparams.logits_all        = params.logits_all;
     cparams.embeddings        = params.embedding;
@@ -1126,6 +493,22 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);
 
     return cparams;
+}
+
+struct ggml_threadpool_params ggml_threadpool_params_from_cpu_params(const cpu_params & params) {
+    struct ggml_threadpool_params tpp;
+
+    ggml_threadpool_params_init(&tpp, params.n_threads); // setup the defaults
+
+    if (params.mask_valid) {
+        std::memcpy(&tpp.cpumask, &params.cpumask, GGML_MAX_N_THREADS);
+    }
+
+    tpp.prio       = params.priority;
+    tpp.poll       = params.poll;
+    tpp.strict_cpu = params.strict_cpu;
+
+    return tpp;
 }
 
 void llama_batch_clear(struct llama_batch & batch) {
@@ -1150,6 +533,7 @@ void llama_batch_add(
 }
 
 struct llama_init_result llama_init_from_gpt_params(gpt_params & params) {
+    printf("\n%s: ___________START___________\n", __func__);
     llama_init_result iparams;
     auto mparams = llama_model_params_from_gpt_params(params);
 
@@ -1473,7 +857,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cpu_has_blas: %s\n",        ggml_cpu_has_blas()        ? "true" : "false");
     fprintf(stream, "cpu_has_cuda: %s\n",        ggml_cpu_has_cuda()        ? "true" : "false");
     fprintf(stream, "cpu_has_vulkan: %s\n",      ggml_cpu_has_vulkan()      ? "true" : "false");
-    fprintf(stream, "cpu_has_clblast: %s\n",     ggml_cpu_has_clblast()     ? "true" : "false");
+    //fprintf(stream, "cpu_has_clblast: %s\n",     ggml_cpu_has_clblast()     ? "true" : "false");
     fprintf(stream, "cpu_has_fma: %s\n",         ggml_cpu_has_fma()         ? "true" : "false");
     fprintf(stream, "cpu_has_gpublas: %s\n",     ggml_cpu_has_gpublas()     ? "true" : "false");
     fprintf(stream, "cpu_has_neon: %s\n",        ggml_cpu_has_neon()        ? "true" : "false");
@@ -1609,7 +993,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     dump_vector_float_yaml(stream, "tensor_split", tensor_split_vector);
 
     fprintf(stream, "tfs: %f # default: 1.0\n", sparams.tfs_z);
-    fprintf(stream, "threads: %d # default: %d\n", params.n_threads, std::thread::hardware_concurrency());
+    fprintf(stream, "threads: %d # default: %u\n", params.cpuparams.n_threads, std::thread::hardware_concurrency());
     fprintf(stream, "top_k: %d # default: 40\n", sparams.top_k);
     fprintf(stream, "top_p: %f # default: 0.95\n", sparams.top_p);
     fprintf(stream, "min_p: %f # default: 0.0\n", sparams.min_p);

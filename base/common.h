@@ -37,18 +37,25 @@ extern char const *LLAMA_BUILD_TARGET;
 
 struct llama_control_vector_load_info;
 
-int32_t get_num_physical_cores();
-int     get_math_cpu_count();
+int32_t cpu_get_num_physical_cores();
+int32_t cpu_get_num_math();
 
 //
 // CLI argument parsing
 //
 
+struct cpu_params {
+    int      n_threads                   = -1;
+    bool     cpumask[GGML_MAX_N_THREADS] = {false}; // CPU affinity mask.
+    bool     mask_valid                  = false;   // Default: any CPU
+    enum ggml_sched_priority  priority   = GGML_SCHED_PRIO_NORMAL;  // Scheduling prio : (0 - normal, 1 - medium, 2 - high, 3 - realtime)
+    bool     strict_cpu                  = false;   // Use strict CPU placement
+    uint32_t poll                        = 50;      // Polling (busywait) level (0 - no polling, 100 - mostly polling)
+};
+
 struct gpt_params {
     uint32_t seed               = -1;   // RNG seed
-    int32_t n_threads           = get_math_cpu_count();
     int32_t clblast_platform_id = -1;
-    int32_t n_threads_batch     = -1;   // number of threads to use for batch processing (-1 = use n_threads)
     int32_t n_predict           = -1;   // new tokens to predict
     int32_t n_ctx               = 512;  // context size
     int32_t n_batch             = 2048;  // logical batch size for prompt processing (must be >=32 to use BLAS)
@@ -77,6 +84,11 @@ struct gpt_params {
 
     llama_rope_scaling_type rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED;
     ggml_numa_strategy numa     = GGML_NUMA_STRATEGY_DISABLED;
+
+    struct cpu_params cpuparams;
+    struct cpu_params cpuparams_batch;
+    struct cpu_params draft_cpuparams;
+    struct cpu_params draft_cpuparams_batch;
 
     // // sampling parameters
     struct llama_sampling_params sparams;
@@ -154,6 +166,11 @@ void gpt_print_usage(int argc, char ** argv, const gpt_params & params);
 
 std::string get_system_info(const gpt_params & params);
 
+bool parse_cpu_range(const std::string& range, bool(&boolmask)[GGML_MAX_N_THREADS]);
+bool parse_cpu_mask(const std::string& mask, bool(&boolmask)[GGML_MAX_N_THREADS]);
+void postprocess_cpu_params(cpu_params& cpuparams, const cpu_params* role_model = nullptr);
+bool set_process_priority(enum ggml_sched_priority prio);
+
 std::string gpt_random_prompt(std::mt19937 & rng);
 
 void string_replace_all(std::string & s, const std::string & search, const std::string & replace);
@@ -172,8 +189,9 @@ struct llama_init_result {
 
 struct llama_init_result    llama_init_from_gpt_params(gpt_params & params);
 
-struct llama_model_params   llama_model_params_from_gpt_params  (const gpt_params & params);
-struct llama_context_params llama_context_params_from_gpt_params(const gpt_params & params);
+struct llama_model_params     llama_model_params_from_gpt_params    (const gpt_params & params);
+struct llama_context_params   llama_context_params_from_gpt_params  (const gpt_params & params);
+struct ggml_threadpool_params ggml_threadpool_params_from_cpu_params(const cpu_params & params);
 
 // Batch utils
 
