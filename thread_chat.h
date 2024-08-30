@@ -235,14 +235,13 @@ struct modelThread{
         std::cout << "n_past_last  : " << newChat.n_past_last << std::endl;
         std::cout << "n_embd_inp_last  : " << newChat.n_embd_inp_last << std::endl;
         std::cout << "n_consumed_last  : " << newChat.n_consumed_last << '\n' << std::endl;
-        
-        //#ifdef GGML_EXPERIMENTAL1
-        std::cout << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << '\n' << std::endl;
+
+        std::cout << "TG: " << newChat.params.cpuparams.n_threads << "; " << newChat.params.cpuparams.poll << "; " << newChat.params.cpuparams.priority << "\nPP: " << newChat.params.cpuparams_batch.n_threads << "; " << newChat.params.cpuparams_batch.poll << "; " << newChat.params.cpuparams_batch.priority << '\n' << std::endl;
         if (penalize_nl) std::cout << "penalize_nl = true" << std::endl;
         if (newChat.params.use_mmap) std::cout << "use_mmap = true" << std::endl;
         if (newChat.params.no_kv_offload) std::cout << "no_kv_offload = true" << std::endl;
         if (newChat.params.flash_attn) std::cout << "flash_attn = true" << '\n' << std::endl;
-        //#endif
+
         //std::cout << lastTimings << std::endl;
         std::cout << std::format("Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s", lastSpeedPrompt, lastSpeed) << std::endl;
         std::cout << "----------------------------------------\n"<< std::endl;
@@ -1339,7 +1338,15 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) modelConfig[model]["n_ubatch"] = params.n_ubatch;
+
         if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) modelConfig[model]["n_threads"] = params.cpuparams.n_threads;
+        if (params.cpuparams.poll != paramsDefault.cpuparams.poll) modelConfig[model]["n_threads_poll"] = params.cpuparams.poll;
+        if (params.cpuparams.priority != paramsDefault.cpuparams.priority) modelConfig[model]["n_threads_sched_priority"] = params.cpuparams.priority;
+
+        if (params.cpuparams_batch.n_threads != paramsDefault.cpuparams_batch.n_threads) modelConfig[model]["n_threads_batch"] = params.cpuparams_batch.n_threads;
+        if (params.cpuparams_batch.poll != paramsDefault.cpuparams_batch.poll) modelConfig[model]["n_threads_batch_poll"] = params.cpuparams_batch.poll;
+        if (params.cpuparams_batch.priority != paramsDefault.cpuparams_batch.priority) modelConfig[model]["n_threads_batch_sched_priority"] = params.cpuparams_batch.priority;
+
         if (params.clblast_platform_id != paramsDefault.clblast_platform_id) modelConfig[model]["clblast_platform_id"] = params.clblast_platform_id;
         if (params.format_instruct != paramsDefault.format_instruct) modelConfig[model]["format_instruct"] = params.format_instruct;
         if (params.format_dialog != paramsDefault.format_dialog) modelConfig[model]["format_dialog"] = params.format_dialog;
@@ -1347,9 +1354,6 @@ struct configurableChat{
         if (params.eos != paramsDefault.eos) modelConfig[model]["eos"] = params.eos;
         if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
         
-        //#if GGML_EXPERIMENTAL1
-        if (params.cpuparams_batch.n_threads != paramsDefault.cpuparams_batch.n_threads) modelConfig[model]["n_threads_batch"] = params.cpuparams_batch.n_threads;
-        //#endif
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
 
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
@@ -1443,12 +1447,16 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) newCard["n_ubatch"] = params.n_ubatch;
-        if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) newCard["n_threads"] = params.cpuparams.n_threads;
         if (params.clblast_platform_id != paramsDefault.clblast_platform_id) newCard["clblast_platform_id"] = params.clblast_platform_id;
 
-        //#if GGML_EXPERIMENTAL1
+        if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) newCard["n_threads"] = params.cpuparams.n_threads;
+        if (params.cpuparams.poll != paramsDefault.cpuparams.poll) newCard["n_threads_poll"] = params.cpuparams.poll;
+        if (params.cpuparams.priority != paramsDefault.cpuparams.priority) newCard["n_threads_sched_priority"] = params.cpuparams.priority;
+
         if (params.cpuparams_batch.n_threads != paramsDefault.cpuparams_batch.n_threads) newCard["n_threads_batch"] = params.cpuparams_batch.n_threads;
-        //#endif
+        if (params.cpuparams_batch.poll != paramsDefault.cpuparams_batch.poll) newCard["n_threads_batch_poll"] = params.cpuparams_batch.poll;
+        if (params.cpuparams_batch.priority != paramsDefault.cpuparams_batch.priority) newCard["n_threads_batch_sched_priority"] = params.cpuparams_batch.priority;
+        
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) newCard["n_gpu_layers"] = params.n_gpu_layers;
 
         if (params.rope_freq_base != paramsDefault.rope_freq_base) newCard["rope_freq_base"] = params.rope_freq_base;

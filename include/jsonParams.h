@@ -489,9 +489,31 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJString(config, "bos")) params.bos = config["bos"];
     if (checkJString(config, "eos")) params.eos = config["eos"];
     if (checkJNum(config, "seed")) params.seed = config["seed"];
-    // threading
+    // threading inference
     if (checkJNum(config, "n_threads")) params.cpuparams.n_threads = config["n_threads"];
+    if (checkJNum(config, "n_threads_poll")) params.cpuparams.poll = config["n_threads_poll"];
+    if (checkJNum(config, "n_threads_sched_priority")) {
+        int sched_priority = config["n_threads_sched_priority"];
+        switch (sched_priority){
+            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
+            default: params.cpuparams_batch.priority = GGML_SCHED_PRIO_NORMAL; break;
+        }
+    }
+    // threading prompt processing
     if (checkJNum(config, "n_threads_batch")) params.cpuparams_batch.n_threads = config["n_threads_batch"];
+    if (checkJNum(config, "n_threads_batch_poll")) params.cpuparams_batch.poll = config["n_threads_batch_poll"];
+    if (checkJNum(config, "n_threads_batch_sched_priority")) {
+        int sched_priority = config["n_threads_batch_sched_priority"];
+        switch (sched_priority){
+            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
+            default: params.cpuparams_batch.priority = GGML_SCHED_PRIO_NORMAL; break;
+        }
+    }
+    //gpu offload
     if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
 
 // context-related
