@@ -36,6 +36,11 @@
 #include <type_traits>
 #include <unordered_map>
 
+//xtc statistics
+int xtc_total = 0;
+int xtc_removed = 0;
+float xtc_percent = 0.0;
+
 void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, float xtc_threshold_max, bool xtc_probability_once, int xtc_min, size_t min_keep) {
     if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || xtc_min < 1 || candidates->size <= 1) {
         return;
@@ -43,6 +48,8 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
     std::random_device rd;
     float chance = (float)(rd()%100)/100;
+    xtc_total += candidates->size;
+    xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
     if (xtc_probability_once && chance > xtc_probability) return;
 
     llama_sample_softmax(nullptr, candidates);
@@ -58,6 +65,8 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
                     // .logits are used for sorting and calculating .p in llama_sample_softmax_impl
                     candidates->data[i].logit = -999.0f;
                     if (!xtc_probability_once) chance = (float)(rd()%100)/100;
+                    ++xtc_removed;
+                    xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
                 }
             }
         }
@@ -72,6 +81,7 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
         // resizing now that penalized tokens are at the back
         candidates->size = candidates->size - removed + 1;
+
     }
 
     llama_set_time(ctx, t_start_sample_us);

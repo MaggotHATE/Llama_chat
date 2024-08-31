@@ -49,6 +49,10 @@
     extern std::string GGML_OPENCL_RESULT_DEVICE_NAME;
 #endif
 
+extern int xtc_total;
+extern int xtc_removed;
+extern float xtc_percent;
+
 #define SESSIONS_FOLDER "sessions/"
 
 static gpt_params paramsDefault;
@@ -383,9 +387,6 @@ public:
             
             clearSoft();
             
-// #ifdef GGML_USE_VULKAN
-            // ggml_vk_free_cpu_assist();
-// #endif
         }
         
     }
@@ -562,7 +563,7 @@ public:
                     case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.3f}",params.sparams.tfs_z); break;
                     case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.3f}",params.sparams.typical_p); break;
                     case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.3f}",params.sparams.p_step); break;
-                    case 'x': result += std::format("xtc={:.3f}-{:.3f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100,params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; break;
+                    case 'x': result += std::format("xtc={:.3f}-{:.3f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100,params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{} ({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                     case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.3f}",params.sparams.top_p); break;
                     case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); break;
                     case 't': {
@@ -784,6 +785,10 @@ public:
     }
 
     int assignThreads() {
+        printf("%s: llama threadpool init = n_threads = %d\n",
+            __func__,
+            (int) params.cpuparams.n_threads
+        );
         struct ggml_threadpool_params tpp_batch =
             ggml_threadpool_params_from_cpu_params(params.cpuparams_batch);
         struct ggml_threadpool_params tpp =
@@ -791,7 +796,6 @@ public:
 
         set_process_priority(params.cpuparams.priority);
 
-        threadpool_batch = NULL;
         if (!ggml_threadpool_params_match(&tpp, &tpp_batch)) {
             threadpool_batch = ggml_threadpool_new(&tpp_batch);
             if (!threadpool_batch) {
@@ -813,6 +817,8 @@ public:
         if (ctx_guidance) {
             llama_attach_threadpool(ctx_guidance, threadpool, threadpool_batch);
         }
+
+        return 1;
     }
 
     int loadModel(){
@@ -827,7 +833,9 @@ public:
 
         model = llama_init.model;
         ctx = llama_init.context;
-        printf("..............Model initialized................\n");
+        printf("..............Model initialized (%s)................\n", __func__);
+        assignThreads();
+        printf("..............Threads assigned................\n");
         
         
         if (model == NULL) {
@@ -860,7 +868,9 @@ public:
 
         model = llama_init.model;
         ctx = llama_init.context;
-        printf("..............Model initialized................\n");
+        printf("..............Model initialized (%s)................\n", __func__);
+        assignThreads();
+        printf("..............Threads assigned................\n");
         
         
         if (model == NULL) {
@@ -928,7 +938,9 @@ public:
 
             model = llama_init.model;
             ctx = llama_init.context;
-            printf("..............Model initialized................\n");
+            printf("..............Model initialized (%s)................\n", __func__);
+            assignThreads();
+            printf("..............Threads assigned................\n");
             if (sparams.cfg_scale > 1.f) {
                 struct llama_context_params lparams = llama_context_params_from_gpt_params(params);
                 ctx_guidance = llama_new_context_with_model(model, lparams);

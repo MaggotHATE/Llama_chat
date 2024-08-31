@@ -261,10 +261,9 @@ llama_token llama_sampling_sample(
                 }
             }
         }
-    }
 
-    // apply DRY penalties
-    {
+        // apply DRY penalties
+
         const int penalty_tokens_used_size = std::min(prev.size(), (size_t)dry_penalty_last_n);
         if (penalty_tokens_used_size) {
             llama_sample_dry(&cur_p,
@@ -273,6 +272,8 @@ llama_token llama_sampling_sample(
                         params.dry_seq_breakers.data(), params.dry_seq_breakers.size());
         }
     }
+
+
 
     if (ctx_sampling->grammar != NULL) {
         llama_grammar_sample(ctx_sampling->grammar, ctx_main, &cur_p);
