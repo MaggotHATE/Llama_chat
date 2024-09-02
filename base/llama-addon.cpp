@@ -81,7 +81,6 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
         // resizing now that penalized tokens are at the back
         candidates->size = candidates->size - removed + 1;
-
     }
 
     llama_set_time(ctx, t_start_sample_us);

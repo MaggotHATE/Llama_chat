@@ -66,6 +66,7 @@ extern "C" {
         LLAMA_VOCAB_TYPE_BPE  = 2, // GPT-2 tokenizer based on byte-level BPE
         LLAMA_VOCAB_TYPE_WPM  = 3, // BERT tokenizer based on WordPiece
         LLAMA_VOCAB_TYPE_UGM  = 4, // T5 tokenizer based on Unigram
+        LLAMA_VOCAB_TYPE_RWKV = 5, // RWKV tokenizer based on greedy tokenization
     };
 
     // pre-tokenization types
@@ -267,9 +268,9 @@ extern "C" {
         enum llama_split_mode split_mode; // how to split the model across multiple GPUs
 
         // main_gpu interpretation depends on split_mode:
-        // LLAMA_SPLIT_NONE: the GPU that is used for the entire model
-        // LLAMA_SPLIT_ROW: the GPU that is used for small tensors and intermediate results
-        // LLAMA_SPLIT_LAYER: ignored
+        // LLAMA_SPLIT_MODE_NONE: the GPU that is used for the entire model
+        // LLAMA_SPLIT_MODE_ROW: the GPU that is used for small tensors and intermediate results
+        // LLAMA_SPLIT_MODE_LAYER: ignored
         int32_t main_gpu;
 
         // proportion of the model (layers or rows) to offload to each GPU, size: llama_max_devices()
@@ -345,7 +346,7 @@ extern "C" {
         int32_t nthread;                     // number of threads to use for quantizing, if <=0 will use std::thread::hardware_concurrency()
         enum llama_ftype ftype;              // quantize to this llama_ftype
         enum ggml_type output_tensor_type;   // output tensor type
-        enum ggml_type token_embedding_type; // itoken embeddings tensor type
+        enum ggml_type token_embedding_type; // token embeddings tensor type
         bool allow_requantize;               // allow quantizing non-f32/f16 tensors
         bool quantize_output_tensor;         // quantize output.weight
         bool only_copy;                      // only copy tensors - ftype, allow_requantize and quantize_output_tensor are ignored
@@ -511,9 +512,15 @@ extern "C" {
     // Returns true if the model contains an encoder that requires llama_encode() call
     LLAMA_API bool llama_model_has_encoder(const struct llama_model * model);
 
+    // Returns true if the model contains a decoder that requires llama_decode() call
+    LLAMA_API bool llama_model_has_decoder(const struct llama_model * model);
+
     // For encoder-decoder models, this function returns id of the token that must be provided
     // to the decoder to start generating output sequence. For other models, it returns -1.
     LLAMA_API llama_token llama_model_decoder_start_token(const struct llama_model * model);
+
+    // Returns true if the model is recurrent (like Mamba, RWKV, etc.)
+    LLAMA_API bool llama_model_is_recurrent(const struct llama_model * model);
 
     // Returns 0 on success
     LLAMA_API uint32_t llama_model_quantize(
@@ -919,11 +926,8 @@ extern "C" {
     LLAMA_API llama_token llama_token_nl (const struct llama_model * model); // next-line
     LLAMA_API llama_token llama_token_pad(const struct llama_model * model); // padding
 
-    // Returns -1 if unknown, 1 for true or 0 for false.
-    LLAMA_API int32_t llama_add_bos_token(const struct llama_model * model);
-
-    // Returns -1 if unknown, 1 for true or 0 for false.
-    LLAMA_API int32_t llama_add_eos_token(const struct llama_model * model);
+    LLAMA_API bool llama_add_bos_token(const struct llama_model * model);
+    LLAMA_API bool llama_add_eos_token(const struct llama_model * model);
 
     // Codellama infill tokens
     LLAMA_API llama_token llama_token_prefix(const struct llama_model * model); // Beginning of infill prefix

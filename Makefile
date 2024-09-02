@@ -241,9 +241,7 @@ endif
 CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 
 #for all chatTest
-CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -DGGML_USE_LLAMAFILE -w -pipe
-
-
+CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
@@ -257,7 +255,13 @@ endif
 LIBS =
 LDFLAGS  =
 
-ifdef OPENMP
+ifndef SGEMM_OFF
+	CXXFLAGS += -DGGML_USE_LLAMAFILE
+	CXXFLAGS_UI += -DGGML_USE_LLAMAFILE
+	CFLAGS += -DGGML_USE_LLAMAFILE
+endif # SGEMM_OFF
+
+ifndef OPENMP_OFF
 	CXXFLAGS += -fopenmp -DGGML_USE_OPENMP
 	CXXFLAGS_UI += -fopenmp -DGGML_USE_OPENMP
 	CFLAGS += -fopenmp -DGGML_USE_OPENMP
@@ -494,7 +498,7 @@ $(TMP)$(PREFIX)_ggml-blas.o: \
 	$(ggmlsrc_f)/ggml-blas.h
 	$(CXX) $(CXXFLAGS)    -c $< -o $@
 
-$(TMP)$(PREFIX)_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+$(TMP)$(PREFIX)_sgemm.o: $(ggmlsrc_f)/llamafile/sgemm.cpp $(ggmlsrc_f)/llamafile/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
 $(TMP)$(PREFIX)_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
@@ -617,7 +621,7 @@ $(TMP)clt_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS_CL)    -c $< -o $@
 
-$(TMP)clt_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+$(TMP)clt_sgemm.o: $(ggmlsrc_f)/llamafile/sgemm.cpp $(ggmlsrc_f)/llamafile/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
 	
 $(TMP)clt_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
@@ -747,7 +751,7 @@ $(TMP)vkt_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS_VK)    -c $< -o $@
 
-$(TMP)vkt_sgemm.o: $(llamacpp_f)/sgemm.cpp $(llamacpp_f)/sgemm.h $(ggmlsrc_f)/ggml.h
+$(TMP)vkt_sgemm.o: $(ggmlsrc_f)/llamafile/sgemm.cpp $(ggmlsrc_f)/llamafile/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
 	
 $(TMP)vkt_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h

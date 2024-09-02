@@ -142,7 +142,7 @@ llama_token llama_sampling_sample(
         struct llama_sampling_context * ctx_sampling,
         struct llama_context * ctx_main,
         struct llama_context * ctx_cfg,
-        int idx = 0);
+        int idx = -1);
 
 void llama_sampling_accept(
         struct llama_sampling_context * ctx_sampling,

@@ -514,6 +514,7 @@ extern "C" {
         GGML_OP_WIN_UNPART,
         GGML_OP_GET_REL_POS,
         GGML_OP_ADD_REL_POS,
+        GGML_OP_RWKV_WKV,
 
         GGML_OP_UNARY,
 
@@ -548,6 +549,7 @@ extern "C" {
         GGML_UNARY_OP_SILU,
         GGML_UNARY_OP_HARDSWISH,
         GGML_UNARY_OP_HARDSIGMOID,
+        GGML_UNARY_OP_EXP,
 
         GGML_UNARY_OP_COUNT,
     };
@@ -660,7 +662,7 @@ extern "C" {
         uint8_t * work_data; // work buffer, to be allocated by caller before calling to `ggml_graph_compute()`
 
         int n_threads;
-         struct ggml_threadpool * threadpool;
+        struct ggml_threadpool * threadpool;
 
         // abort ggml_graph_compute when true
         ggml_abort_callback abort_callback;
@@ -1165,6 +1167,14 @@ extern "C" {
             struct ggml_context * ctx,
             struct ggml_tensor  * a);
 
+    GGML_API struct ggml_tensor * ggml_exp(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * a);
+
+    GGML_API struct ggml_tensor * ggml_exp_inplace(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * a);
+
     // normalize along rows
     GGML_API struct ggml_tensor * ggml_norm(
             struct ggml_context * ctx,
@@ -1188,7 +1198,6 @@ extern "C" {
 
     // group normalize along ne0*ne1*n_groups
     // used in stable-diffusion
-    // TODO: eps is hardcoded to 1e-6 for now
     GGML_API struct ggml_tensor * ggml_group_norm(
             struct ggml_context * ctx,
             struct ggml_tensor  * a,
@@ -1506,7 +1515,6 @@ extern "C" {
     // if (mode & GGML_ROPE_TYPE_NEOX) - GPT-NeoX style
     //
     // b is an int32 vector with size a->ne[2], it contains the positions
-    // c is freq factors (e.g. phi3-128k), (optional)
     GGML_API struct ggml_tensor * ggml_rope(
             struct ggml_context * ctx,
             struct ggml_tensor  * a,
@@ -1523,6 +1531,7 @@ extern "C" {
             int                   mode);
 
     // custom RoPE
+    // c is freq factors (e.g. phi3-128k), (optional)
     GGML_API struct ggml_tensor * ggml_rope_ext(
             struct ggml_context * ctx,
             struct ggml_tensor  * a,
@@ -1639,7 +1648,7 @@ extern "C" {
         int                   p1, // padding dimension 1
         int                   d0, // dilation dimension 0
         int                   d1, // dilation dimension 1
-        bool                  is_2D);;
+        bool                  is_2D);
 
     GGML_API struct ggml_tensor * ggml_conv_depthwise_2d(
             struct ggml_context * ctx,
@@ -1834,7 +1843,8 @@ extern "C" {
             struct ggml_tensor  * v,
             struct ggml_tensor  * mask,
             float                 scale,
-            float                 max_bias);
+            float                 max_bias,
+            float                 logit_softcap);
 
     GGML_API void ggml_flash_attn_ext_set_prec(
             struct ggml_tensor * a,
@@ -1851,10 +1861,8 @@ extern "C" {
 
     GGML_API struct ggml_tensor * ggml_ssm_conv(
             struct ggml_context * ctx,
-            struct ggml_tensor  * s,
-            struct ggml_tensor  * x,
-            struct ggml_tensor  * c,
-            struct ggml_tensor  * sq);
+            struct ggml_tensor  * sx,
+            struct ggml_tensor  * c);
 
     GGML_API struct ggml_tensor * ggml_ssm_scan(
             struct ggml_context * ctx,
@@ -1863,8 +1871,7 @@ extern "C" {
             struct ggml_tensor  * dt,
             struct ggml_tensor  * A,
             struct ggml_tensor  * B,
-            struct ggml_tensor  * C,
-            struct ggml_tensor  * sq);
+            struct ggml_tensor  * C);
 
     // partition into non-overlapping windows with padding if needed
     // example:
@@ -1915,6 +1922,15 @@ extern "C" {
             struct ggml_tensor  * a,
             struct ggml_tensor  * pw,
             struct ggml_tensor  * ph);
+
+    GGML_API struct ggml_tensor * ggml_rwkv_wkv(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * k,
+            struct ggml_tensor  * v,
+            struct ggml_tensor  * r,
+            struct ggml_tensor  * tf,
+            struct ggml_tensor  * td,
+            struct ggml_tensor  * state);
 
     // custom operators
 
@@ -2097,7 +2113,7 @@ extern "C" {
 
     // ggml_graph_plan() has to be called before ggml_graph_compute()
     // when plan.work_size > 0, caller must allocate memory for plan.work_data
-        GGML_API struct ggml_cplan ggml_graph_plan(
+    GGML_API struct ggml_cplan ggml_graph_plan(
                   const struct ggml_cgraph * cgraph,
                                        int   n_threads, /* = GGML_DEFAULT_N_THREADS */
                     struct ggml_threadpool * threadpool /* = NULL */ );
