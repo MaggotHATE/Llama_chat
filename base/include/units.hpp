@@ -1,6 +1,81 @@
 #pragma once
 
+#include "jsonParams.h"
+
+/* llmcpp::Place Tavern({4,5,7,7,1},"tavern");
+    
+llmcpp::Human Jane({4,2,7,8,7},"Jane","wench",{{"female",10}},{5,3,7,6,1});
+llmcpp::Human Patric({3,9,3,3,1},"Patric","boy",{{"male",5}});
+llmcpp::Human Greg({7,6,4,9,9},"Greg","tavern keeper",{{"male",10}});
+
+llmcpp::Item glass({1,1,7,3,1}, "glass", {{"dirty",10}});
+llmcpp::Item table({6,1,1,1,1}, "table", {{"dirty",2}});
+llmcpp::Item chair1({4,4,1,1,1}, "big chair", {{"dirty",2}});
+llmcpp::Item chair2({3,5,1,1,1}, "small chair", {{"dirty",5}});
+llmcpp::Item thongs({1,7,7,7,1}, "thong", {{"clothes",10},{"female",11}});
+
+Tavern.place(table);
+Tavern.place(chair1);
+Tavern.place(chair1);
+Tavern.place(glass);
+Tavern.place(thongs);
+
+Tavern.inhabit(Jane);
+Tavern.inhabit(Patric);
+Tavern.inhabit(Greg);
+
+llmcpp::action_type clean("clean","cleans","cleaning",'a','i',"dirty");
+llmcpp::action_type wear("wear","wears","wearing",'c','a',"clothes");
+
+//test_char_descr += " " + Jane.get_name() + " is holding a dirty "+ glass.get_name() + " - " + llmcpp::get_description(glass);
+
+std::string test_char_descr = "This is a " + Tavern.get_name() + ", it's" + llmcpp::get_description(Tavern) + " Here, " + get_items_description(Tavern) + ". " + std::to_string(Tavern.characters.size()) + " people work here: " + get_characters_description(Tavern) + ".";
+test_char_descr += "\n" + Jane.get_name() + " is " + Jane.get_title() + ", she is" + llmcpp::get_description(Jane);
+test_char_descr += "\n" + Patric.get_name() + " is " + Patric.get_title() + ", he is" + llmcpp::get_description(Patric);
+test_char_descr += "\n" + Greg.get_name() + " is " + Greg.get_title() + ", he is" + llmcpp::get_description(Greg);
+
+test_char_descr += "\n It's morning. Everyone is busy.";
+//test_char_descr += "\n" +  Tavern.estimate_items("Jane", clean);
+//test_char_descr += "\n" +  Tavern.estimate_items("Jane", wear);
+test_char_descr += "\n" +  Tavern.estimate_items_all(clean);
+test_char_descr += "\n" +  Tavern.estimate_items_all(wear);
+
+test_char_descr += "\n\n" + Jane.get_name() + " picks up " + thongs.get_name() + " -" + llmcpp::get_description(thongs);
+// test_char_descr += "\n" + Jane.get_name() + " " + Jane.action_mood(thongs,wear);
+// test_char_descr += "\n" + Jane.get_name() + " " + Jane.action_mood(glass,clean);
+// test_char_descr += "\n" + Jane.get_name() + " " + Jane.action_mood(table,clean);
+//test_char_descr += "\nNow describe how " + llmcpp::action_make(Jane, thongs, wear) + " while " + Greg.get_name() + " and " + Patric.get_name() + " are watching and commenting.";
+test_char_descr += "\n" + Jane.get_name() + " was feeling" + Jane.get_mood_current() + ". "+ llmcpp::action_make(Jane, thongs, wear) + ". Now she is feeling" + Jane.get_mood_current() + ".";
+//test_char_descr += "\nNow describe how they are preparing the tavern for the night.";
+std::cout << test_char_descr << std::endl;
+ */
+
 namespace llmcpp {
+    
+    // mood stats:
+    // s = +aggressive|scared-
+    // i = +focused|emotional-
+    // a = +energetic|sleepy-
+    // c = +joyful|depressed-
+    // l = +risky|cautious
+    std::vector<std::string> str_mood { "horrified", "scared", "shaking", "worried", "moody", "", "calm", "cutious", "nervous", "rude", "aggressive"
+    };
+    
+    std::vector<std::string> int_mood { "very emotional", "emotional", "slightly emotional", "a bit emotional", "", "attentive", "thinking", "focused", "heavily focused", "heavily thinking", "fully focused"
+    };
+    
+    std::vector<std::string> agi_mood { "exhausted", "sleepy", "tired", "weary", "a bit tired",
+        "", "cheerful", "a bit energetic", "energetic", "very energetic", "energy-filled"
+    };
+    
+    std::vector<std::string> cha_mood { "depressed", "angry", "negative", "gloomy", "overthinking",
+        "", "chirpy", "in good mood", "joyful", "happy", "very happy"
+    };
+    
+    std::vector<std::string> luk_mood { "risky", "raunchy", "", "", "",
+        "", "", "", "observant", "cautious", "very cautious"
+    };
+    
     struct stats {
         int strength = 5;
         int intelligence = 5;
@@ -32,6 +107,17 @@ namespace llmcpp {
         
         return description;
     }
+    
+    // static std::string get_mood_current(stats& mood) {
+        // std::string description;
+        
+        // description += strength_mood[mood.strength] + ", ";
+        
+        // description.pop_back();
+        // description.pop_back();
+        
+        // return description;
+    // }
     
     class Object {
         private:
@@ -134,12 +220,6 @@ namespace llmcpp {
     class Human : public Object {
         private:
             stats permastats {5,6,4,7,7};
-            // mood stats:
-            // s = +aggressive|scared-
-            // i = +focused|emotional-
-            // a = +quick|dull-
-            // c = +cheerful|depressed-
-            // l = +risky|cautious
             stats mood {5,5,5,5,5};
             std::string name = "Jack";
             std::string title = "knight";
@@ -176,25 +256,36 @@ namespace llmcpp {
                 return title;
             }
         
-            Human(stats new_stats = {5,6,4,7,7}, std::string new_name = "Jack", std::string new_title = "knight", unordered_map<std::string,int> new_tags = {{"male",10}}) : permastats(new_stats), name(new_name), title(new_title), tags(new_tags) {
+            Human(stats new_stats = {5,6,4,7,7}, std::string new_name = "Jack", std::string new_title = "knight", unordered_map<std::string,int> new_tags = {{"male",10}}, stats new_mood = {5,5,5,5,5}) : permastats(new_stats), name(new_name), title(new_title), tags(new_tags), mood(new_mood) {
 
+            }
+            
+            void mood_boundaries() {
+                if (mood.strength < 0) mood.strength = 0;
+                if (mood.intelligence < 0) mood.intelligence = 0;
+                if (mood.agility < 0) mood.agility = 0;
+                if (mood.charisma < 0) mood.charisma = 0;
+                if (mood.luck < 0) mood.luck = 0;
+                
+                if (mood.strength > 10) mood.strength = 10;
+                if (mood.intelligence > 10) mood.intelligence = 10;
+                if (mood.agility > 10) mood.agility = 10;
+                if (mood.charisma > 10) mood.charisma = 10;
+                if (mood.luck > 10) mood.luck = 10;
             }
             
             void act(int action_result, char action_mood) {
                 switch (action_mood) {
-                    case 's': mood.strength += 1 - action_result;
-                    case 'i': mood.intelligence += 1 - action_result;
-                    case 'a': mood.agility += 1 - action_result;
-                    case 'c': mood.charisma += 1 - action_result;
-                    case 'l': mood.luck += 1 - action_result;
-                    default: {
-                        mood.strength += 1 - action_result;
-                        mood.intelligence += 1 - action_result;
-                        mood.agility += 1 - action_result;
-                        mood.charisma += 1 - action_result;
-                        mood.luck += 1 - action_result;
-                    }
+                    case 's': mood.strength += 1 + action_result;
+                    case 'i': mood.intelligence += 1 + action_result;
+                    case 'a': mood.agility += 1 + action_result;
+                    case 'c': mood.charisma += 1 + action_result;
+                    case 'l': mood.luck += 1 + action_result;
+                    default: mood.luck += 1 + action_result;
                 }
+                
+                mood_boundaries();
+                
             }
             
             void mood_step() {
@@ -216,6 +307,26 @@ namespace llmcpp {
                     return (get_mood_estimate(value,action_name) );
                 //d} else return "cannot " + action_name;
                 } else return "";
+            }
+            
+            std::string get_mood_current() {
+                std::string description = " ";
+                
+                description += str_mood[mood.strength];
+                if (description.back() != ',' && description.back() != ' ') description += ", ";
+                description += int_mood[mood.intelligence];
+                if (description.back() != ',' && description.back() != ' ') description += ", ";
+                description += agi_mood[mood.agility];
+                if (description.back() != ',' && description.back() != ' ') description += ", ";
+                description += cha_mood[mood.charisma];
+                if (description.back() != ',' && description.back() != ' ') description += ", ";
+                description += luk_mood[mood.luck];
+                if (description.back() != ',' && description.back() != ' ') description += ", ";
+                
+                description.pop_back();
+                description.pop_back();
+                
+                return description;
             }
             
     };
@@ -252,6 +363,10 @@ namespace llmcpp {
             }
             
             Place(stats new_stats = {5,2,5,7,1}, std::string new_name = "room") : place_stats(new_stats), name(new_name) {
+            }
+            
+            Place(nlohmann::json place_config) {
+                
             }
             
             void place(Item& placeable_item) {
@@ -306,7 +421,12 @@ namespace llmcpp {
                         character_result += c.second.action_mood(i.second, action);
                         if (character_result.back() != ';' && character_result.back() != ' ' && !character_result.empty()) character_result += ", ";
                     }
-                    if (character_result.size() > 3) result += c.second.get_name() + character_result + ". ";
+                    
+                    if (character_result.size() > 3) {
+                        character_result.pop_back();
+                        character_result.pop_back();
+                        result += c.second.get_name() + character_result + ". ";
+                    }
                 }
                 
                 return result;

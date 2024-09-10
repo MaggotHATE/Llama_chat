@@ -203,7 +203,7 @@ struct modelThread{
     std::string display(){
         Clear();
         getTimigsPre();
-        getSparamsList();
+        //getSparamsList();
         std::string summary = "-";
         std::cout << "----------------------------------------"<< std::endl;
         std::cout << "Model: " << shortModelName << std::endl;
@@ -265,7 +265,7 @@ struct modelThread{
 #elif defined(GGML_USE_CLBLAST)
             summary += std::format("CL{}|",newChat.params.n_gpu_layers);
 #endif
-            summary += std::format("{}|Msg: {}t|Left: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.3f}t/s|tg{:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
             std::cout << lastResult;
             std::cout << "\n----------------------------------------------------------------------------------------------\n" << summary;
         }
@@ -398,7 +398,7 @@ struct modelThread{
 #elif defined(GGML_USE_CLBLAST)
             summary += "cl|";
 #endif
-            summary += std::format("{}|Msg: {}t|Left: {}t|in {:.3f}t/s|out {:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.3f}t/s|tg{:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
 
             file_o << summary << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
@@ -638,7 +638,7 @@ struct modelThread{
             //isContinue = 'w';
             //std::cout << " ** " << input << std::endl;
             newChat.clearLastTokens();
-
+            getTimigsPre();
 
             futureTextString = std::async(std::launch::async, [this] mutable {
                 isPregen = 'w';
@@ -668,6 +668,7 @@ struct modelThread{
                     lastResult += output;
 
                     getTimigsGen();
+                    getSparamsList();
 
                     //getTimigsSimple();
 
@@ -773,6 +774,7 @@ struct modelThread{
                 lastResult += output;
 
                 getTimigsGen();
+                getSparamsList();
 
                 //getTimigsSimple();
 

@@ -1,6 +1,20 @@
 #pragma once
 #include "llama.h"
 
+/*
+void llama_set_time(struct llama_context * ctx, const int64_t t_start_sample_us) {
+    llama_set_time_impl(ctx ? &ctx->sampling : nullptr, t_start_sample_us);
+}
+LLAMA_API void llama_set_time(struct llama_context * ctx, const int64_t t_start_sample_us);
+-------------------
+void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sample_us) {
+    if (smpl) {
+        smpl->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sample_us);
+*/
+
     /// https://github.com/oobabooga/text-generation-webui/pull/6335
     LLAMA_API void llama_sample_xtc_addon(
             struct llama_context * ctx,
@@ -11,6 +25,18 @@
                            bool    xtc_probability_once,
                            int     xtc_min,
                           size_t   min_keep);
+
+    /// https://github.com/oobabooga/text-generation-webui/pull/6335
+    LLAMA_API void llama_sample_xtc_addon2(
+            struct llama_context * ctx,
+          llama_token_data_array * candidates,
+                           float   xtc_probability,
+                           float   xtc_threshold,
+                           float   xtc_threshold_max,
+                           bool    xtc_probability_once,
+                           int     xtc_min,
+                          size_t   min_keep);
+
 
     /// @details P-Step sampling as described in [THIS PR]
     LLAMA_API void llama_sample_p_step_addon(

@@ -2,87 +2,10 @@
 
 #include "llama.h"
 #include "llama-addon.h"
+#include "common.h"
 
 #include <string>
 #include <vector>
-
-// sampling function
-typedef struct llama_sampling_param_func {
-    float p_min = -1.0f;
-    float p_max = -1.0f;
-    float p_add = 0.0f;
-    float p_mul = 1.0f;
-    bool p_dir = true;
-
-    bool operator==(const llama_sampling_param_func& other) const {
-        return p_min == other.p_min && p_max == other.p_max && p_add == other.p_add && p_mul == other.p_mul;
-    }
-
-    bool operator!=(const llama_sampling_param_func& other) const {
-        return p_min != other.p_min || p_max != other.p_max || p_add != other.p_add || p_mul != other.p_mul;
-    }
-
-} llama_sampling_param_func;
-
-enum gpt_sampler_type {
-    GPT_SAMPLER_TYPE_NONE        = 0,
-    GPT_SAMPLER_TYPE_TOP_K       = 1,
-    GPT_SAMPLER_TYPE_TOP_P       = 2,
-    GPT_SAMPLER_TYPE_MIN_P       = 3,
-    GPT_SAMPLER_TYPE_TFS_Z       = 4,
-    GPT_SAMPLER_TYPE_TYPICAL_P   = 5,
-    GPT_SAMPLER_TYPE_TEMPERATURE = 6,
-};
-
-// sampling parameters
-struct gpt_sampler_params {
-    uint32_t seed = LLAMA_DEFAULT_SEED; // the seed used to initialize llama_sampler
-
-    int32_t n_prev            = 64;    // number of previous tokens to remember
-    int32_t n_probs           = 0;     // if greater than 0, output the probabilities of top n_probs tokens.
-    int32_t min_keep          = 0;     // 0 = disabled, otherwise samplers should return at least min_keep tokens
-    int32_t top_k             = 40;    // <= 0 to use vocab size
-    float   top_p             = 0.95f; // 1.0 = disabled
-    float   min_p             = 0.05f; // 0.0 = disabled
-    float   tfs_z             = 1.00f; // 1.0 = disabled
-    float   typical_p         = 1.00f; // typical_p, 1.0 = disabled
-    float   p_step            = 0.00f;    // 0.0 = disabled
-    float   temp              = 0.80f; // <= 0.0 to sample greedily, 0.0 to not output probabilities
-    float   dynatemp_range    = 0.00f; // 0.0 = disabled
-    float   dynatemp_exponent = 1.00f; // controls how entropy maps to temperature in dynamic temperature sampler
-    float   smoothing_factor  = 0.00f;    // 0.0 = disabled
-    float   smoothing_curve   = 1.00f;    // 1.0 = flat
-    int32_t penalty_last_n    = 64;    // last n tokens to penalize (0 = disable penalty, -1 = context size)
-    float   penalty_repeat    = 1.00f; // 1.0 = disabled
-    float   penalty_freq      = 0.00f; // 0.0 = disabled
-    float   penalty_present   = 0.00f; // 0.0 = disabled
-    float   penalty_threshold = 0.00f; // 0.0 = disabled
-    int32_t mirostat          = 0;     // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
-    float   mirostat_tau      = 5.00f; // target entropy
-    float   mirostat_eta      = 0.10f; // learning rate
-    llama_sampling_param_func temp_func;
-    llama_sampling_param_func dynatemp_range_func;
-    llama_sampling_param_func p_step_func;
-    float    dry_multiplier        = 0.0f; // 0.0f = disabled, recommended value: 0.8f
-    float    dry_base              = 1.75f;
-    uint32_t dry_allowed_length    = 2;
-    int32_t  dry_penalty_last_n    = -1; // DRY last n tokens to penalize (0 = disable penalty, -1 = context size)
-    float    xtc_probability       = 0.5; // probability of removing a top token
-    float    xtc_threshold         = 0.1; // minimum tokens probablitity for this to run
-    float    xtc_threshold_max     = 1.0; // maximum tokens probablitity for this to run
-    bool     xtc_probability_once  = false; // should we calculate chances one or for each token
-    int      xtc_min               = 2; // minimum number of penalizeable tokens
-    bool    penalize_nl       = false; // consider newlines as a repeatable token
-    bool    ignore_eos        = false;
-    std::string samplers_sequence     = "kfypmts"; // top_k, tail_free, typical_p, top_p, min_p, temp, p_step
-
-    std::string grammar; // optional BNF-like grammar to constrain sampling
-
-    std::vector<llama_logit_bias> logit_bias; // logit biases to apply
-
-    // print the parameters into a string
-    std::string print() const;
-};
 
 // gpt_sampler extends llama_sampler with additional functionality:
 //

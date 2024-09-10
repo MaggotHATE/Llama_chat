@@ -363,7 +363,9 @@ public:
         n_past_last           = 0;
         n_remain_last         = 0;
         
-       
+        xtc_total = 0;
+        xtc_removed = 0;
+        xtc_percent = 0;
         
         params = paramsDefault;
     }
@@ -437,26 +439,36 @@ public:
     
     float get_speed() {
         const llama_timings timings = llama_get_timings(ctx);
-        
-        t_eval_ms = timings.t_eval_ms - t_eval_ms;
-        n_eval = timings.n_eval - n_eval;
-        
-        if (t_eval_ms != 0 && n_eval != 0) return (1e3 / t_eval_ms * n_eval);
-        else return 0;
-        //return llama_string_eval(ctx);
+
+        int t_eval_ms_curr = timings.t_eval_ms - t_eval_ms;
+        int n_eval_curr = timings.n_eval - n_eval;
+
+        t_eval_ms = timings.t_eval_ms;
+        n_eval = timings.n_eval;
+
+        if (t_eval_ms_curr > 0 && n_eval_curr > 0) {
+            return (1e3 / t_eval_ms_curr * n_eval_curr);
+        }
+
+        return (1e3 / t_eval_ms * n_eval);
     }
-    
+
     float get_speed_p(){
         const llama_timings timings = llama_get_timings(ctx);
         
-        t_p_eval_ms = timings.t_p_eval_ms - t_p_eval_ms;
-        n_p_eval = timings.n_p_eval - n_p_eval;
-        
-        if (t_p_eval_ms != 0 && n_p_eval != 0) return (1e3 / t_p_eval_ms * n_p_eval);
-        else return 0;
-        //return llama_string_eval(ctx);
+        int t_p_eval_ms_curr = timings.t_p_eval_ms - t_p_eval_ms;
+        int n_p_eval_curr = timings.n_p_eval - n_p_eval;
+
+        t_p_eval_ms = timings.t_p_eval_ms;
+        n_p_eval = timings.n_p_eval;
+
+        if (t_p_eval_ms_curr > 0 && n_p_eval_curr > 0) {
+            return (1e3 / t_p_eval_ms_curr * n_p_eval_curr);
+        }
+
+        return (1e3 / t_p_eval_ms * n_p_eval);
     }
-    
+
     void clear_speed(){
         t_eval_ms = 0;
         n_eval = 0;
@@ -500,11 +512,11 @@ public:
         }
     }
     
-    std::string getSparams(){
+    std::string getSparams() {
         return "\n top_k = " + std::to_string(params.sparams.top_k) + "\n top_p = " + std::to_string(params.sparams.top_p) + "\n min_p = " + std::to_string(params.sparams.min_p) + "\n tfs_z = " + std::to_string(params.sparams.tfs_z) + "\n typical_p = " + std::to_string(params.sparams.typical_p) + "\n temp = " + std::to_string(params.sparams.temp) + "\n penalty_repeat = " + std::to_string(params.sparams.penalty_repeat) + "\n penalty_freq = " + std::to_string(params.sparams.penalty_freq) + "\n penalty_present = " + std::to_string(params.sparams.penalty_present) + "\n mirostat = " + std::to_string(params.sparams.mirostat) + "\n mirostat_tau = " + std::to_string(params.sparams.mirostat_tau) + "\n mirostat_eta = " + std::to_string(params.sparams.mirostat_eta);
     }
     
-    std::string getSparamsChanged(bool fullnames = true){
+    std::string getSparamsChanged(bool fullnames = true) {
         std::string result = fullnames ? "logits" : "@";
 
         std::string name_penalty_repeat = fullnames ? "penalty_repeat" : "p_r";
@@ -563,7 +575,7 @@ public:
                     case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.3f}",params.sparams.tfs_z); break;
                     case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.3f}",params.sparams.typical_p); break;
                     case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.3f}",params.sparams.p_step); break;
-                    case 'x': result += std::format("xtc={:.3f}-{:.3f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100,params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{} ({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
+                    case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                     case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.3f}",params.sparams.top_p); break;
                     case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); break;
                     case 't': {

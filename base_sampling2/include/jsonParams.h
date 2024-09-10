@@ -1,8 +1,8 @@
 #pragma once
 
 #include "common.h"
+#include "sampling.h"
 //#include "llama.h"
-#include "grammar-parser.h"
 #define JSON_ASSERT GGML_ASSERT
 #include "json.hpp"
 

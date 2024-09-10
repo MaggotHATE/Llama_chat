@@ -41,20 +41,38 @@ int xtc_total = 0;
 int xtc_removed = 0;
 float xtc_percent = 0.0;
 
+static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add){
+    std::string text = add + "(" + std::to_string(candidates->size) + ")";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        if (candidates->data[i].p > 0) { text += "\n[" + std::to_string(i) + "] p=" + std::to_string(candidates->data[i].p) + "(l=" + std::to_string(candidates->data[i].logit) + ");"; } else ++zeroes;
+    }
+    if (zeroes > 0) text += "\n Zeroes: " + std::to_string(zeroes);
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
+
 void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, float xtc_threshold_max, bool xtc_probability_once, int xtc_min, size_t min_keep) {
     if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || xtc_min < 1 || candidates->size <= 1) {
         return;
     }
 
-    std::random_device rd;
-    float chance = (float)(rd()%100)/100;
     xtc_total += candidates->size;
     xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
+
+    std::random_device rd;
+    float chance = (float)(rd()%100)/100;
     if (xtc_probability_once && chance > xtc_probability) return;
 
     llama_sample_softmax(nullptr, candidates);
-
     const int64_t t_start_sample_us = ggml_time_us();
+
     int removed = 0;
     // going through all candidates from back to front, easier to keep the last of probables
     for (int i = (candidates->size - 1); i >= 0; --i) {
@@ -65,6 +83,7 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
                     // .logits are used for sorting and calculating .p in llama_sample_softmax_impl
                     candidates->data[i].logit = -999.0f;
                     if (!xtc_probability_once) chance = (float)(rd()%100)/100;
+
                     ++xtc_removed;
                     xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
                 }
@@ -74,6 +93,8 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
     // still need this check
     if (removed >= xtc_min) {
+        writeCandidatesToFile("xtc_addon.txt", candidates, "\nPROCESSED:");
+
         // sorting with new logits, ex-last probable will be the first anyway
         std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
             return a.logit > b.logit;
@@ -81,6 +102,60 @@ void llama_sample_xtc_addon(struct llama_context * ctx, llama_token_data_array *
 
         // resizing now that penalized tokens are at the back
         candidates->size = candidates->size - removed + 1;
+
+        // std::ofstream file("xtc_test2.txt", std::ios::app);
+        // if (file.is_open()) {
+            // file << xtc_log;
+            // file.close();
+        // }
+    }
+
+    llama_set_time(ctx, t_start_sample_us);
+}
+
+void llama_sample_xtc_addon2(struct llama_context * ctx, llama_token_data_array * candidates, float xtc_probability, float xtc_threshold, float xtc_threshold_max, bool xtc_probability_once, int xtc_min, size_t min_keep) {
+    if (xtc_probability <= 0.0f || xtc_threshold <= 0.0f || xtc_min < 1 || candidates->size <= 1) {
+        return;
+    }
+
+    std::random_device rd;
+    float chance = (float)(rd()%100)/100;
+    if (xtc_probability_once && chance > xtc_probability) return;
+
+    // statitstics
+    xtc_total += candidates->size;
+    xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
+
+    llama_sample_softmax(nullptr, candidates);
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    int i = 0;
+    // less iterations overall, especially without strict samplers
+    while (i < candidates->size && candidates->data[i].p >= xtc_threshold && candidates->data[i].p <= xtc_threshold_max) {
+        ++i;
+    }
+
+    if (i >= xtc_min) {
+        // still less iterations
+        for (int ii = 0; ii < i; ++ii) {
+            if (xtc_probability_once || chance <= xtc_probability) { 
+                candidates->data[ii].logit = -999.0f;
+                chance = (float)(rd()%100)/100;
+
+                ++xtc_removed;
+            }
+        }
+
+        writeCandidatesToFile("xtc_addon2.txt", candidates, "\nPROCESSED:");
+        xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
+
+        // sorting with new logits, ex-last probable will be the first anyway
+        std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
+            return a.logit > b.logit;
+        });
+
+        // resizing now that penalized tokens are at the back
+        candidates->size = candidates->size - i + 1;
     }
 
     llama_set_time(ctx, t_start_sample_us);

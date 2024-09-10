@@ -401,9 +401,9 @@ public:
             }
         }
 
-        if (gpt_params_parse(argc, argv, params) == false) {
-            return -1;
-        }
+        // if (gpt_params_parse(argc, argv, params) == false) {
+            // return -1;
+        // }
     }
     
     std::string getSparams() {
