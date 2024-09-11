@@ -340,7 +340,7 @@ public:
     }
     
     int getEmbInpSize() {
-        return embd_inp.size();
+        return std::size(embd_inp);
     }
 
     float get_speed() {
@@ -522,7 +522,7 @@ public:
         
         if (prompt != "NULL") params.prompt = prompt;
         if (antiprompt != "NULL") {
-            if(!params.antiprompt.size()) 
+            if(!std::size(params.antiprompt)) 
                 params.antiprompt.emplace_back(antiprompt);
             else
                 params.antiprompt[0] = antiprompt;
@@ -556,7 +556,7 @@ public:
         for (auto s : format){
             switch (s){
                 case 'a':{
-                    if (params.antiprompt.size()){
+                    if (std::size(params.antiprompt)){
                         formatRepresentation += params.antiprompt[0];
                         const auto line_antiprompt_format = ::llama_tokenize(ctx, params.antiprompt[0], false, true);
                         embd_inp.insert(embd_inp.end(), line_antiprompt_format.begin(), line_antiprompt_format.end());
@@ -586,7 +586,7 @@ public:
                     //else formatRepresentation += "{input}";
                     const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
                     embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-                    if (n_remain > 0) n_remain -= line_inp.size();
+                    if (n_remain > 0) n_remain -= std::size(line_inp);
                     break;
                 }
                 case 's':{
@@ -662,7 +662,7 @@ public:
     void tokenize_antiprompt() {
         // tokenized antiprompts
 
-        antiprompt_ids.reserve(params.antiprompt.size());
+        antiprompt_ids.reserve(std::size(params.antiprompt));
         for (const std::string & antiprompt : params.antiprompt) {
             antiprompt_ids.emplace_back(::llama_tokenize(ctx, antiprompt, false, true));
         }
@@ -670,7 +670,7 @@ public:
 
     int check_encoder() {
         if (llama_model_has_encoder(model)) {
-            int enc_input_size = embd_inp.size();
+            int enc_input_size = std::size(embd_inp);
             llama_token * enc_input_buf = embd_inp.data();
 
             if (llama_encode(ctx, llama_batch_get_one(enc_input_buf, enc_input_size, 0, 0))) {
@@ -905,7 +905,7 @@ public:
                 session_tokens.resize(n_token_count_out);
                 //llama_set_rng_seed(ctx, params.sparams.seed);
 
-                fprintf(stderr, "%s: loaded a session with prompt size of %d tokens\n", __func__, (int) session_tokens.size());
+                fprintf(stderr, "%s: loaded a session with prompt size of %d tokens\n", __func__, (int) std::size(session_tokens));
             } else {
                 fprintf(stderr, "%s: session file does not exist, will create\n", __func__);
             }
@@ -916,7 +916,7 @@ public:
         params.interactive_first = true;
         params.interactive = true;
 
-        if (!params.antiprompt.size()) params.antiprompt.emplace_back("You:");
+        if (!std::size(params.antiprompt)) params.antiprompt.emplace_back("You:");
         //if (params.prompt.empty()) params.prompt = params.antiprompt.back();
         // instruct mode was removed since its format is not universal enough
 
@@ -943,30 +943,30 @@ public:
         // Tokenize negative prompt
         // removed here by sampling refactor v2
 
-        if ((int) embd_inp.size() > n_ctx - 4) {
-            fprintf(stderr, "%s: error: prompt is too long (%d tokens, max %d)\n", __func__, (int) embd_inp.size(), n_ctx - 4);
+        if ((int) std::size(embd_inp) > n_ctx - 4) {
+            fprintf(stderr, "%s: error: prompt is too long (%d tokens, max %d)\n", __func__, (int) std::size(embd_inp), n_ctx - 4);
             return 1;
         }
 
         // debug message about similarity of saved session, if applicable
         n_matching_session_tokens = 0;
-        if (session_tokens.size()) {
+        if (std::size(session_tokens)) {
             for (llama_token id : session_tokens) {
-                if (n_matching_session_tokens >= embd_inp.size() || id != embd_inp[n_matching_session_tokens]) {
+                if (n_matching_session_tokens >= std::size(embd_inp) || id != embd_inp[n_matching_session_tokens]) {
                     break;
                 }
                 n_matching_session_tokens++;
             }
-            if (params.prompt.empty() && n_matching_session_tokens == embd_inp.size()) {
+            if (params.prompt.empty() && n_matching_session_tokens == std::size(embd_inp)) {
                 fprintf(stderr, "%s: using full prompt from session file\n", __func__);
-            } else if (n_matching_session_tokens >= embd_inp.size()) {
+            } else if (n_matching_session_tokens >= std::size(embd_inp)) {
                 fprintf(stderr, "%s: session file has exact match for prompt!\n", __func__);
-            } else if (n_matching_session_tokens < (embd_inp.size() / 2)) {
+            } else if (n_matching_session_tokens < (std::size(embd_inp) / 2)) {
                 fprintf(stderr, "%s: warning: session file has low similarity to prompt (%zu / %zu tokens); will mostly be reevaluated\n",
-                    __func__, n_matching_session_tokens, embd_inp.size());
+                    __func__, n_matching_session_tokens, std::size(embd_inp));
             } else {
                 fprintf(stderr, "%s: session file matches %zu / %zu tokens of prompt\n",
-                    __func__, n_matching_session_tokens, embd_inp.size());
+                    __func__, n_matching_session_tokens, std::size(embd_inp));
             }
 
             // remove any "future" tokens that we might have inherited from the previous session
@@ -976,14 +976,14 @@ public:
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
         // reevaluation of the last token token to recalculate the cached logits
-        if (!embd_inp.empty() && n_matching_session_tokens == embd_inp.size() &&
-                session_tokens.size() > embd_inp.size()) {
-            session_tokens.resize(embd_inp.size() - 1);
+        if (!embd_inp.empty() && n_matching_session_tokens == std::size(embd_inp) &&
+                std::size(session_tokens) > std::size(embd_inp)) {
+            session_tokens.resize(std::size(embd_inp) - 1);
         }
 
         // number of tokens to keep when resetting context
-        if (params.n_keep < 0 || params.n_keep > (int) embd_inp.size()) {
-            params.n_keep = (int)embd_inp.size();
+        if (params.n_keep < 0 || params.n_keep > (int) std::size(embd_inp)) {
+            params.n_keep = (int)std::size(embd_inp);
         } else {
             params.n_keep += add_bos; // always keep the BOS token
         }
@@ -1004,10 +1004,10 @@ public:
 
         //ctx_sampling = llama_sampling_init(params);
 
-        bool need_to_save_session = !path_session.empty() && n_matching_session_tokens < embd_inp.size();
+        bool need_to_save_session = !path_session.empty() && n_matching_session_tokens < std::size(embd_inp);
 
         n_remain           = params.n_predict;
-        n_remain_last      = embd_inp.size();
+        n_remain_last      = std::size(embd_inp);
 
         printf("Load finished\n");
 
@@ -1022,8 +1022,8 @@ public:
         // --prompt or --file which uses the same value.
         int max_embd_size = n_ctx - 4;
         // Ensure the input doesn't exceed the context size by truncating embd if necessary.
-        if ((int)embd.size() > max_embd_size) {
-            const int skipped_tokens = (int) embd.size() - max_embd_size;
+        if ((int)std::size(embd) > max_embd_size) {
+            const int skipped_tokens = (int) std::size(embd) - max_embd_size;
             embd.resize(max_embd_size);
             printf("<<input too long: skipped %d token%s>>", skipped_tokens, skipped_tokens != 1 ? "s" : "");
             fflush(stdout);
@@ -1036,7 +1036,7 @@ public:
         // if we run out of context:
         // - take the n_keep first tokens from the original prompt (via n_past)
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-        if (n_past + (int) embd.size() >= n_ctx) {
+        if (n_past + (int) std::size(embd) >= n_ctx) {
             printf("....");
             const int n_left    = n_past - params.n_keep;
             const int n_discard = n_left/2;
@@ -1065,7 +1065,7 @@ public:
             // if we run out of context:
             // - take the n_keep first tokens from the original prompt (via n_past)
             // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
-            if (n_past + (int) embd.size() >= n_ctx) {
+            if (n_past + (int) std::size(embd) >= n_ctx) {
                 // if (params.n_predict == -2) {
                     // printf("\n\n%s: context full and n_predict == -%d => stopping\n", __func__, params.n_predict);
                     // break;
@@ -1103,9 +1103,9 @@ public:
     
     int reuse() {
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
-        if (n_session_consumed < (int) session_tokens.size()) {
+        if (n_session_consumed < (int) std::size(session_tokens)) {
             size_t i = 0;
-            for ( ; i < embd.size(); i++) {
+            for ( ; i < std::size(embd); i++) {
                 if (embd[i] != session_tokens[n_session_consumed]) {
                     session_tokens.resize(n_session_consumed);
                     return 0;
@@ -1115,7 +1115,7 @@ public:
                 //n_past_last = n_past;
                 n_session_consumed++;
 
-                if (n_session_consumed >= (int) session_tokens.size()) {
+                if (n_session_consumed >= (int) std::size(session_tokens)) {
                     ++i;
                     return 0;
                 }
@@ -1132,8 +1132,8 @@ public:
     }
 
     int evaluate_main() {
-        for (int i = 0; i < (int) embd.size(); i += params.n_batch) {
-            int n_eval = (int) embd.size() - i;
+        for (int i = 0; i < (int) std::size(embd); i += params.n_batch) {
+            int n_eval = (int) std::size(embd) - i;
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
@@ -1151,9 +1151,9 @@ public:
     }
     
     void evaluate_session() {
-        if (embd.size() > 0 && !path_session.empty()) {
+        if (std::size(embd) > 0 && !path_session.empty()) {
             session_tokens.insert(session_tokens.end(), embd.begin(), embd.end());
-            n_session_consumed = session_tokens.size();
+            n_session_consumed = std::size(session_tokens);
         }
     }
     
@@ -1161,7 +1161,7 @@ public:
         // check for reverse prompt using special tokens
         llama_token last_token = gpt_sampler_last(smpl);
         for (std::vector<llama_token> ids : antiprompt_ids) {
-            if (ids.size() == 1 && last_token == ids[0]) {
+            if (std::size(ids) == 1 && last_token == ids[0]) {
                 if (params.interactive) {
                     is_interacting = true;
                 }
@@ -1209,7 +1209,7 @@ public:
         // optionally save the session on first sample (for faster prompt loading next time)
         if (!path_session.empty() && need_to_save_session && !params.prompt_cache_ro) {
             need_to_save_session = false;
-            llama_state_save_file(ctx, path_session.c_str(), session_tokens.data(), session_tokens.size());
+            llama_state_save_file(ctx, path_session.c_str(), session_tokens.data(), std::size(session_tokens));
         }
 
         // new generation function, moved to common 
@@ -1245,18 +1245,18 @@ public:
     
     void capture_states() {
         n_past_last = n_past;
-        n_embd_inp_last = embd_inp.size();
+        n_embd_inp_last = std::size(embd_inp);
         n_consumed_last = n_consumed;
     }
 
 
-    void clear_last() {
+    void rewind() {
         // n_past = n_past_last + 1;
         // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
         // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
         //int comp = -1;
         int comp = 1;
-        llama_sampling_rollback(smpl, n_last_message_past + comp);
+        llama_sampling_rollback(smpl, n_last_message_past);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
         embd_inp.erase(embd_inp.begin() + n_embd_inp_last + comp, embd_inp.end());
         //n_remain += last_tokens_count;
@@ -1306,7 +1306,7 @@ public:
     // checking antiprompts 
     int checkAntiprompt() {
         // check for reverse prompt in the last n_prev tokens
-        if (params.antiprompt.size()) {
+        if (std::size(params.antiprompt)) {
             //std::string last_output;
             //for (auto id : last_n_tokens) {
             //for (auto id : last_tokens) {
@@ -1352,7 +1352,7 @@ public:
         //if (llama_sampling_last(ctx_sampling) == llama_token_eos(model)) {
         if (llama_token_is_eog(model, gpt_sampler_last(smpl))) {
             if (params.interactive) {
-                if (params.antiprompt.size() != 0) {
+                if (std::size(params.antiprompt) != 0) {
                     // tokenize and inject first reverse prompt
                     const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false, true);
                     embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
@@ -1385,19 +1385,19 @@ public:
     int preEmb(std::string& result, bool& fastStop, bool streaming = false){ // 1 2 3 4
         //std::cout << " ** " << std::endl;
         
-        if (embd.size() > 0) {
+        if (std::size(embd) > 0) {
             checkEmb(); // 1
         }
 
         embd.clear();
 
-        if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
+        if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
             applyEmb(); // 2
         } else {
             if (debug) printf("-pes");
             fastStop = true;
             // some user input remains from prompt or interaction, forward it to processing
-            while ((int) embd_inp.size() > n_consumed) {
+            while ((int) std::size(embd_inp) > n_consumed) {
                 //fprintf(stderr, ">");
                 embd.emplace_back(embd_inp[n_consumed]);
                 //embd.push_back(embd_inp[n_consumed]);
@@ -1412,7 +1412,7 @@ public:
                 
                 
                 ++n_consumed;
-                if ((int) embd.size() >= params.n_batch) {
+                if ((int) std::size(embd) >= params.n_batch) {
                     break;
                 }
             }
@@ -1482,7 +1482,7 @@ public:
         embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
         embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
         
-        if (n_remain > 0) n_remain -= line_inp.size();
+        if (n_remain > 0) n_remain -= std::size(line_inp);
     }
     
     int subInputNew(std::string& line){
@@ -1502,7 +1502,7 @@ public:
             // since we have format now, all the rest will be added according to it
             std::string buffer = line;
             
-            const size_t original_size = embd_inp.size();
+            const size_t original_size = std::size(embd_inp);
 
             // instruct mode: insert instruction prefix
             // if (params.instruct && !is_antiprompt) {
@@ -1519,7 +1519,7 @@ public:
             formatInput(params.format_dialog, buffer);
             //formatInput(buffer);
 
-            for (size_t i = original_size; i < embd_inp.size(); ++i) {
+            for (size_t i = original_size; i < std::size(embd_inp); ++i) {
                 const llama_token token = embd_inp[i];
                 output_tokens.emplace_back(token);
                 //output_tokens.push_back(token);
@@ -1536,7 +1536,7 @@ public:
     }
     
     void capture_lasts() {
-        n_past_last = embd_inp.size();
+        n_past_last = std::size(embd_inp);
         //n_remain_last = n_remain;
     }
 
@@ -1578,7 +1578,7 @@ public:
             if (consoleOutput) preEmb(result, fastStop, streaming); // includes checking, generation and adding prompt leftovers
             else preEmb(result, fastStop, consoleOutput);
 
-            if ((int) embd_inp.size() <= n_consumed) {
+            if ((int) std::size(embd_inp) <= n_consumed) {
                 if (debug) printf("-g");
 
                 //checkAntiprompt();
@@ -1624,7 +1624,7 @@ public:
     }
     
     int hasAntiprompt(std::string& result){
-        if (params.antiprompt.size()) {
+        if (std::size(params.antiprompt)) {
             int cutAntiPos = result.rfind(params.antiprompt[0]);
             if (cutAntiPos != std::string::npos){
                 return cutAntiPos;
@@ -1642,7 +1642,7 @@ public:
     }
     
     void eraseAntiprompt(std::string& result){
-        if (params.antiprompt.size()) {
+        if (std::size(params.antiprompt)) {
             int cutAntiPos = result.rfind(params.antiprompt[0]);
             if (cutAntiPos != std::string::npos){
                 result.erase(cutAntiPos);
@@ -1660,13 +1660,13 @@ public:
     std::string getBitOld(){ // 1 2 3 4
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
-        if (embd.size() > 0) {
+        if (std::size(embd) > 0) {
             checkEmb(); // 1
         }
 
         embd.clear();
 
-        if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
+        if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
             applyEmb(); // 2
         } else {
             prepareEmb();
@@ -1693,7 +1693,7 @@ public:
         //fastStop = true;
         
         // some user input remains from prompt or interaction, forward it to processing
-        while ((int) embd_inp.size() > n_consumed) {
+        while ((int) std::size(embd_inp) > n_consumed) {
             //embd.push_back(embd_inp[n_consumed]);
             embd.emplace_back(embd_inp[n_consumed]);
 
@@ -1706,7 +1706,7 @@ public:
             //ctx_sampling->prev.emplace_back(embd_inp[n_consumed]);
 
             ++n_consumed;
-            if ((int) embd.size() >= params.n_batch) {
+            if ((int) std::size(embd) >= params.n_batch) {
                 break;
             }
         }
@@ -1754,7 +1754,7 @@ public:
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
 
-        if (embd.size() > 0) {
+        if (std::size(embd) > 0) {
             checkEmb(); // 1
         }
 
@@ -1784,7 +1784,7 @@ public:
 
         result += bit;
 
-        if ((int) embd_inp.size() <= n_consumed) {
+        if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");
             //fprintf(stderr, "5");
 

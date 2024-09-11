@@ -70,6 +70,30 @@ static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
     }
 }
 
+static void llama_sampler_noise_impl(llama_token_data_array * cur_p, float randomizationFactor = 1.0f, unsigned int rngSeed = 123456789, bool isTrueRNG = true) {
+    // Create a random number generator
+    std::default_random_engine generator;
+    if (isTrueRNG) {
+        // Seed with a real random value, if available
+        std::random_device rd;
+        generator.seed(rd());
+    } else {
+        // Use a fixed seed for deterministic behavior
+        generator.seed(rngSeed);
+    }
+
+    // Create a Gaussian distribution with mean 0 and standard deviation of your choice
+    std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
+
+    // Apply Gaussian noise to each logit
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        // Add Gaussian noise to the logit
+        cur_p->data[i].logit += distribution(generator);
+    }
+
+    cur_p->sorted = false;
+}
+
 static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add){
     std::string text = add + "(" + std::to_string(candidates->size) + ")";
     int zeroes = 0;
@@ -132,35 +156,8 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
     }
 
     // Variables to hold the external values
-    bool worstToken = false; // unused from earlier experiment, disregard
-    float randomizationFactor = 1.0f; // Default value of the randomization factor
-    bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
-    unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
-
-    // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0) {        
-        // Create a random number generator
-        std::default_random_engine generator;
-        if (isTrueRNG) {
-            // Seed with a real random value, if available
-            std::random_device rd;
-            generator.seed(rd());
-        } else {
-            // Use a fixed seed for deterministic behavior
-            generator.seed(rngSeed);
-        }
-
-        // Create a Gaussian distribution with mean 0 and standard deviation of your choice
-        std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-
-        // Apply Gaussian noise to each logit
-        for (size_t i = 0; i < cur_p->size; ++i) {
-            // Add Gaussian noise to the logit
-            cur_p->data[i].logit += distribution(generator);
-        }
-
-        cur_p->sorted = false;
-    }
+    llama_sampler_noise_impl(cur_p);
+    // no renormalizing in original implementation
 
     // if the cur_p are sorted or the unsorted implementation failed, use this implementation
     if (!min_p_applied) {
@@ -333,40 +330,9 @@ void llama_sample_p_step_addon_apply(struct llama_sampler * smpl, llama_token_da
 
     bool step_found = false;
     
-    // Variables to hold the external values
-    float randomizationFactor = 1.0f; // Default value of the randomization factor
-    bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
-    unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
-
-    // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0) {
-
-        // Create a random number generator
-        std::default_random_engine generator;
-        if (isTrueRNG) {
-            // Seed with a real random value, if available
-            std::random_device rd;
-            generator.seed(rd());
-        } else {
-            // Use a fixed seed for deterministic behavior
-            generator.seed(rngSeed);
-        }
-
-        // Create a Gaussian distribution with mean 0 and standard deviation of your choice
-        std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-
-        // Apply Gaussian noise to each logit
-        for (size_t i = 0; i < candidates->size; ++i) {
-            // Add Gaussian noise to the logit
-            candidates->data[i].logit += distribution(generator);
-        }
-
-        candidates->sorted = false;
-
-        // Re-normalize probabilities if necessary
-        llama_sampler_softmax_impl(candidates);
-
-    }
+    llama_sampler_noise_impl(candidates);
+    // Re-normalize probabilities if necessary
+    llama_sampler_softmax_impl(candidates);
 
     for (size_t i = 1; i < candidates->size; ++i) {
         if (!step_found && candidates->data[i].p < ctx->step * candidates->data[i - 1].p) {

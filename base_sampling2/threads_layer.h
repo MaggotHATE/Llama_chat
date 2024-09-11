@@ -120,7 +120,7 @@ struct modelThread{
         if (newChat.params.prompt.length() > 0) {
             context = newChat.params.prompt;
 
-            if (newChat.params.antiprompt.size()) {
+            if (std::size(newChat.params.antiprompt)) {
                 if (newChat.params.prompt != newChat.params.antiprompt[0]){
                     int cutAntiPos = context.rfind(newChat.params.antiprompt[0]);
                     if (cutAntiPos != std::string::npos){
@@ -139,7 +139,7 @@ struct modelThread{
     void appendAnswer(std::string input){
         //resultsString.emplace_back(input);
         //resultsString.emplace_back(input);
-        if (newChat.params.antiprompt.size()) {
+        if (std::size(newChat.params.antiprompt)) {
             int cutAntiPos = input.rfind(newChat.params.antiprompt[0]);
             if (cutAntiPos != std::string::npos){
                 input.erase(cutAntiPos);
@@ -203,7 +203,7 @@ struct modelThread{
         std::cout << "GPU: " << GGML_OPENCL_RESULT_DEVICE_NAME << std::endl;
 #endif
         std::cout << "----------------------------------------" << std::endl;
-        if (newChat.params.antiprompt.size()) {
+        if (std::size(newChat.params.antiprompt)) {
             for (auto antiprompt : newChat.params.antiprompt) std::cout << "Antiprompt: " << antiprompt << std::endl;
         }
         std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
@@ -450,9 +450,9 @@ struct modelThread{
         // ~newChat;
     // }
     
-    void clear_last() {
+    void rewind() {
         resultsStringPairs.pop_back();
-        newChat.clear_last();
+        newChat.rewind();
     }
     
     void unload(){
@@ -1096,7 +1096,7 @@ struct configurableChat{
         inputPrompt = params.prompt;
         inputSuffix = params.input_suffix;
         inputPrefix = params.input_prefix;
-        if(params.antiprompt.size()) inputAntiprompt = params.antiprompt[0];
+        if(std::size(params.antiprompt)) inputAntiprompt = params.antiprompt[0];
     }
         
     void getSettingsFromModelConfig(){
@@ -1342,12 +1342,12 @@ struct configurableChat{
             else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_YARN) modelConfig[model]["rope_scaling_type"] = "yarn";
         }
         
-        if (params.prompt.size()) modelConfig[model]["prompt"] = params.prompt;
+        if (std::size(params.prompt)) modelConfig[model]["prompt"] = params.prompt;
         // else {
             // modelConfig[model]["prompt"] = "### Instruction:";
             // params.prompt = "### Instruction:";
         // }
-        if(params.antiprompt.size()) modelConfig[model]["reverse-prompt"] = params.antiprompt[0];
+        if(std::size(params.antiprompt)) modelConfig[model]["reverse-prompt"] = params.antiprompt[0];
         else {
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
             params.antiprompt.emplace_back("### Instruction:");
@@ -1440,12 +1440,12 @@ struct configurableChat{
             else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_LINEAR) newCard["rope_scaling_type"] = "linear";
             else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_YARN) newCard["rope_scaling_type"] = "yarn";
         }
-        if (params.prompt.size()) newCard["prompt"] = params.prompt;
+        if (std::size(params.prompt)) newCard["prompt"] = params.prompt;
         // else {
             // newCard["prompt"] = "### Instruction:";
             // params.prompt = "### Instruction:";
         // }
-        if(params.antiprompt.size()) newCard["reverse-prompt"] = params.antiprompt[0];
+        if(std::size(params.antiprompt)) newCard["reverse-prompt"] = params.antiprompt[0];
         else {
             newCard["reverse-prompt"] = "### Instruction:";
             params.antiprompt.emplace_back("### Instruction:");
@@ -1473,7 +1473,7 @@ struct configurableChat{
         params.input_suffix = inputSuffix;
         params.input_prefix = inputPrefix;
         if (inputAntiprompt != "NULL") {
-            if(!params.antiprompt.size()) 
+            if(!std::size(params.antiprompt)) 
                 params.antiprompt.emplace_back(inputAntiprompt);
             else
                 params.antiprompt[0] = inputAntiprompt;
@@ -1617,10 +1617,10 @@ struct presetTest{
         }
         settings.modelConfig["card"] = presetsNames[cycle];
         settings.modelConfig["seed"] = seed;
-        if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(presetsNames.size()) + ")";
+        if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(std::size(presetsNames)) + ")";
         threadedChat.load(settings.modelConfig, false);
         
-        while(cycle != presetsNames.size()){
+        while(cycle != std::size(presetsNames)){
             if (threadedChat.isContinue != 'i') {
                 if (waiting) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(latency));
@@ -1633,7 +1633,7 @@ struct presetTest{
                     threadedChat.writeTextFileFull(saveFolder + '/', writeName());
                     cycle++;
                     
-                    if (cycle == presetsNames.size()) {
+                    if (cycle == std::size(presetsNames)) {
                         threadedChat.unload();
                         if (writeExternal) threadedChat.externalData = "Test finished!";
                         return 0;
@@ -1642,7 +1642,7 @@ struct presetTest{
                         threadedChat.unload();
                         settings.modelConfig["card"] = presetsNames[cycle];
                         settings.modelConfig["seed"] = seed;
-                        if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(presetsNames.size()) + ")";
+                        if (writeExternal) threadedChat.externalData = "Preset: " + presetsNames[cycle] + "(" + std::to_string(cycle + 1) + "/" + std::to_string(std::size(presetsNames)) + ")";
                         threadedChat.load(settings.modelConfig, false);
                     }
                 } else {
@@ -1731,7 +1731,7 @@ struct wildcardGen {
     }
     
     void getPrompt(){
-        unsigned int x = getRand() % promptsDB.size();
+        unsigned int x = getRand() % std::size(promptsDB);
         prompt0 = promptsDB[x];
         
         prompt = findWildcard(prompt0);
@@ -1752,7 +1752,7 @@ struct wildcardGen {
                 if(wildcardsDB.contains(wildcard)) {
                     
                     std::vector<std::string> wildcardsArr = wildcardsDB[wildcard];
-                    unsigned int i = getRand() % wildcardsArr.size();
+                    unsigned int i = getRand() % std::size(wildcardsArr);
                     std::string choice = wildcardsArr[i];
                     inputString.replace(first,last - first + 2,choice);
                     std::cout << "Replaced: " << inputString << std::endl;

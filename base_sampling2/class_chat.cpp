@@ -238,7 +238,7 @@ int main(int argc, char ** argv) {
                     }
                     case 'r': {
                         window_title = "ChatTest: Regen ";
-                        threadedChat.clear_last();
+                        threadedChat.rewind();
                         threadedChat.display();
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, false);
