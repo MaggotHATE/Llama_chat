@@ -232,7 +232,7 @@ struct modelThread{
 
         //std::cout << lastTimings << std::endl;
         std::cout << std::format("Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s", lastSpeedPrompt, lastSpeed) << std::endl;
-        std::cout << "----------------------------------------\n"<< std::endl;
+        std::cout << "-----------------------------------------------\n"<< std::endl;
         
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
@@ -253,7 +253,7 @@ struct modelThread{
 #elif defined(GGML_USE_CLBLAST)
             summary += std::format("CL{}|",newChat.params.n_gpu_layers);
 #endif
-            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.3f}t/s|tg{:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
             std::cout << lastResult;
             std::cout << "\n----------------------------------------------------------------------------------------------\n" << summary;
         }
@@ -386,7 +386,7 @@ struct modelThread{
 #elif defined(GGML_USE_CLBLAST)
             summary += "cl|";
 #endif
-            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.3f}t/s|tg{:.3f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
 
             file_o << summary << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;

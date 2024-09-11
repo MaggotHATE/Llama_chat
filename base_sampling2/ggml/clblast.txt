@@ -1,0 +1,197 @@
+ggml.c
+-----------------------------------------------------------------------------------------
+#if defined(GGML_USE_ACCELERATE)
+#include <Accelerate/Accelerate.h>
+#if defined(GGML_USE_CLBLAST) // allow usage of CLBlast alongside Accelerate functions
+#include "ggml-opencl.h"
+#endif
+#elif defined(GGML_USE_OPENBLAS)
+#if defined(GGML_BLAS_USE_MKL)
+#include <mkl.h>
+#else
+#include <cblas.h>
+#endif
+#elif defined(GGML_USE_CLBLAST)
+#include "ggml-opencl.h"
+#endif
+-----------------------------------------------------------------------------------------
+
+struct ggml_context * ggml_init(struct ggml_init_params params) {
+
+            GGML_PRINT_DEBUG("%s: g_state initialized in %f ms\n", __func__, (t_end - t_start)/1000.0f);
+        }
+
+#if defined(GGML_USE_CLBLAST)
+        ggml_cl_init();
+#endif
+
+        ggml_setup_op_has_task_pass();
+
+        is_first_call = false;
+-----------------------------------------------------------------------------------------
+
+static void ggml_compute_forward_add_f32(
+
+    const int ith = params->ith;
+    const int nth = params->nth;
+
+#ifdef GGML_USE_CLBLAST
+    if (src1->backend == GGML_BACKEND_TYPE_GPU) {
+        // TODO: OpenCL kernel support full broadcast
+        GGML_ASSERT(ggml_can_repeat_rows(src1, src0));
+        if (ith == 0) {
+            ggml_cl_add(src0, src1, dst);
+        }
+        return;
+    }
+#endif
+
+    const int nr  = ggml_nrows(src0);
+
+    GGML_TENSOR_BINARY_OP_LOCALS
+-----------------------------------------------------------------------------------------
+
+static void ggml_compute_forward_mul_f32(
+
+    const int ith = params->ith;
+    const int nth = params->nth;
+
+#if defined(GGML_USE_CLBLAST)
+    if (src1->backend == GGML_BACKEND_TYPE_GPU) {
+        // TODO: OpenCL kernel support full broadcast
+        GGML_ASSERT(ggml_can_repeat_rows(src1, src0));
+        if (ith == 0) {
+            ggml_cl_mul(src0, src1, dst);
+        }
+        return;
+    }
+#endif
+
+    const int64_t nr = ggml_nrows(src0);
+
+    GGML_TENSOR_BINARY_OP_LOCALS
+-----------------------------------------------------------------------------------------
+
+static void ggml_compute_forward_mul_mat(
+    // nb01 >= nb00 - src0 is not transposed
+    //   compute by src0 rows
+
+#if defined(GGML_USE_CLBLAST)
+    if (ggml_cl_can_mul_mat(src0, src1, dst)) {
+        if (params->ith == 0) {
+            ggml_cl_mul_mat(src0, src1, dst, params->wdata, params->wsize);
+        }
+        return;
+    }
+#endif
+
+#if defined(GGML_USE_ACCELERATE) || defined(GGML_USE_OPENBLAS)
+    if (ggml_compute_forward_mul_mat_use_blas(dst)) {
+        const int64_t ne_plane      = ne01*ne00;
+-----------------------------------------------------------------------------------------
+
+struct ggml_cplan ggml_graph_plan(const struct ggml_cgraph * cgraph, int n_threa
+
+            case GGML_OP_MUL_MAT:
+                {
+                    const enum ggml_type vec_dot_type = type_traits[node->src[0]->type].vec_dot_type;
+
+#if defined(GGML_USE_CLBLAST)
+                    if (ggml_cl_can_mul_mat(node->src[0], node->src[1], node)) {
+                        cur = ggml_cl_mul_mat_get_wsize(node->src[0], node->src[1], node);
+                    } else
+#endif
+#if defined(GGML_USE_ACCELERATE) || defined(GGML_USE_OPENBLAS)
+                    if (ggml_compute_forward_mul_mat_use_blas(node)) {
+                        if (node->src[0]->type != GGML_TYPE_F32) {
+-----------------------------------------------------------------------------------------
+
+int ggml_cpu_has_blas(void) {
+#if defined(GGML_USE_ACCELERATE) || defined(GGML_USE_OPENBLAS) || defined(GGML_USE_CUDA) || defined(GGML_USE_VULKAN) || defined(GGML_USE_CLBLAST) || defined(GGML_USE_SYCL)
+    return 1;
+#else
+    return 0;
+-----------------------------------------------------------------------------------------
+
+#endif
+}
+
+int ggml_cpu_has_clblast(void) {
+#if defined(GGML_USE_CLBLAST)
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+int ggml_cpu_has_vulkan(void) {
+#if defined(GGML_USE_VULKAN)
+    return 1;
+-----------------------------------------------------------------------------------------
+int ggml_cpu_has_gpublas(void) {
+    return ggml_cpu_has_cuda() || ggml_cpu_has_clblast() || ggml_cpu_has_vulkan() || ggml_cpu_has_kompute() ||
+           ggml_cpu_has_sycl();
+-----------------------------------------------------------------------------------------
+
+
+ggml.h
+
+    GGML_API int ggml_cpu_has_cuda       (void);
+    GGML_API int ggml_cpu_has_clblast    (void);
+    GGML_API int ggml_cpu_has_vulkan     (void);
+
+-----------------------------------------------------------------------------------------
+
+
+llama.cpp
+
+#ifdef GGML_USE_CUDA
+#  include "ggml-cuda.h"
+#elif defined(GGML_USE_CLBLAST)
+#  include "ggml-opencl.h"
+#elif defined(GGML_USE_VULKAN)
+#  include "ggml-vulkan.h"
+-----------------------------------------------------------------------------------------
+
+static ggml_backend_buffer_type_t llama_default_buffer_type_offload(const llama_
+    buft = ggml_backend_vk_buffer_type(gpu);
+#elif defined(GGML_USE_SYCL)
+    buft = ggml_backend_sycl_buffer_type(gpu);
+#elif defined(GGML_USE_CLBLAST)
+    buft = ggml_backend_opencl_buffer_type();
+#elif defined(GGML_USE_KOMPUTE)
+    buft = ggml_backend_kompute_buffer_type(gpu);
+    if (buft == nullptr) {
+-----------------------------------------------------------------------------------------
+
+static bool llama_kv_cache_init(
+        }
+    }
+
+#ifdef GGML_USE_CLBLAST
+    offload = false;
+#endif
+
+    // count used buffer types
+    std::map<ggml_backend_buffer_type_t, int> buft_layer_count;
+    if (offload) 
+-----------------------------------------------------------------------------------------
+
+bool llama_supports_gpu_offload(void) {
+#if defined(GGML_USE_CUDA) || defined(GGML_USE_CLBLAST) || defined(GGML_USE_METAL) || defined(GGML_USE_VULKAN) || \
+    defined(GGML_USE_SYCL) || defined(GGML_USE_KOMPUTE) || defined(GGML_USE_RPC)
+    // Defined when llama.cpp is compiled with support for offloading model layers to GPU.
+    return true;
+-----------------------------------------------------------------------------------------
+
+
+ggml-backend.c
+
+!!TO REMOVE IN!! static int ggml_backend_sched_backend_id_from_cur(ggml_backend_sched_t sched, struct ggml_tensor * tensor) {
+
+    if (tensor->buffer || (tensor->view_src && tensor->view_src->buffer)) {
+        // since the tensor is pre-allocated, it cannot be moved to another backend
+        GGML_ABORT("pre-allocated tensor in a backend that cannot run the operation");
+    }
+-----------------------------------------------------------------------------------------
+    
