@@ -90,6 +90,8 @@ struct modelThread{
     std::string sparamsListShort = "";
     std::string externalData = "";
 
+    std::string text = "";
+
     // ~modelThread(){
         // ~newChat;
     // }
@@ -192,74 +194,66 @@ struct modelThread{
         Clear();
         getTimigsPre();
         //getSparamsList();
-        std::string summary = "-";
-        std::cout << "----------------------------------------"<< std::endl;
-        std::cout << "Model: " << shortModelName << std::endl;
-        std::cout << "Seed: " << std::to_string(newChat.params.sparams.seed) << std::endl;
-        std::cout << "ctx size: " << std::to_string(newChat.params.n_ctx) << std::endl;
-        std::cout << "batch size: " << std::to_string(newChat.params.n_batch) << std::endl;
-        std::cout << "ubatch size: " << std::to_string(newChat.params.n_ubatch) << std::endl;
+        std::string summary = "-|";
+        text =  "----------------------------------------\n";
+        text +=  std::format("Model: {}\n", shortModelName);
+        text +=  std::format("Seed: {}\n", newChat.params.sparams.seed);
+        text +=  std::format("ctx size: {}\n" , newChat.params.n_ctx);
+        text +=  std::format("batch size: {}\n", newChat.params.n_batch);
+        text +=  std::format("ubatch size: {}\n", newChat.params.n_ubatch);
 #ifdef GGML_USE_CLBLAST
-        std::cout << "GPU: " << GGML_OPENCL_RESULT_DEVICE_NAME << std::endl;
+        text +=  std::format("GPU: {}\n", GGML_OPENCL_RESULT_DEVICE_NAME);
 #endif
-        std::cout << "----------------------------------------" << std::endl;
+        text += "----------------------------------------------------------------\n";
         if (std::size(newChat.params.antiprompt)) {
-            for (auto antiprompt : newChat.params.antiprompt) std::cout << "Antiprompt: " << antiprompt << std::endl;
+            for (auto antiprompt : newChat.params.antiprompt) text += std::format("Antiprompt: {}\n", antiprompt);
         }
-        std::cout << "input_prefix: " << newChat.params.input_prefix << std::endl;
-        std::cout << "input_suffix: " << newChat.params.input_suffix << "\n----------------------------------------" << std::endl;
-        //std::cout << newChat.formatRepresentation << std::endl;
-        std::cout << externalData << std::endl;
-        std::cout << sparamsList << std::endl;
-        std::cout << "\nSTATUS       : " << (newChat.finished ? "READY" : "BUSY") << std::endl;
-        std::cout << "WAITING      : " << (is_interacting ? "YES" : "NO") << std::endl;
-        std::cout << "isContinue   : " << isContinue << std::endl;
-        std::cout << "Past         : " << past_tokens << std::endl;
-        std::cout << "Consumed     : " << consumed_tokens << std::endl;
-        std::cout << "Remain       : " << remain_tokens << std::endl;
-        std::cout << "Last         : " << last_tokens << std::endl;
-        std::cout << "Past-Last    : " << past_tokens - last_tokens << std::endl;
-        std::cout << "embd_inp.size: " << newChat.getEmbInpSize() << '\n' << std::endl;
-        std::cout << "n_past_last  : " << newChat.n_past_last << std::endl;
-        std::cout << "n_embd_inp_last  : " << newChat.n_embd_inp_last << std::endl;
-        std::cout << "n_consumed_last  : " << newChat.n_consumed_last << '\n' << std::endl;
+        text +=  std::format("input_prefix: {}\n", newChat.params.input_prefix);
+        text +=  std::format("input_suffix: {}\n----------------------------------------------------------------", newChat.params.input_suffix);
+        //text +=  newChat.formatRepresentation << std::endl;
+        text +=  std::format("\n STATUS           : {}\n WAITING          : {}\n isContinue       : {}\n Past             : {}\n Consumed         : {}\n Remain           : {}\n Last             : {}\n Past-Last        : {}\n embd_inp.size    : {}\n n_past_last      : {}\n n_embd_inp_last  : {}\n n_consumed_last  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), past_tokens, consumed_tokens, remain_tokens, last_tokens, past_tokens - last_tokens, newChat.getEmbInpSize(), newChat.n_past_last, newChat.n_embd_inp_last, newChat.n_consumed_last);
 
-        std::cout << "TG: " << newChat.params.cpuparams.n_threads << "; " << newChat.params.cpuparams.poll << "; " << newChat.params.cpuparams.priority << "\nPP: " << newChat.params.cpuparams_batch.n_threads << "; " << newChat.params.cpuparams_batch.poll << "; " << newChat.params.cpuparams_batch.priority << '\n' << std::endl;
-        if (penalize_nl) std::cout << "penalize_nl = true" << std::endl;
-        if (newChat.params.use_mmap) std::cout << "use_mmap = true" << std::endl;
-        if (newChat.params.no_kv_offload) std::cout << "no_kv_offload = true" << std::endl;
-        if (newChat.params.flash_attn) std::cout << "flash_attn = true" << '\n' << std::endl;
+        text += std::format("\n TG: {}; {}; {}\n PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
+
+        if (penalize_nl) text += " penalize_nl = true\n";
+        if (newChat.params.use_mmap) text += " use_mmap = true\n";
+        if (newChat.params.no_kv_offload) text += " no_kv_offload = true\n";
+        if (newChat.params.flash_attn) text += " flash_attn = true\n";
 
         //std::cout << lastTimings << std::endl;
-        std::cout << std::format("Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s", lastSpeedPrompt, lastSpeed) << std::endl;
-        std::cout << "-----------------------------------------------\n"<< std::endl;
-        
+        text += std::format("{}\n{}\nEval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n================================================================\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed);
+
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
-                std::cout << r.second;
+                text += r.second;
                 //wstring converted;
                 //fromUTF8(r.second, converted);
                 //std::wcout << converted;
             } else {
-                if (newChat.params.input_prefix.empty()) std::cout << r.first << r.second;
-                else std::cout << newChat.params.input_prefix << r.second;
+                if (newChat.params.input_prefix.empty()) text += r.first + r.second;
+                else text += newChat.params.input_prefix + r.second;
             }
             
             //if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
+
         if (isContinue == 'w') {
 #ifdef GGML_USE_VULKAN
             summary += std::format("VK{}|",newChat.params.n_gpu_layers);
 #elif defined(GGML_USE_CLBLAST)
             summary += std::format("CL{}|",newChat.params.n_gpu_layers);
 #endif
-            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
-            std::cout << lastResult;
-            std::cout << "\n----------------------------------------------------------------------------------------------\n" << summary;
+            std::string perf = std::format("Msg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            std::string pad(std::size(sparamsListShort) - std::size(perf),' ');
+            summary += std::format("{}|\n-|{}{}|", sparamsListShort, perf, pad);
+
+            std::string separator(std::size(sparamsListShort) + 3,'-');
+
+            text += lastResult + "\n"+ separator +"\n" + summary;
         }
-        //if (last_tokens > 0) std::cout << "Generated: " << last_tokens << std::endl;
-        //std::cout<< DELIMINER;
-        
+
+        std::cout << text;
+
         return summary;
     }
     
@@ -386,7 +380,7 @@ struct modelThread{
 #elif defined(GGML_USE_CLBLAST)
             summary += "cl|";
 #endif
-            summary += std::format("{}|Msg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            summary += std::format("{}\nMsg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
 
             file_o << summary << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;

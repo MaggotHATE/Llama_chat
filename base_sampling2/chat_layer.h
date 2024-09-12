@@ -1258,7 +1258,7 @@ public:
         int comp = 1;
         llama_sampling_rollback(smpl, n_last_message_past);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
-        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + comp, embd_inp.end());
+        embd_inp.erase(embd_inp.begin() + n_embd_inp_last, embd_inp.end());
         //n_remain += last_tokens_count;
         n_past -= n_last_message_past;
         //n_past = n_past_last;
