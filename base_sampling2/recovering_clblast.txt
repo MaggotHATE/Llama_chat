@@ -25,8 +25,6 @@ struct ggml_context * ggml_init(struct ggml_init_params params) {
         ggml_cl_init();
 #endif
 
-        ggml_setup_op_has_task_pass();
-
         is_first_call = false;
 -----------------------------------------------------------------------------------------
 
@@ -85,9 +83,7 @@ static void ggml_compute_forward_mul_mat(
     }
 #endif
 
-#if defined(GGML_USE_ACCELERATE) || defined(GGML_USE_OPENBLAS)
-    if (ggml_compute_forward_mul_mat_use_blas(dst)) {
-        const int64_t ne_plane      = ne01*ne00;
+
 -----------------------------------------------------------------------------------------
 
 struct ggml_cplan ggml_graph_plan(const struct ggml_cgraph * cgraph, int n_threa

@@ -192,36 +192,40 @@ struct modelThread{
     
     std::string display(){
         Clear();
-        getTimigsPre();
-        //getSparamsList();
+
         std::string summary = "-|";
-        text =  "----------------------------------------\n";
-        text +=  std::format("Model: {}\n", shortModelName);
-        text +=  std::format("Seed: {}\n", newChat.params.sparams.seed);
-        text +=  std::format("ctx size: {}\n" , newChat.params.n_ctx);
-        text +=  std::format("batch size: {}\n", newChat.params.n_batch);
-        text +=  std::format("ubatch size: {}\n", newChat.params.n_ubatch);
+
+        auto size_longest = std::size(sparamsList);
+        std::string separator_main(size_longest,'_');
+        std::string separator_bottom(size_longest,'=');
+
+        text = separator_main;
+        text +=  std::format("\n-Model: {}", shortModelName);
+        text +=  std::format("\n-Seed: {}", newChat.params.sparams.seed);
+        text +=  std::format("\n-ctx size: {}" , newChat.params.n_ctx);
+        text +=  std::format("\n-batch size: {}", newChat.params.n_batch);
+        text +=  std::format("\n-ubatch size: {}", newChat.params.n_ubatch);
 #ifdef GGML_USE_CLBLAST
-        text +=  std::format("GPU: {}\n", GGML_OPENCL_RESULT_DEVICE_NAME);
+        text +=  std::format("\n-GPU: {}", GGML_OPENCL_RESULT_DEVICE_NAME);
 #endif
-        text += "----------------------------------------------------------------\n";
+        text += "\n" + separator_main;
         if (std::size(newChat.params.antiprompt)) {
-            for (auto antiprompt : newChat.params.antiprompt) text += std::format("Antiprompt: {}\n", antiprompt);
+            for (auto antiprompt : newChat.params.antiprompt) text += std::format("\n-Antiprompt: {}", antiprompt);
         }
-        text +=  std::format("input_prefix: {}\n", newChat.params.input_prefix);
-        text +=  std::format("input_suffix: {}\n----------------------------------------------------------------", newChat.params.input_suffix);
+        text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
+        text +=  std::format("\n-input_suffix: {}\n{}", newChat.params.input_suffix, separator_main);
         //text +=  newChat.formatRepresentation << std::endl;
-        text +=  std::format("\n STATUS           : {}\n WAITING          : {}\n isContinue       : {}\n Past             : {}\n Consumed         : {}\n Remain           : {}\n Last             : {}\n Past-Last        : {}\n embd_inp.size    : {}\n n_past_last      : {}\n n_embd_inp_last  : {}\n n_consumed_last  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), past_tokens, consumed_tokens, remain_tokens, last_tokens, past_tokens - last_tokens, newChat.getEmbInpSize(), newChat.n_past_last, newChat.n_embd_inp_last, newChat.n_consumed_last);
+        text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-Last             : {}\n-Past-Last        : {}\n-embd_inp.size    : {}\n-n_past_last      : {}\n-n_embd_inp_last  : {}\n-n_consumed_last  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), past_tokens, consumed_tokens, remain_tokens, last_tokens, past_tokens - last_tokens, newChat.getEmbInpSize(), newChat.n_past_last, newChat.n_embd_inp_last, newChat.n_consumed_last);
 
-        text += std::format("\n TG: {}; {}; {}\n PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
+        text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
 
-        if (penalize_nl) text += " penalize_nl = true\n";
-        if (newChat.params.use_mmap) text += " use_mmap = true\n";
-        if (newChat.params.no_kv_offload) text += " no_kv_offload = true\n";
-        if (newChat.params.flash_attn) text += " flash_attn = true\n";
+        if (penalize_nl) text += "-penalize_nl = true\n";
+        if (newChat.params.use_mmap) text += "-use_mmap = true\n";
+        if (newChat.params.no_kv_offload) text += "-no_kv_offload = true\n";
+        if (newChat.params.flash_attn) text += "-flash_attn = true\n";
 
         //std::cout << lastTimings << std::endl;
-        text += std::format("{}\n{}\nEval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n================================================================\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed);
+        text += std::format("{}\n{}\n-Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n{}\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed, separator_bottom);
 
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
@@ -238,16 +242,18 @@ struct modelThread{
         }
 
         if (isContinue == 'w') {
+            std::string perf = std::format("Msg: {} t|Left: {} t|pp {:.2f} t/s|tg {:.2f} t/s", last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
 #ifdef GGML_USE_VULKAN
-            summary += std::format("VK{}|",newChat.params.n_gpu_layers);
+            perf = std::format("VK{}|",newChat.params.n_gpu_layers) + perf;
 #elif defined(GGML_USE_CLBLAST)
-            summary += std::format("CL{}|",newChat.params.n_gpu_layers);
+            perf = std::format("CL{}|",newChat.params.n_gpu_layers) + perf;
+#else
+            perf = std::format("CPU|",newChat.params.n_gpu_layers) + perf;
 #endif
-            std::string perf = std::format("Msg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
             std::string pad(std::size(sparamsListShort) - std::size(perf),' ');
             summary += std::format("{}|\n-|{}{}|", sparamsListShort, perf, pad);
 
-            std::string separator(std::size(sparamsListShort) + 3,'-');
+            std::string separator(std::size(sparamsListShort) + 3,'_');
 
             text += lastResult + "\n"+ separator +"\n" + summary;
         }
@@ -469,6 +475,10 @@ struct modelThread{
         isUnload = '_';
     }
 
+    void updateTimings() {
+        newChat.perf_update();
+    }
+
     void getTimigsPre(){
         //lastTimings = newChat.get_timings_simple();
         float tmp = newChat.get_speed_p();
@@ -544,76 +554,17 @@ struct modelThread{
         remain_tokens = newChat.getRemainTokens();
     }
 
-    void getResultAsyncStringFull2(bool streaming = false, bool full = true) {
-            //isContinue = 'w';
-            //std::cout << " ** " << input << std::endl;
-            newChat.clearLastTokens();
-
-
-            futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
-                
-                std::string input = resultsStringPairs.back().second;
-
-                getTimigsPre();
-                //newChat.inputOnly(input);
-                if (full == true) {
-                    isPregen = 'w';
-                    newChat.inputOnlyNew(input);
-                }
-
-                isPregen = 'i';
-                consumed_tokens = newChat.getConsumedTokens();
-                past_tokens = newChat.getPastTokens();
-                last_tokens = newChat.getLastTokens();
-
-                getTimigsPre();
-                newChat.capture_lasts();
-
-                if (streaming == true) display();
-
-                while (isContinue != 'i'){
-
-
-                    std::string output = newChat.cycleStringsOnly(false);
-                    lastResult += output;
-                    //if (streaming == true) display();
-                    if (streaming == true) std::cout << output;
-                    getTimigsGen();
-
-                    // if (full == true) {
-                        // if (streaming == true) {
-                            // getTimigsGen();
-                            // display();
-                            // std::cout << lastResult;
-                        // } else getTimigsGen();
-                    // } else if (streaming == true) std::cout << output;
-
-                    //getTimigsSimple();
-
-                    checkFinished();
-                    getStats();
-
-                }
-
-                if (streaming == true) display();
-
-                std::string result = "ready";
-
-                return result;
-            });
-
-        }
-
     // for UI
-    void getResultAsyncStringFull3() {
+    void runGenerationAsync() {
             //isContinue = 'w';
             //std::cout << " ** " << input << std::endl;
             newChat.clearLastTokens();
-            getTimigsPre();
+            updateTimings();
+            getTimigsBoth();
 
             futureTextString = std::async(std::launch::async, [this] mutable {
                 isPregen = 'w';
-                getTimigsPre();
+                //getTimigsPre();
 
                 std::string input = resultsStringPairs.back().second;
 
@@ -623,11 +574,13 @@ struct modelThread{
                 consumed_tokens = newChat.getConsumedTokens();
                 past_tokens = newChat.getPastTokens();
 
-                getTimigsPre();
+                //getTimigsPre();
                 newChat.capture_lasts();
 
                 while (isContinue != 'i'){
-
+                    updateTimings();
+                    getTimigsBoth();
+                    getSparamsList();
 
                     std::string output = newChat.cycleStringsOnly(false);
                     if (isContinue == 'i') {
@@ -638,8 +591,7 @@ struct modelThread{
                     }
                     lastResult += output;
 
-                    getTimigsGen();
-                    getSparamsList();
+                    //getTimigsGen();
 
                     //getTimigsSimple();
 
@@ -665,13 +617,13 @@ struct modelThread{
 
         futureTextString = std::async(std::launch::async, [this, &streaming, &full] mutable {
 
-            getTimigsPre();
+            //getTimigsPre();
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
             last_tokens = newChat.getLastTokens();
 
-            getTimigsPre();
+            //getTimigsPre();
 
             while (isContinue != 'i') {
 
@@ -699,7 +651,10 @@ struct modelThread{
                 // }
                 // there's no repeat/continue in chatTest anyway, UI-only
                 //getTimigsSimple();
-                getTimigsGen();
+                //getTimigsGen();
+                updateTimings();
+                getTimigsBoth();
+                getSparamsList();
 
                 checkFinished();
                 getStats();
@@ -729,7 +684,7 @@ struct modelThread{
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
 
-            getTimigsPre();
+            //getTimigsPre();
 
 
             while (isContinue != 'i'){
@@ -744,7 +699,7 @@ struct modelThread{
                 }
                 lastResult += output;
 
-                getTimigsGen();
+                //getTimigsGen();
                 getSparamsList();
 
                 //getTimigsSimple();
@@ -789,6 +744,7 @@ struct modelThread{
                 unload();
             } else isContinue = 'i';
 
+            updateTimings();
             getTimigsPre();
 
             return loaded;
@@ -813,6 +769,7 @@ struct modelThread{
             getTimigsBoth();
             getShortName();
             getSparamsList();
+            updateTimings();
             getTimigsPre();
             //isContinue = 'i';
 
@@ -1643,8 +1600,8 @@ struct presetTest{
                     threadedChat.appendQuestion(prompt);
                     //if (streaming) threadedChat.display();
                     threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(streaming, true);
-                    //threadedChat.getResultAsyncStringFull3();
+                    //threadedChat.getResultAsyncStringFull2(streaming, true);
+                    threadedChat.runGenerationAsync();
                     cycling = 1;
                 }
             }
@@ -1813,8 +1770,7 @@ struct wildcardGen {
                     threadedChat.appendQuestion(prompt);
                     //if (streaming) threadedChat.display();
                     threadedChat.startGen();
-                    threadedChat.getResultAsyncStringFull2(streaming, true);
-                    //threadedChat.getResultAsyncStringFull3();
+                    threadedChat.runGenerationAsync();
                     cycling = 1;
                 }
             }

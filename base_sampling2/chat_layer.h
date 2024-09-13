@@ -209,6 +209,8 @@ public:
 
     std::string formatRepresentation;
 
+    struct llama_perf_context_data ctx_performance_data;
+
     //std::map<std::string,std::string> stats;
 
     chat(int argc, char ** argv){
@@ -304,6 +306,7 @@ public:
             
             params.n_keep = n_keep;
             gpt_sampler_free(smpl);
+            llama_perf_context_reset(ctx);
             llama_free(ctx);
             llama_free_model(model);
             //if (grammar != NULL) {
@@ -343,6 +346,10 @@ public:
         return std::size(embd_inp);
     }
 
+    void perf_update() {
+        ctx_performance_data = llama_perf_context(ctx); 
+    }
+
     float get_speed() {
         // const llama_timings timings = llama_get_timings(ctx);
 
@@ -357,7 +364,8 @@ public:
         // }
 
         // return (1e3 / t_eval_ms * n_eval);
-        return 0;
+
+        return (1e3 / ctx_performance_data.t_eval_ms * ctx_performance_data.n_eval);
     }
 
     float get_speed_p(){
@@ -374,7 +382,8 @@ public:
         // }
 
         // return (1e3 / t_p_eval_ms * n_p_eval);
-        return 0;
+
+        return (1e3 / ctx_performance_data.t_p_eval_ms * ctx_performance_data.n_p_eval);
     }
 
     void clear_speed(){
@@ -1258,7 +1267,7 @@ public:
         int comp = 1;
         llama_sampling_rollback(smpl, n_last_message_past);
         llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
-        embd_inp.erase(embd_inp.begin() + n_embd_inp_last, embd_inp.end());
+        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + comp, embd_inp.end());
         //n_remain += last_tokens_count;
         n_past -= n_last_message_past;
         //n_past = n_past_last;

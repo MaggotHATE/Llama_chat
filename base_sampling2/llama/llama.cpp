@@ -2484,6 +2484,7 @@ struct llama_cparams {
     bool causal_attn;
     bool offload_kqv;
     bool flash_attn;
+    bool no_perf;
 
     enum llama_pooling_type pooling_type;
 
@@ -6665,7 +6666,6 @@ static bool llm_load_tensors(
         bool use_mlock,
         llama_progress_callback progress_callback,
         void * progress_callback_user_data) {
-    model.t_start_us = ggml_time_us();
 
     auto & hparams = model.hparams;
 
@@ -8597,14 +8597,13 @@ static bool llm_load_tensors(
         }
     }
 
-    // loading time will be recalculate after the first eval, so
-    // we take page faults deferred by mmap() into consideration
-    model.t_load_us = ggml_time_us() - model.t_start_us;
     return true;
 }
 
 // Returns 0 on success, -1 on error, and -2 on cancellation via llama_progress_callback
 static int llama_model_load(const std::string & fname, llama_model & model, llama_model_params & params) {
+    model.t_start_us = ggml_time_us();
+
     try {
         llama_model_loader ml(fname, params.use_mmap, params.check_tensors, params.kv_overrides);
 
@@ -8665,6 +8664,10 @@ static int llama_model_load(const std::string & fname, llama_model & model, llam
         LLAMA_LOG_ERROR("%s: error loading model: %s\n", __func__, err.what());
         return -1;
     }
+
+    // loading time will be recalculate after the first eval, so
+    // we take page faults deferred by mmap() into consideration
+    model.t_load_us = ggml_time_us() - model.t_start_us;
 
     return 0;
 }
@@ -9885,8 +9888,8 @@ struct llm_build_context {
     struct ggml_cgraph * append_pooling(struct ggml_cgraph * gf) {
         // find result_norm tensor for input
         struct ggml_tensor * inp = nullptr;
-        for (int i = gf->n_nodes - 1; i >= 0; --i) {
-            inp = gf->nodes[i];
+        for (int i = ggml_graph_n_nodes(gf) - 1; i >= 0; --i) {
+            inp = ggml_graph_node(gf, i);
             if (strcmp(inp->name, "result_norm") == 0 || strcmp(inp->name, "result_embd") == 0) {
                 break;
             } else {
@@ -16084,18 +16087,20 @@ static int llama_decode_internal(
         return -1;
     }
 
-    for (uint32_t i = 0; i < n_tokens_all; ++i) {
-        if (batch_all.token[i] < 0 || (uint32_t)batch_all.token[i] >= lctx.model.vocab.n_vocab) {
-            LLAMA_LOG_ERROR("%s: invalid token[%d] = %d", __func__, i, batch_all.token[i]);
-            return -1;
-        }
-    }
-
     const auto & model   = lctx.model;
     const auto & hparams = model.hparams;
     const auto & cparams = lctx.cparams;
 
     GGML_ASSERT((!batch_all.token && batch_all.embd) || (batch_all.token && !batch_all.embd)); // NOLINT
+
+    if (batch_all.token) {
+        for (uint32_t i = 0; i < n_tokens_all; ++i) {
+            if (batch_all.token[i] < 0 || (uint32_t)batch_all.token[i] >= model.vocab.n_vocab) {
+                LLAMA_LOG_ERROR("%s: invalid token[%d] = %d", __func__, i, batch_all.token[i]);
+                return -1;
+            }
+        }
+    }
 
     GGML_ASSERT(n_tokens_all <= cparams.n_batch);
 
@@ -16213,8 +16218,8 @@ static int llama_decode_internal(
         ggml_cgraph * gf = llama_build_graph(lctx, ubatch, false);
 
         // the output is always the last tensor in the graph
-        struct ggml_tensor * res  = gf->nodes[gf->n_nodes - 1];
-        struct ggml_tensor * embd = gf->nodes[gf->n_nodes - 2];
+        struct ggml_tensor * res  = ggml_graph_node(gf, -1);
+        struct ggml_tensor * embd = ggml_graph_node(gf, -2);
 
         if (lctx.n_outputs == 0) {
             // no output
@@ -16223,9 +16228,9 @@ static int llama_decode_internal(
         } else if (cparams.embeddings) {
             res  = nullptr; // do not extract logits for embedding case
             embd = nullptr;
-            for (int i = gf->n_nodes - 1; i >= 0; --i) {
-                if (strcmp(gf->nodes[i]->name, "result_embd_pooled") == 0) {
-                    embd = gf->nodes[i];
+            for (int i = ggml_graph_n_nodes(gf) - 1; i >= 0; --i) {
+                if (strcmp(ggml_graph_node(gf, i)->name, "result_embd_pooled") == 0) {
+                    embd = ggml_graph_node(gf, i);
                     break;
                 }
             }
@@ -16383,18 +16388,20 @@ static int llama_encode_internal(
         return -1;
     }
 
-    for (uint32_t i = 0; i < n_tokens; ++i) {
-        if (batch.token[i] < 0 || (uint32_t)batch.token[i] >= lctx.model.vocab.n_vocab) {
-            LLAMA_LOG_ERROR("%s: invalid token[%d] = %d", __func__, i, batch.token[i]);
-            return -1;
-        }
-    }
-
     const auto & model   = lctx.model;
     const auto & hparams = model.hparams;
     const auto & cparams = lctx.cparams;
 
     GGML_ASSERT((!batch.token && batch.embd) || (batch.token && !batch.embd)); // NOLINT
+
+    if (batch.token) {
+        for (uint32_t i = 0; i < n_tokens; ++i) {
+            if (batch.token[i] < 0 || (uint32_t)batch.token[i] >= model.vocab.n_vocab) {
+                LLAMA_LOG_ERROR("%s: invalid token[%d] = %d", __func__, i, batch.token[i]);
+                return -1;
+            }
+        }
+    }
 
     // micro-batching is not possible for non-causal encoding, so we process the batch in a single shot
     GGML_ASSERT(cparams.n_ubatch >= n_tokens && "encoder requires n_ubatch >= n_tokens");
@@ -16440,15 +16447,15 @@ static int llama_encode_internal(
     // there are two cases here
     if (llama_model_has_decoder(&lctx.model)) {
         // first case is an encoder-decoder T5 model where embeddings are passed to decoder
-        embd = gf->nodes[gf->n_nodes - 1];
+        embd = ggml_graph_node(gf, -1);
         GGML_ASSERT(strcmp(embd->name, "result_norm") == 0 && "missing result_output tensor");
     } else {
         // second case is an encoder-only T5 model
         if (cparams.embeddings) {
             // only output embeddings if required
-            embd = gf->nodes[gf->n_nodes - 1];
+            embd = ggml_graph_node(gf, -1);
             if (strcmp(embd->name, "result_embd_pooled") != 0) {
-                embd = gf->nodes[gf->n_nodes - 2];
+                embd = ggml_graph_node(gf, -2);
             }
             GGML_ASSERT(strcmp(embd->name, "result_embd_pooled") == 0 && "missing embeddings tensor");
         }
@@ -17949,6 +17956,7 @@ struct llama_context_params llama_context_default_params() {
         /*.embeddings                  =*/ false,
         /*.offload_kqv                 =*/ true,
         /*.flash_attn                  =*/ false,
+        /*.no_perf                     =*/ true,
         /*.abort_callback              =*/ nullptr,
         /*.abort_callback_data         =*/ nullptr,
     };
@@ -18158,6 +18166,7 @@ struct llama_context * llama_new_context_with_model(
     cparams.embeddings       = params.embeddings;
     cparams.offload_kqv      = params.offload_kqv;
     cparams.flash_attn       = params.flash_attn;
+    cparams.no_perf          = params.no_perf;
     cparams.pooling_type     = params.pooling_type;
 
     cparams.n_ctx            = params.n_ctx           == 0    ? hparams.n_ctx_train           : params.n_ctx;
@@ -18495,7 +18504,7 @@ struct llama_context * llama_new_context_with_model(
 
             // note: the number of splits during measure is higher than during inference due to the kv shift
             int n_splits = ggml_backend_sched_get_n_splits(ctx->sched);
-            LLAMA_LOG_INFO("%s: graph nodes  = %d\n", __func__, gf->n_nodes);
+            LLAMA_LOG_INFO("%s: graph nodes  = %d\n", __func__, ggml_graph_n_nodes(gf));
             LLAMA_LOG_INFO("%s: graph splits = %d\n", __func__, n_splits);
         }
     }
@@ -20076,10 +20085,14 @@ void llama_synchronize(struct llama_context * ctx) {
 
     // add the evaluation to the stats
     if (ctx->n_queued_tokens == 1) {
-        ctx->t_eval_us += ggml_time_us() - ctx->t_compute_start_us;
+        if (!ctx->cparams.no_perf) {
+            ctx->t_eval_us += ggml_time_us() - ctx->t_compute_start_us;
+        }
         ctx->n_eval++;
     } else if (ctx->n_queued_tokens > 1) {
-        ctx->t_p_eval_us += ggml_time_us() - ctx->t_compute_start_us;
+        if (!ctx->cparams.no_perf) {
+            ctx->t_p_eval_us += ggml_time_us() - ctx->t_compute_start_us;
+        }
         ctx->n_p_eval += ctx->n_queued_tokens;
     }
 
@@ -20686,65 +20699,40 @@ const char * llama_print_system_info(void) {
     return s.c_str();
 }
 
-void llama_perf_print(const void * ctx, enum llama_perf_type type) {
-    switch (type) {
-        case LLAMA_PERF_TYPE_CONTEXT:
-            {
-                const auto * p = (const struct llama_context *) ctx;
+struct llama_perf_context_data llama_perf_context(const struct llama_context * ctx) {
+    struct llama_perf_context_data data = {};
 
-                const double t_start_ms   = 1e-3 * p->t_start_us;
-                const double t_end_ms     = 1.00 * ggml_time_ms();
-                const double t_load_ms    = 1e-3 * p->t_load_us;
-                const double t_p_eval_ms  = 1e-3 * p->t_p_eval_us;
-                const double t_eval_ms    = 1e-3 * p->t_eval_us;
-
-                const int32_t n_p_eval  = std::max(0, p->n_p_eval);
-                const int32_t n_eval    = std::max(1, p->n_eval);
-
-                LLAMA_LOG_INFO("%s:        load time = %10.2f ms\n", __func__, t_load_ms);
-                LLAMA_LOG_INFO("%s: prompt eval time = %10.2f ms / %5d tokens (%8.2f ms per token, %8.2f tokens per second)\n",
-                        __func__, t_p_eval_ms, n_p_eval, t_p_eval_ms / n_p_eval, 1e3 / t_p_eval_ms * n_p_eval);
-                LLAMA_LOG_INFO("%s:        eval time = %10.2f ms / %5d runs   (%8.2f ms per token, %8.2f tokens per second)\n",
-                        __func__, t_eval_ms, n_eval, t_eval_ms / n_eval, 1e3 / t_eval_ms * n_eval);
-                LLAMA_LOG_INFO("%s:       total time = %10.2f ms / %5d tokens\n", __func__, (t_end_ms - t_start_ms), (n_p_eval + n_eval));
-            } break;
-        case LLAMA_PERF_TYPE_SAMPLER_CHAIN:
-            {
-                const auto * smpl = (const struct llama_sampler *) ctx;
-                const auto * p = (const struct llama_sampler_chain *) smpl->ctx;
-
-                const double t_sampler_ms = 1e-3 * p->t_sample_us;
-
-                const int32_t n_sampler = std::max(0, p->n_sample);
-
-                LLAMA_LOG_INFO("%s:    sampling time = %10.2f ms / %5d runs   (%8.2f ms per token, %8.2f tokens per second)\n",
-                        __func__, t_sampler_ms, n_sampler, t_sampler_ms / n_sampler, 1e3 / t_sampler_ms * n_sampler);
-            } break;
-        default:
-            GGML_ABORT("invalid perf type");
+    if (ctx == nullptr) {
+        return data;
     }
+
+    data.t_start_ms  = 1e-3 * ctx->t_start_us;
+    data.t_load_ms   = 1e-3 * ctx->t_load_us;
+    data.t_p_eval_ms = 1e-3 * ctx->t_p_eval_us;
+    data.t_eval_ms   = 1e-3 * ctx->t_eval_us;
+    data.n_p_eval    = std::max(1, ctx->n_p_eval);
+    data.n_eval      = std::max(1, ctx->n_eval);
+
+    return data;
 }
 
-void llama_perf_reset(void * ctx, enum llama_perf_type type) {
-    switch (type) {
-        case LLAMA_PERF_TYPE_CONTEXT:
-            {
-                auto * p = (struct llama_context *) ctx;
+void llama_perf_context_print(const struct llama_context * ctx) {
+    const auto data = llama_perf_context(ctx);
 
-                p->t_start_us  = ggml_time_us();
-                p->t_eval_us   = p->n_eval = 0;
-                p->t_p_eval_us = p->n_p_eval = 0;
-            } break;
-        case LLAMA_PERF_TYPE_SAMPLER_CHAIN:
-            {
-                auto * smpl = (struct llama_sampler *) ctx;
-                auto * p = (struct llama_sampler_chain *) smpl->ctx;
+    const double t_end_ms = 1e-3 * ggml_time_us();
 
-                p->t_sample_us = p->n_sample = 0;
-            } break;
-        default:
-            GGML_ABORT("invalid perf type");
-    }
+    LLAMA_LOG_INFO("%s:        load time = %10.2f ms\n", __func__, data.t_load_ms);
+    LLAMA_LOG_INFO("%s: prompt eval time = %10.2f ms / %5d tokens (%8.2f ms per token, %8.2f tokens per second)\n",
+            __func__, data.t_p_eval_ms, data.n_p_eval, data.t_p_eval_ms / data.n_p_eval, 1e3 / data.t_p_eval_ms * data.n_p_eval);
+    LLAMA_LOG_INFO("%s:        eval time = %10.2f ms / %5d runs   (%8.2f ms per token, %8.2f tokens per second)\n",
+            __func__, data.t_eval_ms, data.n_eval, data.t_eval_ms / data.n_eval, 1e3 / data.t_eval_ms * data.n_eval);
+    LLAMA_LOG_INFO("%s:       total time = %10.2f ms / %5d tokens\n", __func__, (t_end_ms - data.t_start_ms), (data.n_p_eval + data.n_eval));
+}
+
+void llama_perf_context_reset(struct llama_context * ctx) {
+    ctx->t_start_us  = ggml_time_us();
+    ctx->t_eval_us   = ctx->n_eval = 0;
+    ctx->t_p_eval_us = ctx->n_p_eval = 0;
 }
 
 void llama_perf_dump_yaml(FILE * stream, const llama_context * ctx) {

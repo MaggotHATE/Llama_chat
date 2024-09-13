@@ -155,6 +155,7 @@ struct gpt_sampler_params {
     int      xtc_min               = 2; // minimum number of penalizeable tokens
     bool    penalize_nl       = false; // consider newlines as a repeatable token
     bool    ignore_eos        = false;
+    bool    no_perf           = false; // disable performance metrics
     std::string samplers_sequence     = "kfypmts"; // top_k, tail_free, typical_p, top_p, min_p, temp, p_step
 
     std::string grammar; // optional BNF-like grammar to constrain sampling
@@ -276,6 +277,7 @@ struct gpt_params {
     bool simple_io         = false; // improves compatibility with subprocesses and limited consoles
     bool cont_batching     = true;  // insert new sequences for decoding on-the-fly
     bool flash_attn        = false; // flash attention
+    bool no_perf           = false; // disable performance metrics
 
     bool input_prefix_bos  = false; // prefix BOS to user inputs, preceding input_prefix
     bool logits_all        = false; // return logits for all tokens in the batch

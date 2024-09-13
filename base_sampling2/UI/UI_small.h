@@ -1579,7 +1579,7 @@ struct chatUI{
         newChat.startGen();
         output = "...";
         //newChat.getResultAsyncStringFull2(false, true);
-        newChat.getResultAsyncStringFull3();
+        newChat.runGenerationAsync();
         copiedDialog = false;
         copiedTimings = false;
         scrolled = false;
@@ -1597,7 +1597,7 @@ struct chatUI{
         newChat.startGen();
         output = "...";
         //newChat.getResultAsyncStringFull2(false, true);
-        newChat.getResultAsyncStringFull3();
+        newChat.runGenerationAsync();
         copiedDialog = false;
         copiedTimings = false;
         scrolled = false;
@@ -2807,7 +2807,7 @@ struct chatUI{
                             localResultPairs = newChat.resultsStringPairs;
                             newChat.startGen();
                             //newChat.getResultAsyncStringFull2(false, true);
-                            newChat.getResultAsyncStringFull3();
+                            newChat.runGenerationAsync();
                             isGeneratingTest = true;
                         } else {
                             newChat.writeTextFileFull(Test.saveFolder + '/', Test.writeName());

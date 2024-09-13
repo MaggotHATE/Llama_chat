@@ -242,7 +242,7 @@ int main(int argc, char ** argv) {
                         threadedChat.display();
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, false);
-                        threadedChat.getResultAsyncStringFull3();
+                        threadedChat.runGenerationAsync();
                         break;
                     }
                     case 'R': {
@@ -262,7 +262,8 @@ int main(int argc, char ** argv) {
                         threadedChat.appendQuestion(input2);
                         threadedChat.display();
                         threadedChat.startGen();
-                        threadedChat.getResultAsyncStringFull2(true, true);
+                        //threadedChat.getResultAsyncStringFull2(true, true);
+                        threadedChat.runGenerationAsync();
                         break;
                     }
                     case 's': {
@@ -319,7 +320,7 @@ int main(int argc, char ** argv) {
                         threadedChat.display();
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, true);
-                        threadedChat.getResultAsyncStringFull3();
+                        threadedChat.runGenerationAsync();
                         break;
                     }
                     default: break;
