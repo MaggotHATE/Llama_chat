@@ -472,3 +472,21 @@ void llama_sampling_rollback(
     // Insert rollback_num zeros at the beginning to preserve the size of prev
     //gsmpl->prev.insert(gsmpl->prev.begin(), rollback_num, 0);
 }
+
+int llama_sampling_getsize(gpt_sampler * gsmpl) {
+    return gsmpl->prev.size();
+}
+
+void llama_sampling_rollback2(
+        gpt_sampler * gsmpl,
+        int rollback_size) {
+    if(rollback_size > gsmpl->prev.size()) {
+        gsmpl->prev.sz = 1;
+        gsmpl->prev.pos = 1;
+    } else {
+        gsmpl->prev.sz = rollback_size;
+        gsmpl->prev.pos = rollback_size;
+    }
+
+}
+

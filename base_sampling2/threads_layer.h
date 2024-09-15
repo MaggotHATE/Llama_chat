@@ -167,6 +167,7 @@ struct modelThread{
         //if (penalize_nl) remove_last_nl(input);
         resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
         //else resultsStringPairs.emplace_back(std::pair(newChat.params.input_prefix,input));
+        newChat.clear_states2();
     }
     
     void removeLastAnswer(){
@@ -215,7 +216,7 @@ struct modelThread{
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}", newChat.params.input_suffix, separator_main);
         //text +=  newChat.formatRepresentation << std::endl;
-        text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-Last             : {}\n-Past-Last        : {}\n-embd_inp.size    : {}\n-n_past_last      : {}\n-n_embd_inp_last  : {}\n-n_consumed_last  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), past_tokens, consumed_tokens, remain_tokens, last_tokens, past_tokens - last_tokens, newChat.getEmbInpSize(), newChat.n_past_last, newChat.n_embd_inp_last, newChat.n_consumed_last);
+        text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-smpl_size        : {}\n-kv_cache_size    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_sampling_getsize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
 
         text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
 
@@ -226,16 +227,18 @@ struct modelThread{
 
         //std::cout << lastTimings << std::endl;
         text += std::format("{}\n{}\n-Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n{}\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed, separator_bottom);
+        std::cout << text;
 
+        std::string messages_display;
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
-                text += r.second;
+                messages_display += r.second;
                 //wstring converted;
                 //fromUTF8(r.second, converted);
                 //std::wcout << converted;
             } else {
-                if (newChat.params.input_prefix.empty()) text += r.first + r.second;
-                else text += newChat.params.input_prefix + r.second;
+                if (newChat.params.input_prefix.empty()) messages_display += r.first + r.second;
+                else messages_display += newChat.params.input_prefix + r.second;
             }
             
             //if (r.second.back() != '\n') std::cout<< DELIMINER;
@@ -255,10 +258,10 @@ struct modelThread{
 
             std::string separator(std::size(sparamsListShort) + 3,'_');
 
-            text += lastResult + "\n"+ separator +"\n" + summary;
+            messages_display += lastResult + "\n"+ separator +"\n" + summary;
         }
 
-        std::cout << text;
+        std::cout << messages_display;
 
         return summary;
     }
@@ -266,6 +269,7 @@ struct modelThread{
     bool writeTextFileSimple(std::string path){
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
+            file << __func__ << DELIMINER;
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
             file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
@@ -287,6 +291,7 @@ struct modelThread{
         std::string path1 = path + std::to_string(newChat.params.sparams.seed) + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
+            file << __func__ << DELIMINER;
             file << shortModelName << DELIMINER;
             file << lastTimings << DELIMINER;
             file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
@@ -308,6 +313,7 @@ struct modelThread{
         std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
+            file << __func__ << DELIMINER;
             file << shortModelName << DELIMINER;
             file << sparamsList << DELIMINER;
             file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
@@ -329,11 +335,13 @@ struct modelThread{
     }
 
     bool writeTextFileDivided(std::string path, std::string name){
-        std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + "-I.txt";
-        std::string path2 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
+        std::string common = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName;
+        std::string path1 = common + "-I.txt";
+        std::string path2 = common + "-O.txt";
         std::ofstream file_i(path1, std::ios::app);
         std::ofstream file_o(path2, std::ios::app);
         if (file_i.is_open() && file_o.is_open()) {
+            file_i << __func__ << DELIMINER;
             file_i << shortModelName << DELIMINER;
             file_i << sparamsList << DELIMINER;
             file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
@@ -348,6 +356,8 @@ struct modelThread{
             }
 
             file_i.close();
+            file_o << __func__ << DELIMINER;
+            file_o << text << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
             file_o.close();
             return true;
@@ -359,27 +369,33 @@ struct modelThread{
     bool writeTextFileUnified(std::string path, std::string name, bool first_time){
         std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-INPUT-" + shortModelName + ".txt";
         std::string path2 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
+        if (first_time) {
+            std::ofstream file_i(path1, std::ios::app);
+            if (file_i.is_open()) {
+                file_i << __func__ << DELIMINER;
+                // file_i << shortModelName << DELIMINER;
+                // file_i << sparamsList << DELIMINER;
+                // file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
+                // file_i << lastTimings << std::endl;
+                file_i << text << std::endl;
+                file_i << "Prompt:" << consumed_tokens << std::endl;
+                file_i << "Result: " << last_tokens << std::endl;
+                file_i << "----------------------------------------\n"<< std::endl;
+                for (auto r : resultsStringPairs) {
+                    // file << r.first << DELIMINER;
+                    // file << ' ' << r.second << DELIMINER;
+                    file_i << '\n' << r.second << DELIMINER;
+                }
+
+                file_i.close();
+            }
+        }
+
         std::ofstream file_o(path2, std::ios::app);
         if (file_o.is_open()) {
-            if (first_time) {
-                std::ofstream file_i(path1, std::ios::app);
-                if (file_i.is_open()) {
-                    file_i << shortModelName << DELIMINER;
-                    file_i << sparamsList << DELIMINER;
-                    file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
-                    file_i << lastTimings << std::endl;
-                    file_i << "Prompt:" << consumed_tokens << std::endl;
-                    file_i << "Result: " << last_tokens << std::endl;
-                    file_i << "----------------------------------------\n"<< std::endl;
-                    for (auto r : resultsStringPairs) {
-                        // file << r.first << DELIMINER;
-                        // file << ' ' << r.second << DELIMINER;
-                        file_i << '\n' << r.second << DELIMINER;
-                    }
+            file_o << __func__ << DELIMINER;
+            file_o << text << DELIMINER;
 
-                    file_i.close();
-                }
-            }
             std::string summary = "";
 #ifdef GGML_USE_VULKAN
             summary += "vk|";
@@ -401,6 +417,7 @@ struct modelThread{
         std::string path = std::to_string(newChat.params.sparams.seed) + "-" + shortModelName + "-" + ".txt";
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
+            file << __func__ << DELIMINER;
             file << shortModelName << DELIMINER;
             file << std::to_string(newChat.params.sparams.seed) << DELIMINER;
             file << sparamsList << DELIMINER;
@@ -426,6 +443,7 @@ struct modelThread{
         std::string path1 = path + name + "-" + shortModelName + ".txt";
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
+            file << __func__ << DELIMINER;
             file << shortModelName << DELIMINER;
             file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << '\n' << DELIMINER;
             file << lastTimings << DELIMINER;
@@ -452,7 +470,7 @@ struct modelThread{
     
     void rewind() {
         resultsStringPairs.pop_back();
-        newChat.rewind();
+        newChat.rewind2();
     }
     
     void unload(){
@@ -547,7 +565,6 @@ struct modelThread{
     }
 
     void getStats() {
-        last_tokens = newChat.getLastTokens();
         consumed_tokens = newChat.getConsumedTokens();
         past_tokens = newChat.getPastTokens();
         left_tokens = newChat.params.n_ctx - past_tokens;
@@ -555,27 +572,25 @@ struct modelThread{
     }
 
     // for UI
-    void runGenerationAsync() {
+    void runGenerationAsync(bool process_prompt = true) {
             //isContinue = 'w';
             //std::cout << " ** " << input << std::endl;
-            newChat.clearLastTokens();
             updateTimings();
             getTimigsBoth();
 
-            futureTextString = std::async(std::launch::async, [this] mutable {
-                isPregen = 'w';
+            futureTextString = std::async(std::launch::async, [this, process_prompt] mutable {
+
+                if (process_prompt) {
+                    isPregen = 'w';
+
+                    std::string input = resultsStringPairs.back().second;
+                    newChat.inputOnlyNew(input);
+
+                    isPregen = 'i';
+                } else newChat.skipInput();
+
                 //getTimigsPre();
-
-                std::string input = resultsStringPairs.back().second;
-
-                newChat.inputOnlyNew(input);
-
-                isPregen = 'i';
-                consumed_tokens = newChat.getConsumedTokens();
-                past_tokens = newChat.getPastTokens();
-
-                //getTimigsPre();
-                newChat.capture_lasts();
+                //newChat.capture_lasts();
 
                 while (isContinue != 'i'){
                     updateTimings();
@@ -621,7 +636,6 @@ struct modelThread{
             isPregen = 'i';
             consumed_tokens = newChat.getConsumedTokens();
             past_tokens = newChat.getPastTokens();
-            last_tokens = newChat.getLastTokens();
 
             //getTimigsPre();
 
@@ -676,7 +690,6 @@ struct modelThread{
     void getResultAsyncStringRepeat3() {
         //isContinue = 'w';
         //std::cout << " ** " << input << std::endl;
-        newChat.clearLastTokens();
 
 
         futureTextString = std::async(std::launch::async, [this] mutable {

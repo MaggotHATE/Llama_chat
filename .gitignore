@@ -42,3 +42,5 @@
 /base/ggml-opencl-bu.cpp
 /base/ggml/ggml-vulkan-shaders.cpp
 /base/ggml/ggml-vulkan-shaders.hpp
+/base_sampling2/ggml/ggml-vulkan-shaders.cpp
+/base_sampling2/ggml/ggml-vulkan-shaders.hpp

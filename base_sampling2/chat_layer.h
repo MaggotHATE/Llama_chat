@@ -118,6 +118,43 @@ typedef struct format{
     std::string sequence;
 }; 
  */
+ 
+typedef struct chat_state {
+    int smpl_size       = 0;
+    int kv_cache_size   = 0;
+    int embd_inp_size   = 0;
+    int n_past_size     = 0;
+    int n_consumed_size = 0;
+
+    void capture_smpl(int value) {
+        smpl_size = value;
+    }
+
+    void capture_kv_cache(int value) {
+        kv_cache_size = value;
+    }
+
+    void capture_embd_inp(int value) {
+        embd_inp_size = value;
+    }
+
+    void capture_n_past(int value) {
+        n_past_size = value;
+    }
+
+    void capture_n_consumed(int value) {
+        n_consumed_size = value;
+    }
+
+    void clear() {
+        smpl_size = 0;
+        kv_cache_size = 0;
+        embd_inp_size = 0;
+        n_past_size = 0;
+        n_consumed_size = 0;
+    }
+};
+
 //CLASS////////////////////////////////////////////////////////////////////////////////////////////
 
 class chat
@@ -162,35 +199,32 @@ private:
     int n_consumed            = 0;
     int n_session_consumed    = 0;
     int original_prompt_len   = 0;
-    int n_last_message        = 0;
-    int n_last_message_past   = 0;
     int t_eval_ms             = 0;
     int n_eval                = 0;
     int t_p_eval_ms           = 0;
     int n_p_eval              = 0;
     // since params.n_keep changes
     int n_keep                = 0;
-    
-    int ga_i = 0;
 
+    int ga_i = 0;
     int ga_n;
     int ga_w;
-    
+
     std::vector<llama_token> embd;
     std::vector<llama_token> embd_msg;
-    
+
     std::vector<int> inp_pfx;
     std::vector<int> inp_sfx;
        
     std::vector<int> llama_token_newline;
-    
+
     std::vector<int>   input_tokens;
     std::vector<int>   output_tokens;
     std::ostringstream output_ss; 
     
     struct ggml_threadpool * threadpool;
     struct ggml_threadpool * threadpool_batch = NULL;
-    
+
 public:
     gpt_params params;
     bool tempFirst           = true;
@@ -207,6 +241,8 @@ public:
     float d_temp_mul = 1.0f;
     bool d_temp_up = true;
 
+    chat_state rewind_state;
+
     std::string formatRepresentation;
 
     struct llama_perf_context_data ctx_performance_data;
@@ -222,7 +258,10 @@ public:
     chat(bool useJson){
         init(useJson);
     }
-    
+
+    std::string get_state_descr() {
+        return std::format("smpl_size = {}; kv_cache_size = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", rewind_state.smpl_size, rewind_state.kv_cache_size, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
+    }
 
     void dynamic_params(float & parameter, float & p_min, float & p_max, float & p_add, float & p_mul, bool & p_dir) {
         if (p_min != -1.0f && p_max != -1.0f) {
@@ -298,6 +337,8 @@ public:
         xtc_percent = 0;
         
         params = paramsDefault;
+
+        rewind_state.clear();
     }
     
     void clear(){
@@ -316,6 +357,7 @@ public:
             ggml_threadpool_free(threadpool);
             ggml_threadpool_free(threadpool_batch);
             
+            
             clearSoft();
             
         }
@@ -326,10 +368,6 @@ public:
         debug = !debug;
     }
 
-    int getLastTokens() {
-        return n_last_message;
-    }
-    
     int getRemainTokens() {
         return n_remain;
     } 
@@ -341,7 +379,11 @@ public:
     int getPastTokens(){
         return n_past;
     }
-    
+
+    int getEmbSize() {
+        return std::size(embd);
+    }
+
     int getEmbInpSize() {
         return std::size(embd_inp);
     }
@@ -1060,7 +1102,6 @@ public:
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
             //embd.insert(embd.begin(), last_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_tokens.end() - embd.size());
             n_past -= n_discard;
-            n_last_message_past -= n_discard;
 
             // stop saving session if we run out of context
             path_session.clear();
@@ -1087,7 +1128,6 @@ public:
                 llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
                 
                 n_past -= n_discard;
-                n_last_message_past -= n_discard;
 
                 path_session.clear();
             }
@@ -1103,7 +1143,6 @@ public:
                 llama_kv_cache_seq_add(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
                 
                 n_past -= bd;
-                n_last_message_past -= bd;
 
                 ga_i += ga_w/ga_n;
             }
@@ -1205,7 +1244,15 @@ public:
         if (evaluate_main() == 0) return 0;
 
         evaluate_session();
-        
+
+        if (rewind_state.smpl_size == 0) {
+            rewind_state.capture_smpl(llama_sampling_getsize(smpl));
+            rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
+            rewind_state.capture_embd_inp(embd_inp.size());
+            rewind_state.capture_n_past(n_past);
+            rewind_state.capture_n_consumed(n_consumed);
+        }
+
         return 1;
     }
     
@@ -1232,8 +1279,6 @@ public:
         //embd.emplace_back(id);
         embd.emplace_back(id);
         //embd.push_back(id);
-        ++n_last_message;
-        ++n_last_message_past;
 
         // echo this to console
         input_echo = true;
@@ -1247,40 +1292,43 @@ public:
 // main generation end////////////////////////////////////////////////////////////////
 
 // additional functions
-    void clearLastTokens() {
-        n_last_message = 0;
-        n_last_message_past = 0;
-    }
-    
-    void capture_states() {
-        n_past_last = n_past;
-        n_embd_inp_last = std::size(embd_inp);
-        n_consumed_last = n_consumed;
+    void capture_states2() {
+        rewind_state.smpl_size = llama_sampling_getsize(smpl);
+        rewind_state.kv_cache_size = llama_kv_cache_seq_pos_max(ctx, 0);
+        rewind_state.embd_inp_size = embd_inp.size();
+        rewind_state.n_past_size = n_past;
+        rewind_state.n_consumed_size = n_consumed;
+
     }
 
+    int get_kv_cache_seq_pos_max() {
+        return llama_kv_cache_seq_pos_max(ctx, 0);
+    }
 
-    void rewind() {
-        // n_past = n_past_last + 1;
-        // llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
-        // embd_inp.erase(embd_inp.begin() + n_consumed, embd_inp.end());
-        //int comp = -1;
-        int comp = 1;
-        llama_sampling_rollback(smpl, n_last_message_past);
-        llama_kv_cache_seq_rm(ctx, 0, n_past - n_last_message_past, -1);
-        embd_inp.erase(embd_inp.begin() + n_embd_inp_last + comp, embd_inp.end());
-        //n_remain += last_tokens_count;
-        n_past -= n_last_message_past;
-        //n_past = n_past_last;
-        //n_consumed = n_consumed_last;
-        //embd.clear();
-        //embd_guidance.clear();
+    int get_sampling_getsize() {
+        return llama_sampling_getsize(smpl);
+    }
 
-        clearLastTokens();
+    void clear_states2() {
+        rewind_state.smpl_size = 0;
+        rewind_state.kv_cache_size = 0;
+        rewind_state.embd_inp_size = 0;
+        rewind_state.n_past_size = 0;
+        rewind_state.n_consumed_size = 0;
+        // printf("%s:\n", __func__);
+        // std::string pause;
+        // std::getline(std::cin, pause);
+    }
 
-        if (n_past > 0) {
-            resetGrammar();
-            is_interacting = false;
-        }
+    void rewind2() {
+        llama_sampling_rollback2(smpl, rewind_state.smpl_size);
+        llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_size, -1);
+        embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
+        n_past = rewind_state.n_past_size;
+        n_consumed = rewind_state.n_consumed_size;
+        // printf("%s:\n", __func__);
+        // std::string pause;
+        // std::getline(std::cin, pause);
     }
 
     int resetGrammar(){
@@ -1495,7 +1543,7 @@ public:
     }
     
     int subInputNew(std::string& line){
-        
+        //rewind_state.capture_embd_inp(embd_inp.size());
         //std::string buffer = line + DELIMINER;
         
         if (line.length() > 1) {
@@ -1513,28 +1561,12 @@ public:
             
             const size_t original_size = std::size(embd_inp);
 
-            // instruct mode: insert instruction prefix
-            // if (params.instruct && !is_antiprompt) {
-                // n_consumed = embd_inp.size();
-                // if (debug) printf("|");
-                // embd_inp.insert(embd_inp.end(), inp_pfx.begin(), inp_pfx.end());
-            // }
-
-            // if (params.escape) {
-                // process_escapes(buffer);
-            // }
-
-            //classicProcessing(buffer);
-            formatInput(params.format_dialog, buffer);
+            // format and process input
+            //if (rewind_state.smpl_size == 0) 
+                formatInput(params.format_dialog, buffer);
             //formatInput(buffer);
-
-            for (size_t i = original_size; i < std::size(embd_inp); ++i) {
-                const llama_token token = embd_inp[i];
-                output_tokens.emplace_back(token);
-                //output_tokens.push_back(token);
-                //output_ss << llama_token_to_piece(ctx, token);
-                //std::cout << "tkns = " << embd_inp.size() << std::endl;
-            }
+            // if (rewind_state.smpl_size == 0) 
+                // capture_states2();
 
             // n_remain -= line_inp.size();
         }
@@ -1542,11 +1574,6 @@ public:
         //is_antiprompt = false;
         
         return 1;
-    }
-    
-    void capture_lasts() {
-        n_past_last = std::size(embd_inp);
-        //n_remain_last = n_remain;
     }
 
 // initial (instruct) processing
@@ -1681,7 +1708,6 @@ public:
             prepareEmb();
             // n_consumed_last = n_consumed;
             // n_embd_inp_last = embd_inp.size();
-            capture_states();
         }
 
         // output text
@@ -1720,29 +1746,30 @@ public:
             }
         }
 
-        capture_lasts();
     }
 
     void prepareBeforeAnswer() {
         prepareEmb();
-        capture_states();
+    }
+
+    void skipInput() {
+        is_interacting = false;
     }
 
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
     int inputOnlyNew(std::string& input){
         //std::cout << " ***** " << input << std::endl;
         embd_msg.clear();
+        
 
         if (n_past > 0 && is_interacting) {
-
             subInputNew(input);
-            input_echo = false; // do not echo this again        
+            input_echo = false; // do not echo this again
         }
 
         if (n_past > 0) {
             resetGrammar();
             is_interacting = false;
-            
         }
 
         // prepareEmb();
@@ -1752,6 +1779,8 @@ public:
         formatRepresentation += "{output}";
 
         //checkInfinite();
+        //clear_states2();
+
 
         return 1;
     }
@@ -1779,6 +1808,7 @@ public:
         //std::cout << " * " << input << std::endl;
         //log_down("cycleStringsOnly\n", params.seed);
         std::string result;
+
         //bool fastStop = false;
 
         dynamic_params(params.sparams.temp, params.sparams.temp_func);
@@ -1814,6 +1844,8 @@ public:
             }
 
         }
+
+
 
         return result;
     }

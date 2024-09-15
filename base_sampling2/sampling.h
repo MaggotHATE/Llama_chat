@@ -87,3 +87,5 @@ std::vector<enum gpt_sampler_type> gpt_sampler_types_from_chars(const std::strin
 // in general, the rollback is "imperfect", meaning the "forgotten tokens" which were dropped when the length of "prev" exceeded "n_prev" cannot be recalled after rollback
 // however, if `sampling_params.n_prev` >= `sampling_params.penalty_last_n` + `rollback_num`, then it becomes "perfect" rollback
 void llama_sampling_rollback(gpt_sampler * gsmpl, int rollback_num);
+int llama_sampling_getsize(gpt_sampler * gsmpl);
+void llama_sampling_rollback2(gpt_sampler * gsmpl, int rollback_size);

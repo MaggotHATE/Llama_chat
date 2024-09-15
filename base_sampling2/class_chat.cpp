@@ -242,7 +242,7 @@ int main(int argc, char ** argv) {
                         threadedChat.display();
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, false);
-                        threadedChat.runGenerationAsync();
+                        threadedChat.runGenerationAsync(false);
                         break;
                     }
                     case 'R': {
