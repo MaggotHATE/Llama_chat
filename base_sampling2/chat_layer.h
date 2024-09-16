@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <algorithm>
 
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
@@ -120,15 +121,10 @@ typedef struct format{
  */
  
 typedef struct chat_state {
-    int smpl_size       = 0;
     int kv_cache_size   = 0;
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
-
-    void capture_smpl(int value) {
-        smpl_size = value;
-    }
 
     void capture_kv_cache(int value) {
         kv_cache_size = value;
@@ -147,7 +143,6 @@ typedef struct chat_state {
     }
 
     void clear() {
-        smpl_size = 0;
         kv_cache_size = 0;
         embd_inp_size = 0;
         n_past_size = 0;
@@ -243,11 +238,14 @@ public:
 
     chat_state rewind_state;
 
+
     std::string formatRepresentation;
 
     struct llama_perf_context_data ctx_performance_data;
 
     //std::map<std::string,std::string> stats;
+
+    ring_buffer<llama_token> prev_state = ring_buffer<llama_token>(std::max(32, params.sparams.n_prev));
 
     chat(int argc, char ** argv){
         init(argc, argv);
@@ -260,7 +258,16 @@ public:
     }
 
     std::string get_state_descr() {
-        return std::format("smpl_size = {}; kv_cache_size = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", rewind_state.smpl_size, rewind_state.kv_cache_size, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
+        return std::format("SMPL = {}; kv_cache_size = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", get_buffer_data(), rewind_state.kv_cache_size, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
+    }
+
+    void capture_smpl() {
+        prev_state = llama_sampling_get_prev(smpl);
+    }
+
+    void restore_smpl() {
+        //smpl_size = value;
+        llama_sampling_set_prev(prev_state, smpl);
     }
 
     void dynamic_params(float & parameter, float & p_min, float & p_max, float & p_add, float & p_mul, bool & p_dir) {
@@ -390,6 +397,10 @@ public:
 
     void perf_update() {
         ctx_performance_data = llama_perf_context(ctx); 
+    }
+
+    std::string get_buffer_data() {
+        return std::format("Size: {}; Pos: {}; Capacity: {}; First: {}",(int)prev_state.sz, (int)prev_state.pos, (int)prev_state.capacity, (int)prev_state.first);
     }
 
     float get_speed() {
@@ -1245,8 +1256,8 @@ public:
 
         evaluate_session();
 
-        if (rewind_state.smpl_size == 0) {
-            rewind_state.capture_smpl(llama_sampling_getsize(smpl));
+        if (rewind_state.kv_cache_size == 0) {
+            capture_smpl();
             rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
             rewind_state.capture_embd_inp(embd_inp.size());
             rewind_state.capture_n_past(n_past);
@@ -1293,7 +1304,7 @@ public:
 
 // additional functions
     void capture_states2() {
-        rewind_state.smpl_size = llama_sampling_getsize(smpl);
+        capture_smpl();
         rewind_state.kv_cache_size = llama_kv_cache_seq_pos_max(ctx, 0);
         rewind_state.embd_inp_size = embd_inp.size();
         rewind_state.n_past_size = n_past;
@@ -1305,12 +1316,7 @@ public:
         return llama_kv_cache_seq_pos_max(ctx, 0);
     }
 
-    int get_sampling_getsize() {
-        return llama_sampling_getsize(smpl);
-    }
-
     void clear_states2() {
-        rewind_state.smpl_size = 0;
         rewind_state.kv_cache_size = 0;
         rewind_state.embd_inp_size = 0;
         rewind_state.n_past_size = 0;
@@ -1321,7 +1327,8 @@ public:
     }
 
     void rewind2() {
-        llama_sampling_rollback2(smpl, rewind_state.smpl_size);
+        //llama_sampling_rollback2(smpl, rewind_state.smpl_size);
+        restore_smpl();
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_size, -1);
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size;

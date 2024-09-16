@@ -6,6 +6,100 @@
 
 #include <string>
 #include <vector>
+#include <stdexcept>
+
+// the ring buffer works similarly to std::deque, but with a fixed capacity
+// TODO: deduplicate with llama-impl.h
+template<typename T>
+struct ring_buffer {
+    ring_buffer(size_t cap) : capacity(cap), data(cap) {}
+
+    T & front() {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        return data[first];
+    }
+
+    const T & front() const {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        return data[first];
+    }
+
+    T & back() {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        return data[pos];
+    }
+
+    const T & back() const {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        return data[pos];
+    }
+
+    void push_back(const T & value) {
+        if (sz == capacity) {
+            // advance the start when buffer is full
+            first = (first + 1) % capacity;
+        } else {
+            sz++;
+        }
+        data[pos] = value;
+        pos = (pos + 1) % capacity;
+    }
+
+    T pop_front() {
+        if (sz == 0) {
+            throw std::runtime_error("ring buffer is empty");
+        }
+        T value = data[first];
+        first = (first + 1) % capacity;
+        sz--;
+        return value;
+    }
+
+    const T & rat(size_t i) const {
+        if (i >= sz) {
+            throw std::runtime_error("ring buffer: index out of bounds");
+        }
+        return data[(first + sz - i - 1) % capacity];
+    }
+
+    std::vector<T> to_vector() const {
+        std::vector<T> result;
+        result.reserve(sz);
+        for (size_t i = 0; i < sz; i++) {
+            result.push_back(data[(first + i) % capacity]);
+        }
+        return result;
+    }
+
+    void clear() {
+        // here only reset the status of the buffer
+        sz = 0;
+        first = 0;
+        pos = 0;
+    }
+
+    bool empty() const {
+        return sz == 0;
+    }
+
+    size_t size() const {
+        return sz;
+    }
+
+    size_t capacity = 0;
+    size_t sz = 0;
+    size_t first = 0;
+    size_t pos = 0;
+    std::vector<T> data;
+};
 
 // gpt_sampler extends llama_sampler with additional functionality:
 //
@@ -82,10 +176,7 @@ std::string gpt_sampler_type_to_str(enum gpt_sampler_type cnstr);
 std::vector<enum gpt_sampler_type> gpt_sampler_types_from_names(const std::vector<std::string> & names, bool allow_alt_names);
 std::vector<enum gpt_sampler_type> gpt_sampler_types_from_chars(const std::string & chars);
 
-// this performs rollback of the latest sampling operation by "rollback_num" tokens;
-// it simply strikes the latest "rollback_num" tokens from the "prev" vector
-// in general, the rollback is "imperfect", meaning the "forgotten tokens" which were dropped when the length of "prev" exceeded "n_prev" cannot be recalled after rollback
-// however, if `sampling_params.n_prev` >= `sampling_params.penalty_last_n` + `rollback_num`, then it becomes "perfect" rollback
-void llama_sampling_rollback(gpt_sampler * gsmpl, int rollback_num);
-int llama_sampling_getsize(gpt_sampler * gsmpl);
-void llama_sampling_rollback2(gpt_sampler * gsmpl, int rollback_size);
+// this performs rollback of the state of prev ring buffer to the captured state;
+// this is a more straightforward approach that guarantees correct rewind
+ring_buffer<llama_token> llama_sampling_get_prev(gpt_sampler * gsmpl);
+void llama_sampling_set_prev(ring_buffer<llama_token> prev_state, gpt_sampler * gsmpl);

@@ -216,7 +216,7 @@ struct modelThread{
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}", newChat.params.input_suffix, separator_main);
         //text +=  newChat.formatRepresentation << std::endl;
-        text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-smpl_size        : {}\n-kv_cache_size    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_sampling_getsize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
+        text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_size    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
 
         text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
 

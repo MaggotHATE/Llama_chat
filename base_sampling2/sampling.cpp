@@ -4,100 +4,6 @@
 
 #include <cmath>
 #include <unordered_map>
-#include <stdexcept>
-
-// the ring buffer works similarly to std::deque, but with a fixed capacity
-// TODO: deduplicate with llama-impl.h
-template<typename T>
-struct ring_buffer {
-    ring_buffer(size_t cap) : capacity(cap), data(cap) {}
-
-    T & front() {
-        if (sz == 0) {
-            throw std::runtime_error("ring buffer is empty");
-        }
-        return data[first];
-    }
-
-    const T & front() const {
-        if (sz == 0) {
-            throw std::runtime_error("ring buffer is empty");
-        }
-        return data[first];
-    }
-
-    T & back() {
-        if (sz == 0) {
-            throw std::runtime_error("ring buffer is empty");
-        }
-        return data[pos];
-    }
-
-    const T & back() const {
-        if (sz == 0) {
-            throw std::runtime_error("ring buffer is empty");
-        }
-        return data[pos];
-    }
-
-    void push_back(const T & value) {
-        if (sz == capacity) {
-            // advance the start when buffer is full
-            first = (first + 1) % capacity;
-        } else {
-            sz++;
-        }
-        data[pos] = value;
-        pos = (pos + 1) % capacity;
-    }
-
-    T pop_front() {
-        if (sz == 0) {
-            throw std::runtime_error("ring buffer is empty");
-        }
-        T value = data[first];
-        first = (first + 1) % capacity;
-        sz--;
-        return value;
-    }
-
-    const T & rat(size_t i) const {
-        if (i >= sz) {
-            throw std::runtime_error("ring buffer: index out of bounds");
-        }
-        return data[(first + sz - i - 1) % capacity];
-    }
-
-    std::vector<T> to_vector() const {
-        std::vector<T> result;
-        result.reserve(sz);
-        for (size_t i = 0; i < sz; i++) {
-            result.push_back(data[(first + i) % capacity]);
-        }
-        return result;
-    }
-
-    void clear() {
-        // here only reset the status of the buffer
-        sz = 0;
-        first = 0;
-        pos = 0;
-    }
-
-    bool empty() const {
-        return sz == 0;
-    }
-
-    size_t size() const {
-        return sz;
-    }
-
-    size_t capacity = 0;
-    size_t sz = 0;
-    size_t first = 0;
-    size_t pos = 0;
-    std::vector<T> data;
-};
 
 struct gpt_sampler {
     gpt_sampler_params params;
@@ -457,36 +363,11 @@ std::vector<gpt_sampler_type> gpt_sampler_types_from_chars(const std::string & c
     return samplers;
 }
 
-void llama_sampling_rollback(
-        gpt_sampler * gsmpl,
-        int rollback_num) {
-    if(rollback_num > gsmpl->prev.size()) {
-        rollback_num = gsmpl->prev.size();
-    }
-
-    // remove rollback_num elements from the end
-    //gsmpl->prev.erase(gsmpl->prev.end() - rollback_num, gsmpl->prev.end());
-    gsmpl->prev.sz = gsmpl->prev.sz - rollback_num;
-    gsmpl->prev.pos = gsmpl->prev.pos - rollback_num;
-
-    // Insert rollback_num zeros at the beginning to preserve the size of prev
-    //gsmpl->prev.insert(gsmpl->prev.begin(), rollback_num, 0);
+ring_buffer<llama_token> llama_sampling_get_prev(gpt_sampler * gsmpl) {
+    return gsmpl->prev;
 }
 
-int llama_sampling_getsize(gpt_sampler * gsmpl) {
-    return gsmpl->prev.size();
-}
-
-void llama_sampling_rollback2(
-        gpt_sampler * gsmpl,
-        int rollback_size) {
-    if(rollback_size > gsmpl->prev.size()) {
-        gsmpl->prev.sz = 1;
-        gsmpl->prev.pos = 1;
-    } else {
-        gsmpl->prev.sz = rollback_size;
-        gsmpl->prev.pos = rollback_size;
-    }
-
+void llama_sampling_set_prev(ring_buffer<llama_token> prev_state, gpt_sampler * gsmpl) {
+    gsmpl->prev = prev_state;
 }
 
