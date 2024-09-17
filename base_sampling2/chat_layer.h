@@ -1321,21 +1321,15 @@ public:
         rewind_state.embd_inp_size = 0;
         rewind_state.n_past_size = 0;
         rewind_state.n_consumed_size = 0;
-        // printf("%s:\n", __func__);
-        // std::string pause;
-        // std::getline(std::cin, pause);
     }
 
-    void rewind2() {
-        //llama_sampling_rollback2(smpl, rewind_state.smpl_size);
+    void rewind() {
         restore_smpl();
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_size, -1);
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
-        // printf("%s:\n", __func__);
-        // std::string pause;
-        // std::getline(std::cin, pause);
+
     }
 
     int resetGrammar(){

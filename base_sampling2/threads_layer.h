@@ -366,7 +366,7 @@ struct modelThread{
         }
     }
 
-    bool writeTextFileUnified(std::string path, std::string name, bool first_time){
+    bool writeTextFileUnified(std::string path, std::string name, bool first_time = false, bool full = false){
         std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-INPUT-" + shortModelName + ".txt";
         std::string path2 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
         if (first_time) {
@@ -394,7 +394,7 @@ struct modelThread{
         std::ofstream file_o(path2, std::ios::app);
         if (file_o.is_open()) {
             file_o << __func__ << DELIMINER;
-            file_o << text << DELIMINER;
+            if (full) file_o << text << DELIMINER;
 
             std::string summary = "";
 #ifdef GGML_USE_VULKAN
@@ -470,7 +470,7 @@ struct modelThread{
     
     void rewind() {
         resultsStringPairs.pop_back();
-        newChat.rewind2();
+        newChat.rewind();
     }
     
     void unload(){
