@@ -417,8 +417,11 @@ public:
         // }
 
         // return (1e3 / t_eval_ms * n_eval);
+        float speed_ts = 0;
+        if (ctx_performance_data.t_eval_ms > 0 && ctx_performance_data.n_eval > 0)
+            speed_ts = (1e3 / ctx_performance_data.t_eval_ms * ctx_performance_data.n_eval);
 
-        return (1e3 / ctx_performance_data.t_eval_ms * ctx_performance_data.n_eval);
+        return speed_ts;
     }
 
     float get_speed_p(){
@@ -435,8 +438,11 @@ public:
         // }
 
         // return (1e3 / t_p_eval_ms * n_p_eval);
+        float speed_pp = 0;
+        if (ctx_performance_data.t_p_eval_ms > 0 && ctx_performance_data.n_p_eval > 0)
+            speed_pp = (1e3 / ctx_performance_data.t_p_eval_ms * ctx_performance_data.n_p_eval);
 
-        return (1e3 / ctx_performance_data.t_p_eval_ms * ctx_performance_data.n_p_eval);
+        return speed_pp;
     }
 
     void clear_speed(){

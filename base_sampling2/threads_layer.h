@@ -191,10 +191,9 @@ struct modelThread{
         std::cout<< DELIMINER;
     }
     
-    std::string display(){
+    std::string display() {
+        std::string summary = "\n";
         Clear();
-
-        std::string summary = "-|";
 
         auto size_longest = std::size(sparamsList);
         std::string separator_main(size_longest,'_');
@@ -230,6 +229,7 @@ struct modelThread{
         std::cout << text;
 
         std::string messages_display;
+
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
                 messages_display += r.second;
@@ -244,24 +244,28 @@ struct modelThread{
             //if (r.second.back() != '\n') std::cout<< DELIMINER;
         }
 
+        std::cout << messages_display;
+
         if (isContinue == 'w') {
+            std::cout << lastResult;
+
             std::string perf = std::format("Msg: {} t|Left: {} t|pp {:.2f} t/s|tg {:.2f} t/s", last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
 #ifdef GGML_USE_VULKAN
-            perf = std::format("VK{}|",newChat.params.n_gpu_layers) + perf;
+            perf = std::format("VK{}|{}",newChat.params.n_gpu_layers, perf);
 #elif defined(GGML_USE_CLBLAST)
-            perf = std::format("CL{}|",newChat.params.n_gpu_layers) + perf;
+            perf = std::format("CL{}|{}",newChat.params.n_gpu_layers, perf);
 #else
-            perf = std::format("CPU|",newChat.params.n_gpu_layers) + perf;
+            perf = std::format("CPU|{}", perf);
 #endif
-            std::string pad(std::size(sparamsListShort) - std::size(perf),' ');
-            summary += std::format("{}|\n-|{}{}|", sparamsListShort, perf, pad);
+            //std::string pad(std::size(sparamsListShort) - std::size(perf),' ');
+            std::string separator(std::size(sparamsListShort),'_');
 
-            std::string separator(std::size(sparamsListShort) + 3,'_');
-
-            messages_display += lastResult + "\n"+ separator +"\n" + summary;
+            //summary += std::format("{}\n-|{}\n{}{}|", separator, sparamsListShort, perf, pad);
+            summary += std::format("{}\n{}\n{}", separator, sparamsListShort, perf);
+            std::cout << summary;
         }
 
-        std::cout << messages_display;
+        
 
         return summary;
     }
