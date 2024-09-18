@@ -121,13 +121,13 @@ typedef struct format{
  */
  
 typedef struct chat_state {
-    int kv_cache_size   = 0;
+    int kv_cache_pos   = 0;
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
 
     void capture_kv_cache(int value) {
-        kv_cache_size = value;
+        kv_cache_pos = value;
     }
 
     void capture_embd_inp(int value) {
@@ -143,7 +143,7 @@ typedef struct chat_state {
     }
 
     void clear() {
-        kv_cache_size = 0;
+        kv_cache_pos = 0;
         embd_inp_size = 0;
         n_past_size = 0;
         n_consumed_size = 0;
@@ -258,7 +258,7 @@ public:
     }
 
     std::string get_state_descr() {
-        return std::format("SMPL = {}; kv_cache_size = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", get_buffer_data(), rewind_state.kv_cache_size, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
+        return std::format("SMPL = {}; kv_cache_pos = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", get_buffer_data(), rewind_state.kv_cache_pos, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
     }
 
     void capture_smpl() {
@@ -1262,7 +1262,7 @@ public:
 
         evaluate_session();
 
-        if (rewind_state.kv_cache_size == 0) {
+        if (rewind_state.kv_cache_pos == 0) {
             capture_smpl();
             rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
             rewind_state.capture_embd_inp(embd_inp.size());
@@ -1311,7 +1311,7 @@ public:
 // additional functions
     void capture_states2() {
         capture_smpl();
-        rewind_state.kv_cache_size = llama_kv_cache_seq_pos_max(ctx, 0);
+        rewind_state.kv_cache_pos = llama_kv_cache_seq_pos_max(ctx, 0);
         rewind_state.embd_inp_size = embd_inp.size();
         rewind_state.n_past_size = n_past;
         rewind_state.n_consumed_size = n_consumed;
@@ -1323,7 +1323,7 @@ public:
     }
 
     void clear_states2() {
-        rewind_state.kv_cache_size = 0;
+        rewind_state.kv_cache_pos = 0;
         rewind_state.embd_inp_size = 0;
         rewind_state.n_past_size = 0;
         rewind_state.n_consumed_size = 0;
@@ -1331,7 +1331,7 @@ public:
 
     void rewind() {
         restore_smpl();
-        llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_size, -1);
+        llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
