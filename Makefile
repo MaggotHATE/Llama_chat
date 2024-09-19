@@ -503,7 +503,7 @@ $(TMP)$(PREFIX)_llama-sampling.o: \
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f)/llama.h
-COMMON_DEPS   = $(TMP)$(PREFIX)_common.o $(TMP)$(PREFIX)_sampling.o $(TMP)$(PREFIX)_grammar-parser.o
+COMMON_DEPS   = $(TMP)$(PREFIX)_common.o $(TMP)$(PREFIX)_sampling.o
 
 $(TMP)$(PREFIX)_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -514,8 +514,7 @@ $(TMP)$(PREFIX)_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
 $(TMP)$(PREFIX)_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(TMP)$(PREFIX)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 
 # test CLBLAST
 #OBJS_GGUF_TEST_CL 
@@ -685,16 +684,30 @@ $(TMP)$(PREFIX_VK)_ggml-vulkan.o: $(ggmlsrc_f)/ggml-vulkan.cpp $(ggmlsrc_f)/ggml
 
 $(_ggml_vk_header): $(_ggml_vk_source)
 
+hasfiles = 1
+
+ifeq (,$(wildcard $(_ggml_vk_header)))
+    hasfiles = 0
+endif
+
+ifeq (,$(wildcard $(_ggml_vk_source)))
+    hasfiles = 0
+endif
+
+ifeq (0,$(hasfiles))
+
 $(_ggml_vk_source): $(_ggml_vk_shader_deps) vkt-shaders-gen
 	$(_ggml_vk_genshaders_cmd) \
 		--glslc      $(GLSLC_CMD) \
 		--input-dir  $(_ggml_vk_input_dir) \
 		--target-hpp $(_ggml_vk_header) \
 		--target-cpp $(_ggml_vk_source)
-    
+
 vkt-shaders-gen: $(ggmlsrc_f)/vulkan-shaders/vulkan-shaders-gen.cpp
 	$(CXX) $(CXXFLAGS_VK) -o $@ $(LDFLAGS_VK) $(ggmlsrc_f)/vulkan-shaders/vulkan-shaders-gen.cpp
-	
+
+endif
+
 $(TMP)$(PREFIX_VK)_ggml-vulkan-shaders.o: $(ggmlsrc_f)/ggml-vulkan-shaders.cpp $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
 	$(CXX) $(CXXFLAGS_VK) $(LDFLAGS_VK) -c $< -o $@
     
@@ -791,7 +804,9 @@ $(TMP)imgui/%.o:$(IMGUI_DIR)/backends/%.cpp
 $(TMP)imgui/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
 	$(CXX) $(CXXFLAGS_UI) -c -o $@ $<
     
+################
 # EXE components
+################
 
 chat_layer = $(common_f)/chat_layer.h
 settings_layer = $(common_f)/threads_layer.h
@@ -805,6 +820,17 @@ conapp = class_chat.cpp
 ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
+# Final parts
+$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+    
+$(TMP)$(PREFIX_CL)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
+	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+    
+$(TMP)$(PREFIX_VK)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
+	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+
+# Naming
 chatTest_cpu = chatTest_$(PREFIX)
 chatTest_cl = chatTest_$(PREFIX_CL)
 chatTest_vk = chatTest_$(PREFIX_VK)
@@ -813,7 +839,7 @@ override EXE = LlamaChat_gguf$(ARCH_NAME)$(RENDERER)_$(PREFIX)
 override EXE_CL = LlamaChat_gguf$(ARCH_NAME)$(RENDERER)_$(PREFIX_CL)
 override EXE_VK = LlamaChat_gguf$(ARCH_NAME)$(RENDERER)_$(PREFIX_VK)
 
-#CCACHE
+# CCACHE
 
 # $< is the first prerequisite, i.e. the source file.
 # Explicitly compile this to an object file so that it can be cached with ccache.
@@ -821,8 +847,9 @@ override EXE_VK = LlamaChat_gguf$(ARCH_NAME)$(RENDERER)_$(PREFIX_VK)
 
 # Helper function that replaces .c, .cpp, and .cu file endings with .o:
 GET_OBJ_FILE = $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cu,%.o,$(1))))
+GET_OBJ_FILE1 = $(subst $(GET_OBJ_FILE),$(conapp),$(TMP)$(PREFIX_VK)_class_chat.o)
 
-#NAMED BULDS
+# NAMED BULDS
 
 chat: $(EXE)_mini
 	@echo Build $(EXE)_mini complete for $(ECHO_MESSAGE)
@@ -900,10 +927,10 @@ $(EXE): $(OBJS) $(OBJS_GGUF) $(chat_layer) $(settings_layer) UI.h llama_chat1.re
 $(EXE)_mini: $(OBJS) $(OBJS_GGUF) $(chat_layer) $(settings_layer) $(ui_simple) llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS) $(LIBS)
     
-$(chatTest_cpu):$(conapp) $(OBJS_GGUF) $(chat_layer) $(settings_layer)
+$(chatTest_cpu):$(TMP)$(PREFIX)_class_chat.o $(OBJS_GGUF)
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
     
-#CLBLAST
+# CLBLAST
 
 chatTest_cl: $(chatTest_cl)
 
@@ -915,7 +942,7 @@ $(EXE_CL)_mini: $(OBJS) $(OBJS_GGUF_CL) $(chat_layer) $(settings_layer) $(ui_sim
 	#$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_CL) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE, $<)
 	#$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_CL) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
 
-$(chatTest_cl):$(conapp)                                  $(chat_layer) $(settings_layer) $(OBJS_GGUF_CL)
+$(chatTest_cl):$(TMP)$(PREFIX_CL)_class_chat.o $(OBJS_GGUF_CL)
 	$(CXX) $(I_GGUF) $(filter-out %.h,$^) -o $@ $(CXXFLAGS_CL)
 
 # VULKAN
@@ -930,9 +957,9 @@ $(EXE_VK)_mini: $(OBJS) $(OBJS_VK) $(chat_layer) $(settings_layer) $(ui_simple) 
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE, $<)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
-$(chatTest_vk):$(conapp) $(OBJS_VK) $(chat_layer) $(settings_layer)
+$(chatTest_vk):$(TMP)$(PREFIX_VK)_class_chat.o $(OBJS_VK)
 	#$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
-	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE, $<)
-	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
+	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)
+	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE1, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
 #-
 

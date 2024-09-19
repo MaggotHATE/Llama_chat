@@ -249,7 +249,7 @@ struct modelThread{
         if (isContinue == 'w') {
             std::cout << lastResult << std::endl;
 
-            std::string perf = std::format("Msg: {} t|Left: {} t|pp {:.2f} t/s|tg {:.2f} t/s", last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            std::string perf = std::format("Ctx left: {} t|pp {:.2f} t/s|tg {:.2f} t/s", left_tokens, lastSpeedPrompt, lastSpeed);
 #ifdef GGML_USE_VULKAN
             perf = std::format("VK{}|{}",newChat.params.n_gpu_layers, perf);
 #elif defined(GGML_USE_CLBLAST)
