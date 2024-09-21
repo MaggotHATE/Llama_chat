@@ -70,7 +70,7 @@ static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
     }
 }
 
-static void llama_sampler_noise_impl(llama_token_data_array * cur_p, float randomizationFactor = 1.0f, unsigned int rngSeed = 123456789, bool isTrueRNG = true) {
+static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t range, float randomizationFactor = 1.0f, bool isTrueRNG = true, unsigned int rngSeed = 123456789) {
     // Create a random number generator
     std::default_random_engine generator;
     if (isTrueRNG) {
@@ -86,7 +86,7 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, float rando
     std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
 
     // Apply Gaussian noise to each logit
-    for (size_t i = 0; i < cur_p->size; ++i) {
+    for (size_t i = 0; i < range; ++i) {
         // Add Gaussian noise to the logit
         cur_p->data[i].logit += distribution(generator);
     }
@@ -156,7 +156,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
     }
 
     // Variables to hold the external values
-    llama_sampler_noise_impl(cur_p);
+    llama_sampler_noise_impl(cur_p, cur_p->size, 1.0f);
     // no renormalizing in original implementation
 
     // if the cur_p are sorted or the unsorted implementation failed, use this implementation
@@ -180,6 +180,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
 
         // Resize the output vector to keep only the matching tokens
         cur_p->size = i;
+        //writeCandidatesToFile("candidates.txt", cur_p, "\nMIN_P:");
     }
 }
 
@@ -330,7 +331,7 @@ void llama_sample_p_step_addon_apply(struct llama_sampler * smpl, llama_token_da
 
     bool step_found = false;
     
-    llama_sampler_noise_impl(candidates);
+    llama_sampler_noise_impl(candidates, candidates->size, 1.0f);
     // Re-normalize probabilities if necessary
     llama_sampler_softmax_impl(candidates);
 
