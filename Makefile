@@ -12,7 +12,7 @@
 #
 
 # Define the default target now so that it is always the first target
-BUILD_TARGETS = demo demo_cl demo_ggml demo_ggml_cl
+BUILD_TARGETS = chat chat_cl chat_vk
 
 #CXX = g++
 #CXX = clang++
@@ -94,7 +94,7 @@ FLAG_S = shared
 endif
 
 ifdef AVX
-ARCH = -march=native -mtune=native -mavx
+ARCH = -march=core-avx-i -mtune=core-avx-i -mavx
 ARCH_NAME = _AVX
 TMP = o/avx/
 else
@@ -118,8 +118,6 @@ common_f = $(base)
 # IMGUI_DIR = imgui
 IMGUI_DIR = imgui_f6836ff
 SOURCES = main.cpp
-SDL_CPP = $(uibackend_f)/main_sdl2.cpp
-VK_CPP = $(uibackend_f)/main_vk2.cpp
 
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp
@@ -128,11 +126,16 @@ SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp
 ifndef SDL2
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_vulkan.cpp
 RENDERER = _VK
+MAIN = vk2
 else 
 #SOURCES += $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdlrenderer2.cpp
 RENDERER = _SDL2
+MAIN = sdl2
 endif
+
+MAIN_CPP = $(uibackend_f)/main_$(MAIN).cpp
+MAIN_O = $(uibackend_f)/main_$(MAIN).o
 
 #main format
 EXE = Llama_Chat_gguf$(ARCH_NAME)$(RENDERER)
@@ -147,9 +150,9 @@ EXE_CL_GGML = $(EXE_GGML)_clblast
 SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
 OBJS0 = $(addprefix $(TMP)imgui/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 ifndef SDL2
-OBJS = $(subst $(TMP)imgui/main.o,$(VK_CPP),$(OBJS0))
+OBJS = $(subst $(TMP)imgui/main.o,,$(OBJS0))
 else
-OBJS = $(subst $(TMP)imgui/main.o,$(SDL_CPP),$(OBJS0))
+OBJS = $(subst $(TMP)imgui/main.o,,$(OBJS0))
 endif
 OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 
@@ -349,6 +352,8 @@ endif
 
 CXXFLAGS_UI += -DIMGUI_USE_WCHAR32
 
+# backends
+
 CXXFLAGS_UI_CL = $(CXXFLAGS_UI) -DGGML_USE_CLBLAST
 CXXFLAGS_UI_VK = $(CXXFLAGS_UI) -DGGML_USE_VULKAN
 
@@ -378,6 +383,10 @@ ifdef VK_PERF
 	CFLAGS_VK  += -DGGML_VULKAN_PERF
 endif
 
+# common
+
+$(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
 
 ##---------------------------------------------------------------------
 ## BUILD RULES
@@ -426,9 +435,6 @@ ifdef OPENBLAS
 	LDFLAGS  += $(shell pkg-config --libs openblas) --static
 	OBJS_GGUF += $(TMP)$(PREFIX)_ggml-blas.o
 endif # GGML_OPENBLAS
-
-$(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyfiledialogs/tinyfiledialogs.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
@@ -514,7 +520,8 @@ $(TMP)$(PREFIX)_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
 $(TMP)$(PREFIX)_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-
+$(TMP)$(PREFIX)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # test CLBLAST
 #OBJS_GGUF_TEST_CL 
@@ -793,7 +800,8 @@ $(TMP)$(PREFIX_VK)_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
 $(TMP)$(PREFIX_VK)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
     
-# general    
+    
+# general
     
 $(TMP)imgui/%.o:$(IMGUI_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS_UI) -c -o $@ $<
@@ -811,24 +819,45 @@ $(TMP)imgui/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
 chat_layer = $(common_f)/chat_layer.h
 settings_layer = $(common_f)/threads_layer.h
 conapp = $(common_f)/class_chat.cpp
+conapp_o = $(common_f)/class_chat.o
 ui_simple = $(uibackend_f)/UI_small.h
+
+dualapp = $(common_f)/dualchat.cpp
 
 ifdef SAMPLING1
 chat_layer = $(common_f)/chat_plain.h
 settings_layer = $(common_f)/thread_chat.h
 conapp = class_chat.cpp
+conapp_o = class_chat.o
 ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
 # Final parts
 $(TMP)$(PREFIX)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@echo $(TMP)$(PREFIX)_class_chat.o compiled
     
 $(TMP)$(PREFIX_CL)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS_CL) -c $< -o $@
+	@echo $(TMP)$(PREFIX_CL)_class_chat.o compiled
     
 $(TMP)$(PREFIX_VK)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS_VK) -c $< -o $@
+	@echo $(TMP)$(PREFIX_VK)_class_chat.o compiled
+
+$(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(chat_layer) $(settings_layer)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@echo $(TMP)$(PREFIX)_dual_chat.o compiled
+
+# Final parts UI
+$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(chat_layer) $(settings_layer) $(ui_simple)
+	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) -DUI_SIMPLE -c $< -o $@
+    
+$(TMP)$(PREFIX_CL)_main_$(MAIN).o:$(MAIN_CPP) $(chat_layer) $(settings_layer) $(ui_simple)
+	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_CL) -DUI_SIMPLE -c $< -o $@
+    
+$(TMP)$(PREFIX_VK)_main_$(MAIN).o:$(MAIN_CPP) $(chat_layer) $(settings_layer) $(ui_simple) llama_chat1.res $(OBJS)
+	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $@
 
 # Naming
 chatTest_cpu = chatTest_$(PREFIX)
@@ -847,7 +876,8 @@ override EXE_VK = LlamaChat_gguf$(ARCH_NAME)$(RENDERER)_$(PREFIX_VK)
 
 # Helper function that replaces .c, .cpp, and .cu file endings with .o:
 GET_OBJ_FILE = $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cu,%.o,$(1))))
-GET_OBJ_FILE1 = $(subst $(GET_OBJ_FILE),$(conapp),$(TMP)$(PREFIX_VK)_class_chat.o)
+GET_OBJ_FILE1 = $(subst $(conapp_o),$(TMP)$(PREFIX_VK)_class_chat.o,$(GET_OBJ_FILE))
+GET_OBJ_FILE2 = $(subst $(MAIN_O),$(TMP)$(PREFIX_VK)_main_$(MAIN).o,$(GET_OBJ_FILE))
 
 # NAMED BULDS
 
@@ -924,10 +954,14 @@ chatTest: $(chatTest_cpu)
 $(EXE): $(OBJS) $(OBJS_GGUF) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
      
-$(EXE)_mini: $(OBJS) $(OBJS_GGUF) $(chat_layer) $(settings_layer) $(ui_simple) llama_chat1.res
+$(EXE)_mini:$(TMP)$(PREFIX)_main_$(MAIN).o llama_chat1.res $(OBJS) $(OBJS_GGUF)
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS) $(LIBS)
     
 $(chatTest_cpu):$(TMP)$(PREFIX)_class_chat.o $(OBJS_GGUF)
+	@echo ARCH = $(ARCH)
+	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
+    
+dualTest:$(TMP)$(PREFIX)_dual_chat.o $(OBJS_GGUF)
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
     
 # CLBLAST
@@ -937,7 +971,7 @@ chatTest_cl: $(chatTest_cl)
 $(EXE_CL): $(OBJS) $(OBJS_GGUF_CL) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
     
-$(EXE_CL)_mini: $(OBJS) $(OBJS_GGUF_CL) $(chat_layer) $(settings_layer) $(ui_simple) llama_chat1.res
+$(EXE_CL)_mini:$(TMP)$(PREFIX_CL)_main_$(MAIN).o llama_chat1.res $(OBJS) $(OBJS_GGUF_CL)
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI_CL) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
 	#$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_CL) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE, $<)
 	#$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_CL) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(CONFLAG) $(LDFLAGS_CL) $(LIBS)
@@ -952,12 +986,12 @@ chatTest_vk: $(chatTest_vk)
 $(EXE_VK): $(OBJS) $(OBJS_VK) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
-$(EXE_VK)_mini: $(OBJS) $(OBJS_VK) $(chat_layer) $(settings_layer) $(ui_simple) llama_chat1.res
+$(EXE_VK)_mini:$(MAIN_CPP) llama_chat1.res $(OBJS) $(OBJS_VK)
 	# $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
-	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE, $<)
-	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
+	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE2, $<)
+	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE2, $<) -o $@ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
      
-$(chatTest_vk):$(TMP)$(PREFIX_VK)_class_chat.o $(OBJS_VK)
+$(chatTest_vk):$(conapp) $(OBJS_VK)
 	#$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
 	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)
 	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE1, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)

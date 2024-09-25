@@ -2,6 +2,8 @@
 
 #define SESSIONS_FOLDER "sessions/"
 
+#pragma execution_character_set( "utf-8" )
+
 bool initial = false;
 char waitGetline = 'i';
 std::future<void> futureInput;
@@ -42,6 +44,10 @@ struct Lineup {
 };
 
 int main(int argc, char ** argv) {
+#if defined(_WIN32)
+    SetConsoleOutputCP( 65001 );
+#endif
+    //SetConsoleCP( 65001 );
     std::string test_char_descr = "";
     wildcardGen Card;
     presetTest Test;
@@ -184,35 +190,13 @@ int main(int argc, char ** argv) {
         } else {
 
                 SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display()).c_str());
-                //if (threadedChat.newChat.params.input_prefix.empty()) std::cout << threadedChat.newChat.params.antiprompt[0];
-                if (threadedChat.newChat.params.antiprompt.size() && 
-                    threadedChat.newChat.params.antiprompt[0] != threadedChat.newChat.params.input_prefix) 
-                     std::cout << threadedChat.newChat.params.antiprompt[0] << threadedChat.newChat.params.input_prefix;
-                else std::cout << threadedChat.newChat.params.input_prefix;
-                
+
+                if (threadedChat.resultsStringPairs.size() > 1) {
+                    std::cout << threadedChat.getInputName();
+                }
+
                 std::string input;
-                
-                // if (queue_logic.run == false){
-                    // if (filename.rfind("regens.txt") != filename.npos) {
-                        // window_title = "ChatTest: Regens TXT ";
-                        // input = "regens";
-                    // } else 
-                        // std::getline(std::cin, input);
-                // } else {
-                    // if (regens > 0) {
-                        // threadedChat.writeTextFile("tales/",std::to_string(regens));
-                        // --regens;
-                        // threadedChat.externalData = "Cycles left: " + std::to_string(regens);
-                        // input = "regen";
-                        // if (regens == 1) {
-                            // queue_logic.run = false;
-                        // }
-                    // } else if (!inputPrompt.empty()) {
-                        // input = inputPrompt;
-                        // inputPrompt.clear();
-                        // queue_logic.run = false;
-                    // }
-                // }
+
                 if (queue["choices"].back() == "regens") {
                     if (regens >= 1) {
                         if (regens < 20) {

@@ -414,7 +414,7 @@ static std::string get_last_formatted(std::vector<std::pair<std::string, std::st
 }
 
 static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
-    
+    if (checkJBool(config, "headless")) headless = true;
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
         processPrompt(params.prompt);

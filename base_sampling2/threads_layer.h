@@ -45,7 +45,7 @@ void Clear()
 #endif
 }
 
-static void remove_last_nl(std::string& msg) {
+void remove_last_nl(std::string& msg) {
     if (msg.back() == '\n' || msg.back() == '\r') {
         msg.pop_back();
     }
@@ -80,6 +80,7 @@ struct modelThread{
     int left_tokens = 0;
     
     bool penalize_nl = false;
+    bool headless = false;
     
     std::string lastTimings = "Not yet calculated...";
     float lastSpeed = 0.0f;
@@ -115,32 +116,48 @@ struct modelThread{
         sparamsList = newChat.getSparamsChanged();
         sparamsListShort = newChat.getSparamsChanged(false);
     }
-    
-    void appendFirstPrompt(){
-        std::string context;
 
-        if (newChat.params.prompt.length() > 0) {
-            context = newChat.params.prompt;
-
-            if (std::size(newChat.params.antiprompt)) {
-                if (newChat.params.prompt != newChat.params.antiprompt[0]){
-                    int cutAntiPos = context.rfind(newChat.params.antiprompt[0]);
-                    if (cutAntiPos != std::string::npos){
-                        context.erase(cutAntiPos);
-                    }
-
+    void eraseAntiprompt(std::string & prompt) {
+        if (newChat.params.antiprompt.size()) {
+            if (prompt != newChat.params.antiprompt[0]) {
+                int cutAntiPos = prompt.rfind(newChat.params.antiprompt[0]);
+                if (cutAntiPos != std::string::npos) {
+                    prompt.erase(cutAntiPos);
                 }
+
             }
-        } else {
-            
         }
-        
-        resultsStringPairs.emplace_back(std::pair("AI",context));
+    }
+
+    bool hasAntiprompt(std::string & prompt) {
+        if (newChat.params.antiprompt.size()) {
+            if (prompt != newChat.params.antiprompt[0]) {
+                int cutAntiPos = prompt.rfind(newChat.params.antiprompt[0]);
+                if (cutAntiPos != std::string::npos) {
+                    return true;
+                }
+
+            }
+        }
+
+        return false;
+    }
+
+    void appendFirstPrompt() {
+        headless = !hasAntiprompt(newChat.params.prompt);
+
+        resultsStringPairs.emplace_back(std::pair("INSTRUCT", newChat.params.prompt));
     }
     
-    void appendAnswer(std::string input){
+    void appendAnswer(std::string input) {
         //resultsString.emplace_back(input);
         //resultsString.emplace_back(input);
+        std::string eos = newChat.getEOS();
+        int eos_pos = input.rfind(eos);
+        if (eos_pos != std::string::npos){
+            input.erase(eos_pos);
+        }
+
         if (std::size(newChat.params.antiprompt)) {
             int cutAntiPos = input.rfind(newChat.params.antiprompt[0]);
             if (cutAntiPos != std::string::npos){
@@ -151,25 +168,50 @@ struct modelThread{
         resultsStringPairs.emplace_back(std::pair("AI",input));
     }
     
-    void applySuffix(std::string& suffix){
+    void eraseEOS(std::string& input) {
+        std::string eos = newChat.getEOS();
+        int eos_pos = input.rfind(eos);
+        if (eos_pos != std::string::npos){
+            input.erase(eos_pos);
+        }
+    }
+    
+    void applySuffix(std::string suffix) {
         newChat.params.input_suffix = suffix;
     }
     
-    bool isNewSuffix(std::string& suffix){
+    bool isNewSuffix(std::string& suffix) {
         return newChat.params.input_suffix != suffix;
     }
-    
-    
-    void appendQuestion(std::string& input){
+
+    void applyPrompt(std::string prompt) {
+        newChat.params.prompt = prompt;
+    }
+
+    void applyAntiPrompt(std::string antiprompt) {
+        if (std::size(newChat.params.antiprompt)) {
+            newChat.params.antiprompt[0] = antiprompt;
+        }
+    }
+
+    void appendQuestion(std::string& input) {
         //if (input.back() == DELIMINER ) input.pop_back();
         //resultsString.emplace_back(input);
         //if(newChat.params.input_prefix.empty()) 
         //if (penalize_nl) remove_last_nl(input);
-        resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
+        if (resultsStringPairs.size() == 1 && headless) resultsStringPairs.emplace_back(std::pair("INSTRUCT",input));
+        else resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
         //else resultsStringPairs.emplace_back(std::pair(newChat.params.input_prefix,input));
         newChat.clear_states2();
     }
-    
+
+    std::string getInputName() {
+        if (newChat.params.antiprompt.size() && 
+            newChat.params.antiprompt[0] != newChat.params.input_prefix) 
+             return newChat.params.antiprompt[0] + newChat.params.input_prefix;
+        else return newChat.params.input_prefix;
+    }
+
     void removeLastAnswer(){
         resultsStringPairs.pop_back();
     }
@@ -190,11 +232,41 @@ struct modelThread{
         
         std::cout<< DELIMINER;
     }
-    
-    std::string display() {
-        std::string summary = "\n";
-        Clear();
 
+    std::string getMessagesPure() {
+        std::string messages_display;
+
+        for (auto r : resultsStringPairs){
+            if (r.first == "AI"){
+                messages_display += newChat.params.input_suffix;
+            } else if (r.first != "INSTRUCT") {
+                if (newChat.params.input_prefix.empty()) messages_display += r.first;
+                else messages_display += newChat.params.input_prefix;
+            }
+
+            messages_display += r.second;
+        }
+
+        return messages_display;
+    }
+
+    std::string getMessagesNamed(std::string modelname, std::string username) {
+        std::string messages_display;
+
+        for (auto r : resultsStringPairs){
+            if (r.first == "AI"){
+                messages_display += modelname;
+            } else if (r.first != "INSTRUCT") {
+                messages_display += username;
+            }
+
+            messages_display += std::format("\n{}\n\n", r.second);
+        }
+
+        return messages_display;
+    }
+
+    void displayPre() {
         auto size_longest = std::size(sparamsList);
         std::string separator_main(size_longest,'_');
         std::string separator_bottom(size_longest,'=');
@@ -212,9 +284,12 @@ struct modelThread{
         if (std::size(newChat.params.antiprompt)) {
             for (auto antiprompt : newChat.params.antiprompt) text += std::format("\n-Antiprompt: {}", antiprompt);
         }
+        text +=  std::format("\n-EOS: {}", newChat.getEOS());
+        text +=  std::format("\n-headless: {}", headless);
+        text +=  std::format("\n-format_dialog: {}", newChat.params.format_dialog);
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
-        text +=  std::format("\n-input_suffix: {}\n{}", newChat.params.input_suffix, separator_main);
-        //text +=  newChat.formatRepresentation << std::endl;
+        text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
+        text +=  newChat.formatRepresentation + "\n\n";
         text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
 
         text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
@@ -227,49 +302,66 @@ struct modelThread{
         //std::cout << lastTimings << std::endl;
         text += std::format("{}\n{}\n-Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n{}\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed, separator_bottom);
         std::cout << text;
+    }
 
-        std::string messages_display;
+    std::string getSummary() {
+        std::string summary = "";
 
-        for (auto r : resultsStringPairs){
-            if (r.first == "AI"){
-                messages_display += r.second;
-                //wstring converted;
-                //fromUTF8(r.second, converted);
-                //std::wcout << converted;
-            } else {
-                if (newChat.params.input_prefix.empty()) messages_display += r.first + r.second;
-                else messages_display += newChat.params.input_prefix + r.second;
-            }
-            
-            //if (r.second.back() != '\n') std::cout<< DELIMINER;
-        }
+        std::string perf = std::format("Ctx left: {} t|pp {:.2f} t/s|tg {:.2f} t/s", left_tokens, lastSpeedPrompt, lastSpeed);
+#ifdef GGML_USE_VULKAN
+        perf = std::format("VK{}|{}",newChat.params.n_gpu_layers, perf);
+#elif defined(GGML_USE_CLBLAST)
+        perf = std::format("CL{}|{}",newChat.params.n_gpu_layers, perf);
+#else
+        perf = std::format("CPU|{}", perf);
+#endif
+        summary += std::format("{}\n{}", sparamsListShort, perf);
 
-        std::cout << messages_display;
+        return summary;
+    }
+
+    std::string displayFancy(std::string modelname, std::string username) {
+        std::string summary = "\n";
+        Clear();
+
+        displayPre();
+
+        std::cout << getMessagesNamed(modelname, username);
 
         if (isContinue == 'w') {
             std::cout << lastResult << std::endl;
 
-            std::string perf = std::format("Ctx left: {} t|pp {:.2f} t/s|tg {:.2f} t/s", left_tokens, lastSpeedPrompt, lastSpeed);
-#ifdef GGML_USE_VULKAN
-            perf = std::format("VK{}|{}",newChat.params.n_gpu_layers, perf);
-#elif defined(GGML_USE_CLBLAST)
-            perf = std::format("CL{}|{}",newChat.params.n_gpu_layers, perf);
-#else
-            perf = std::format("CPU|{}", perf);
-#endif
-            //std::string pad(std::size(sparamsListShort) - std::size(perf),' ');
             std::string separator(std::size(sparamsListShort),'_');
 
-            //summary += std::format("{}\n-|{}\n{}{}|", separator, sparamsListShort, perf, pad);
-            summary += std::format("{}\n{}", sparamsListShort, perf);
+            summary += getSummary();
+
             std::cout << separator << summary;
         }
 
-        
+        return summary;
+    }
+
+    std::string display() {
+        std::string summary = "\n";
+        Clear();
+
+        displayPre();
+
+        std::cout << getMessagesPure();
+
+        if (isContinue == 'w') {
+            std::cout << lastResult << std::endl;
+
+            std::string separator(std::size(sparamsListShort),'_');
+
+            summary += getSummary();
+
+            std::cout << separator << summary;
+        }
 
         return summary;
     }
-    
+
     bool writeTextFileSimple(std::string path){
         std::ofstream file(path, std::ios::app);
         if (file.is_open()) {
@@ -377,19 +469,12 @@ struct modelThread{
             std::ofstream file_i(path1, std::ios::app);
             if (file_i.is_open()) {
                 file_i << __func__ << DELIMINER;
-                // file_i << shortModelName << DELIMINER;
-                // file_i << sparamsList << DELIMINER;
-                // file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
-                // file_i << lastTimings << std::endl;
+
                 file_i << text << std::endl;
                 file_i << "Prompt:" << consumed_tokens << std::endl;
                 file_i << "Result: " << last_tokens << std::endl;
                 file_i << "----------------------------------------\n"<< std::endl;
-                for (auto r : resultsStringPairs) {
-                    // file << r.first << DELIMINER;
-                    // file << ' ' << r.second << DELIMINER;
-                    file_i << '\n' << r.second << DELIMINER;
-                }
+                file_i << getMessagesPure() << DELIMINER;
 
                 file_i.close();
             }
@@ -400,15 +485,8 @@ struct modelThread{
             file_o << __func__ << DELIMINER;
             if (full) file_o << text << DELIMINER;
 
-            std::string summary = "";
-#ifdef GGML_USE_VULKAN
-            summary += "vk|";
-#elif defined(GGML_USE_CLBLAST)
-            summary += "cl|";
-#endif
-            summary += std::format("{}\nMsg:{}t|Left:{}t|pp{:.2f}t/s|tg{:.2f}t/s", sparamsListShort, last_tokens, left_tokens, lastSpeedPrompt, lastSpeed);
+            file_o << getSummary() << DELIMINER;
 
-            file_o << summary << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
             file_o.close();
             return true;
@@ -520,11 +598,12 @@ struct modelThread{
         lastTimings = "Eval speed: " + std::to_string(lastSpeedPrompt) + "\n Gen speed: " + std::to_string(lastSpeed) + '\n';
     }
     
-    void startGen(){
+    void startGen(std::string name = ""){
         newChat.finished = false;
         isContinue = 'w';
         isPregen = 'w';
         lastResult = newChat.params.input_suffix;
+        //lastResult = name;
     }
     
     void continueGen(){
@@ -555,6 +634,7 @@ struct modelThread{
     void checkFinished() {
         if (newChat.finished){
             //newChat.eraseAntiprompt(lastResult);
+            eraseEOS(lastResult);
             newChat.eraseAntiprompt(lastResult);
             newChat.eraseLast(lastResult, newChat.params.input_prefix);
 
@@ -575,7 +655,7 @@ struct modelThread{
         remain_tokens = newChat.getRemainTokens();
     }
 
-    // for UI
+    // for all
     void runGenerationAsync(bool process_prompt = true) {
             //isContinue = 'w';
             //std::cout << " ** " << input << std::endl;
@@ -614,6 +694,7 @@ struct modelThread{
 
                     //getTimigsSimple();
 
+                    //this is where is stops
                     checkFinished();
                     getStats();
                     if (isContinue == 'i') {

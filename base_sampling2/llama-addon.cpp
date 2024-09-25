@@ -38,23 +38,72 @@
 #include <type_traits>
 #include <unordered_map>
 
-//xtc statistics
+//statistics
+int temp_total = 0;
+int min_p_total = 0;
+int p_step_total = 0;
 int xtc_total = 0;
 int xtc_removed = 0;
 float xtc_percent = 0.0;
 
-//-------------------common functions------------------------
+static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add){
+    std::string text = add + "(" + std::to_string(candidates->size) + ")";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        int chance = candidates->data[i].p * 100;
+        if (chance > 0 || candidates->size == 1) { 
+            text += "\n[" + std::to_string(i) + "] p=" + std::to_string(chance) + "% (l=" + std::to_string(candidates->data[i].logit) + ");"; 
+        } else ++zeroes;
+    }
+    if (zeroes > 0) text += "\n Zeroes: " + std::to_string(zeroes);
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
 
-static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
-    GGML_ASSERT(cur_p->size > 0);
+static bool writeCandidatesToFile2(std::string path, llama_token_data_array * candidates, std::string add){
+    std::string text = add + "(" + std::to_string(candidates->size) + "): ";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        int chance = candidates->data[i].p * 100;
+        int logit = candidates->data[i].logit;
+        if (chance > 0 || candidates->size == 1) { 
+            text += "[" + std::to_string(chance) + "%|" + std::to_string(logit) + "] "; 
+        } else ++zeroes;
+    }
+    //if (zeroes > 0) text += " Zeroes: " + std::to_string(zeroes);
+    text += "\n";
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
 
-    // Sort the logits in descending order
+//-------------------common sampling functions------------------------
+
+static void llama_sampler_sort_only_impl(llama_token_data_array * cur_p) {
     if (!cur_p->sorted) {
         std::sort(cur_p->data, cur_p->data + cur_p->size, [](const llama_token_data & a, const llama_token_data & b) {
             return a.logit > b.logit;
         });
         cur_p->sorted = true;
     }
+}
+
+static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
+    GGML_ASSERT(cur_p->size > 0);
+
+    // Sort the logits in descending order
+    llama_sampler_sort_only_impl(cur_p);
 
     float max_l = cur_p->data[0].logit;
     float cum_sum = 0.0f;
@@ -92,23 +141,6 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t rang
     }
 
     cur_p->sorted = false;
-}
-
-static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add){
-    std::string text = add + "(" + std::to_string(candidates->size) + ")";
-    int zeroes = 0;
-    for (size_t i = 0; i < candidates->size; ++i) {
-        if (candidates->data[i].p > 0) { text += "\n[" + std::to_string(i) + "] p=" + std::to_string(candidates->data[i].p) + "(l=" + std::to_string(candidates->data[i].logit) + ");"; } else ++zeroes;
-    }
-    if (zeroes > 0) text += "\n Zeroes: " + std::to_string(zeroes);
-    std::ofstream file(path, std::ios::app);
-    if (file.is_open()) {
-        file << text;
-        file.close();
-        return true;
-    } else {
-        return false;
-    }
 }
 
 //-------------------MIN-P WITH NOISE------------------------
@@ -157,17 +189,11 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
 
     // Variables to hold the external values
     llama_sampler_noise_impl(cur_p, cur_p->size, 1.0f);
-    // no renormalizing in original implementation
 
     // if the cur_p are sorted or the unsorted implementation failed, use this implementation
     if (!min_p_applied) {
         // Sort the logits in descending order
-        if (!cur_p->sorted) {
-            std::sort(cur_p->data, cur_p->data + cur_p->size, [](const llama_token_data & a, const llama_token_data & b) {
-                return a.logit > b.logit;
-            });
-            cur_p->sorted = true;
-        }
+        llama_sampler_sort_only_impl(cur_p);
 
         const float min_logit = cur_p->data[0].logit + logf(ctx->p); // min logit for p_i >= p * p_max
         size_t i = 1; // first token always matches
@@ -182,6 +208,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
         cur_p->size = i;
         //writeCandidatesToFile("candidates.txt", cur_p, "\nMIN_P:");
     }
+    min_p_total = cur_p->size;
 }
 
 static struct llama_sampler * llama_sampler_min_p_addon_clone(const struct llama_sampler * smpl) {
@@ -256,24 +283,15 @@ void llama_sample_xtc_addon_apply(struct llama_sampler * smpl, llama_token_data_
             }
         }
     }
-
+    //writeCandidatesToFile2("xtc_addon.txt", candidates, "C");
     // still need this check
     if (removed >= ctx->min) {
-        //writeCandidatesToFile("xtc_addon.txt", candidates, "\nPROCESSED:");
-
         // sorting with new logits, ex-last probable will be the first anyway
-        std::sort(candidates->data, candidates->data + candidates->size, [](const llama_token_data & a, const llama_token_data & b) {
-            return a.logit > b.logit;
-        });
-
+        llama_sampler_sort_only_impl(candidates);
+        
         // resizing now that penalized tokens are at the back
         candidates->size = candidates->size - removed + 1;
 
-        // std::ofstream file("xtc_test2.txt", std::ios::app);
-        // if (file.is_open()) {
-            // file << xtc_log;
-            // file.close();
-        // }
     }
 }
 
@@ -322,18 +340,15 @@ struct llama_sampler_p_step_addon {
 
 void llama_sample_p_step_addon_apply(struct llama_sampler * smpl, llama_token_data_array * candidates) {
     const auto * ctx = (llama_sampler_p_step_addon *) smpl->ctx;
-
     if (ctx->step <= 0.0f || candidates->size <= 1) {
         return;
     }
 
+    llama_sampler_noise_impl(candidates, candidates->size, 1.0f);
+
     llama_sampler_softmax_impl(candidates);
 
     bool step_found = false;
-    
-    llama_sampler_noise_impl(candidates, candidates->size, 1.0f);
-    // Re-normalize probabilities if necessary
-    llama_sampler_softmax_impl(candidates);
 
     for (size_t i = 1; i < candidates->size; ++i) {
         if (!step_found && candidates->data[i].p < ctx->step * candidates->data[i - 1].p) {
@@ -343,9 +358,11 @@ void llama_sample_p_step_addon_apply(struct llama_sampler * smpl, llama_token_da
         if (step_found && i >= ctx->min_keep) {
             // Resize the output vector to keep only the tokens before the step
             candidates->size = i;
+
             break;
         }
     }
+    p_step_total = candidates->size;
 }
 
 static const char * llama_sampler_p_step_addon_name(const struct llama_sampler * /*smpl*/) {
@@ -408,9 +425,10 @@ static void llama_sampler_temp_ext_addon_apply(struct llama_sampler * smpl, llam
             return;
         }
 
+        llama_sampler_softmax_impl(cur_p);
         // Apply smoothing if smoothing_factor is > 0. Do not change base implementation otherwise.
         if (smoothing_factor > 0 && cur_p->size > 1) {
-            llama_sampler_softmax_impl(cur_p);
+            //llama_sampler_softmax_impl(cur_p);
             float h = cur_p->data[0].logit; // Find the maximum logit for h to be added after the transformation
 
             // Apply the modified quadratic transformation using the smoothing_factor and smoothing_curve
@@ -426,7 +444,7 @@ static void llama_sampler_temp_ext_addon_apply(struct llama_sampler * smpl, llam
         // Calculate maximum possible entropy
         float max_entropy = -logf(1.0f / cur_p->size);
 
-        llama_sampler_softmax_impl(cur_p);
+        //llama_sampler_softmax_impl(cur_p);
 
         // Calculate entropy of the softmax probabilities
         float entropy = 0.0f;
@@ -442,15 +460,6 @@ static void llama_sampler_temp_ext_addon_apply(struct llama_sampler * smpl, llam
 
         // Map the normalized entropy to the desired temperature range using the power function
         float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, exponent_val);
-
-    #ifdef DEBUG
-        LLAMA_LOG_INFO("Your text maxtemp value is: %f\n", max_temp);
-        LLAMA_LOG_INFO("Entropy: %f\n", entropy);
-        LLAMA_LOG_INFO("Max Possible Entropy: %f\n", max_entropy);
-        LLAMA_LOG_INFO("Normalized Entropy: %f\n", normalized_entropy);
-        LLAMA_LOG_INFO("Exponent: %f\n", exponent_val);
-        LLAMA_LOG_INFO("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
-    #endif
 
         // Apply the dynamically calculated temperature scaling
         for (size_t i = 0; i < cur_p->size; ++i) {
@@ -471,18 +480,13 @@ static void llama_sampler_temp_ext_addon_apply(struct llama_sampler * smpl, llam
             cur_p->data[i].p /= cum_sum_double; // Re-normalize the probabilities
         }
 
-    #ifdef DEBUG
-        // Print the updated top 25 probabilities after temperature scaling
-        LLAMA_LOG_INFO("\nUpdated Top 25 Probabilities After Dynamic Temperature Scaling (in percentages):\n");
-        for (size_t i = 0; i < 25 && i < cur_p->size; ++i) {
-            LLAMA_LOG_INFO("Token %zu: %f%%\n", i + 1, cur_p->data[i].p * 100.0f);
-        }
-    #endif
     } else {
         for (size_t i = 0; i < cur_p->size; ++i) {
             cur_p->data[i].logit /= ctx->temp;
         }
     }
+    temp_total = cur_p->size;
+    //writeCandidatesToFile("candidates_after.txt", cur_p, "\nAFTER TEMP:");
 }
 
 static struct llama_sampler * llama_sampler_temp_ext_addon_clone(const struct llama_sampler * smpl) {

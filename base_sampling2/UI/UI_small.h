@@ -1597,7 +1597,7 @@ struct chatUI{
         newChat.startGen();
         output = "...";
         //newChat.getResultAsyncStringFull2(false, true);
-        newChat.runGenerationAsync();
+        newChat.runGenerationAsync(false);
         copiedDialog = false;
         copiedTimings = false;
         scrolled = false;
@@ -1877,7 +1877,7 @@ struct chatUI{
                             messageNum = 0;
                             for (auto& r : localResultPairs){
                                 ++messageNum;
-                                if (r.first == "AI"){
+                                if (r.first == "AI" || r.first == "INSTRUCT"){
     ////////////////////generated
                                     //std::cout << r.second;
                                     //ImGui::TextWrapped(r.second.c_str());

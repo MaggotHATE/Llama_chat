@@ -50,6 +50,9 @@
     extern std::string GGML_OPENCL_RESULT_DEVICE_NAME;
 #endif
 
+extern int temp_total;
+extern int min_p_total;
+extern int p_step_total;
 extern int xtc_total;
 extern int xtc_removed;
 extern float xtc_percent;
@@ -239,7 +242,7 @@ public:
     chat_state rewind_state;
 
 
-    std::string formatRepresentation;
+    std::string formatRepresentation = "";
 
     struct llama_perf_context_data ctx_performance_data;
 
@@ -324,6 +327,7 @@ public:
         inp_sfx.clear();
         llama_token_newline.clear();
         candidates.clear();
+        formatRepresentation = "";
         //resetCTX();
         
         n_past                = 0;
@@ -373,6 +377,10 @@ public:
     
     void switch_debug() {
         debug = !debug;
+    }
+
+    std::string getEOS() {
+        return (std::string) llama_token_get_text(model, llama_token_eos(model));
     }
 
     int getRemainTokens() {
@@ -532,14 +540,14 @@ public:
         } else {
             for (auto s : params.sparams.samplers_sequence){
                 result += "->";
-                switch (s){
+                switch (s) {
                     case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += std::format("={}",params.sparams.top_k); break;
                     case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.2f}",params.sparams.tfs_z); break;
                     case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.2f}",params.sparams.typical_p); break;
-                    case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); break;
+                    case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); result += std::format("({})", p_step_total); break;
                     case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                     case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
-                    case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.2f}",params.sparams.min_p); break;
+                    case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.2f}",params.sparams.min_p); result += std::format("({})", min_p_total); break;
                     case 't': {
                             if (params.sparams.dynatemp_range > 0) {
                                 result += std::format("{}({:.2f}-{:.2f})",name_dynatemp_range, params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
@@ -550,6 +558,8 @@ public:
                                 // smoothing_curve doesn't work without dynatemp anyway
                             }
                             if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("^{:.2f}", params.sparams.smoothing_factor);
+
+                            result += std::format("({})", temp_total);
                             break;
                         }
                     default : break;
@@ -611,7 +621,7 @@ public:
 
         //chatFormat.sequence = params.format;
         //printf("Format = %s\n", params.format.c_str());
-        formatRepresentation = "Format:\n";
+        //formatRepresentation = "\nLast input formatted:\n";
 
         int result = load(soft);
 
@@ -1766,6 +1776,8 @@ public:
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
     int inputOnlyNew(std::string& input){
         //std::cout << " ***** " << input << std::endl;
+        formatRepresentation = "\nLast input formatted:\n";
+
         embd_msg.clear();
         
 
