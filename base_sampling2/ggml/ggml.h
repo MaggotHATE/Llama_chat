@@ -570,6 +570,7 @@ extern "C" {
         GGML_LOG_LEVEL_WARN  = 2,
         GGML_LOG_LEVEL_ERROR = 3,
         GGML_LOG_LEVEL_DEBUG = 4,
+        GGML_LOG_LEVEL_CONT  = 5, // continue previous log
     };
 
     // this tensor...
@@ -2503,6 +2504,9 @@ extern "C" {
     GGML_API int ggml_cpu_has_matmul_int8(void);
     GGML_API int ggml_cpu_has_cann       (void);
     GGML_API int ggml_cpu_has_llamafile  (void);
+
+    // get the sve vector length in bytes
+    GGML_API int ggml_cpu_get_sve_cnt(void);
 
     //
     // Internal types and functions exposed for tests and benchmarks

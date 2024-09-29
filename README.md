@@ -57,12 +57,12 @@ Libraries:
 4. Download and copy all prerequisite code: specific version of [imgui](https://github.com/ocornut/imgui/tree/f6836ff37fd361010829621f610837686aa00944) and [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/)
 5. Launch w64devkit.exe and navigate to the project folder, then build:
 * `make chat` for CPU-only UI version
+* `make chat_ob` for CPU with OPENBLAS64 UI version (helps with prompt processing)
 * `make chat_cl` for Clblast UI version
 * `make chat_vk` for Vulkan UI version
 6. `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
-* for CPU-only builds add `OPENBLAS64=1` to compile with OpenBLAS (helps with prompt processing)
-* if you want to use OpenMP, add `OPENMP=1` (might be slower after Threadpool 2)
-* if your GPU/iGPU don't support Vulkan, compile UI with SDL2=1
+* if you want to switch off OpenMP, add `OPENMP_OFF=1`, same for SGEMM -`SGEMM_OFF=1`
+* if your GPU/iGPU don't support Vulkan, compile UI with SDL2=1 or using `_sdl` recipes (i.e. chat_sdl, chat_cl_sdl, etc.)
 * if you need Windows console for debugging, compile with CONW=1
 * see more in makefile
 
