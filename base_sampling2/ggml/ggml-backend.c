@@ -1193,12 +1193,12 @@ static int ggml_backend_sched_backend_id_from_cur(ggml_backend_sched_t sched, st
             return cur_backend_id;
         }
     }
-
+#ifndef GGML_USE_CLBLAST
     if (tensor->buffer || (tensor->view_src && tensor->view_src->buffer)) {
         // since the tensor is pre-allocated, it cannot be moved to another backend
         GGML_ABORT("pre-allocated tensor in a backend that cannot run the operation");
     }
-
+#endif
     // graph input
     if (tensor->flags & GGML_TENSOR_FLAG_INPUT) {
         cur_backend_id = sched->n_backends - 1; // last backend (assumed CPU)
