@@ -642,15 +642,19 @@ public:
                     break;
                 }
                 case 'b':{
-                    formatRepresentation += params.bos;
-                    const auto line_bos_format = ::llama_tokenize(ctx, params.bos, false, true);
-                    embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
+                    if (!params.bos.empty()) {
+                        formatRepresentation += params.bos;
+                        const auto line_bos_format = ::llama_tokenize(ctx, params.bos, false, true);
+                        embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
+                    }
                     break;
                 }
                 case 'e':{
-                    formatRepresentation += params.eos;
-                    const auto line_eos_format = ::llama_tokenize(ctx, params.eos, false, true);
-                    embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+                    if (!params.eos.empty()) {
+                        formatRepresentation += params.eos;
+                        const auto line_eos_format = ::llama_tokenize(ctx, params.eos, false, true);
+                        embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+                    }
                     break;
                 }
                 case 'p':{
@@ -1776,7 +1780,7 @@ public:
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
     int inputOnlyNew(std::string& input){
         //std::cout << " ***** " << input << std::endl;
-        formatRepresentation = "\nLast input formatted:\n";
+        formatRepresentation = "";
 
         embd_msg.clear();
         
@@ -1795,7 +1799,7 @@ public:
         // capture_states();
         prepareBeforeAnswer();
 
-        formatRepresentation += "{output}";
+        //formatRepresentation += "{output}";
 
         //checkInfinite();
         //clear_states2();

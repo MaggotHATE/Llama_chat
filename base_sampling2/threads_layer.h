@@ -80,7 +80,7 @@ struct modelThread{
     int left_tokens = 0;
     
     bool penalize_nl = false;
-    bool headless = false;
+    bool seamless = false;
     
     std::string lastTimings = "Not yet calculated...";
     float lastSpeed = 0.0f;
@@ -137,21 +137,19 @@ struct modelThread{
                     return true;
                 }
 
-            }
+            } else return true;
         }
 
         return false;
     }
 
     void appendFirstPrompt() {
-        headless = !hasAntiprompt(newChat.params.prompt);
+        seamless = !hasAntiprompt(newChat.params.prompt);
 
         resultsStringPairs.emplace_back(std::pair("INSTRUCT", newChat.params.prompt));
     }
     
     void appendAnswer(std::string input) {
-        //resultsString.emplace_back(input);
-        //resultsString.emplace_back(input);
         std::string eos = newChat.getEOS();
         int eos_pos = input.rfind(eos);
         if (eos_pos != std::string::npos){
@@ -195,13 +193,12 @@ struct modelThread{
     }
 
     void appendQuestion(std::string& input) {
-        //if (input.back() == DELIMINER ) input.pop_back();
-        //resultsString.emplace_back(input);
-        //if(newChat.params.input_prefix.empty()) 
-        //if (penalize_nl) remove_last_nl(input);
-        if (resultsStringPairs.size() == 1 && headless) resultsStringPairs.emplace_back(std::pair("INSTRUCT",input));
-        else resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
-        //else resultsStringPairs.emplace_back(std::pair(newChat.params.input_prefix,input));
+
+        if (resultsStringPairs.size() == 0)
+            resultsStringPairs.emplace_back(std::pair("INSTRUCT",input));
+        else
+            resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
+
         newChat.clear_states2();
     }
 
@@ -212,12 +209,49 @@ struct modelThread{
         else return newChat.params.input_prefix;
     }
 
+    std::string getInputNameDBG() {
+        return "\n<<";
+    }
+
     void removeLastAnswer(){
         resultsStringPairs.pop_back();
     }
     
     void switch_debug() {
         newChat.switch_debug();
+    }
+    
+    std::string formatMessage(std::string & sequence, std::string& input) {
+        std::string result = "";
+        for (auto s : sequence){
+            switch (s){
+                case 'a':{
+                    if (std::size(newChat.params.antiprompt)) result += newChat.params.antiprompt[0];
+                    break;
+                }
+                case 'b':{
+                    result += newChat.params.bos; break;
+                }
+                case 'e':{
+                    result += newChat.params.eos; break;
+                }
+                case 'p':{
+                    result += newChat.params.input_prefix; break;
+                }
+                case 'i':{
+                    result += input; break;
+                }
+                case 's':{
+                    result += newChat.params.input_suffix; break;
+                }
+                case 'd':{
+                    result += "\n"; break;
+                }
+            }
+            
+        }
+
+        return result;
     }
     
     void displayResults(){
@@ -233,18 +267,37 @@ struct modelThread{
         std::cout<< DELIMINER;
     }
 
+    std::string getMessagesDBG() {
+        std::string messages_display;
+
+        for (auto r : resultsStringPairs){
+            if (r.first == "AI"){
+                messages_display += "\n>> ";
+            } else {
+                messages_display += "\n<< ";
+            }
+
+            messages_display += r.second;
+        }
+
+        return messages_display;
+    }
+
     std::string getMessagesPure() {
         std::string messages_display;
 
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
-                messages_display += newChat.params.input_suffix;
-            } else if (r.first != "INSTRUCT") {
-                if (newChat.params.input_prefix.empty()) messages_display += r.first;
-                else messages_display += newChat.params.input_prefix;
+                messages_display += r.second;
+            } else {
+                // if (r.first != "INSTRUCT") {
+                    // if (newChat.params.input_prefix.empty()) messages_display += r.first;
+                    // else messages_display += newChat.params.input_prefix;
+                // }
+                if (r.first == "INSTRUCT") messages_display += "INSTRUCT\n" + formatMessage(newChat.params.format_instruct, r.second);
+                else messages_display += formatMessage(newChat.params.format_dialog, r.second);
             }
 
-            messages_display += r.second;
         }
 
         return messages_display;
@@ -285,11 +338,13 @@ struct modelThread{
             for (auto antiprompt : newChat.params.antiprompt) text += std::format("\n-Antiprompt: {}", antiprompt);
         }
         text +=  std::format("\n-EOS: {}", newChat.getEOS());
-        text +=  std::format("\n-headless: {}", headless);
+        text +=  std::format("\n-bos: {}", newChat.params.bos);
+        text +=  std::format("\n-eos: {}", newChat.params.eos);
+        text +=  std::format("\n-seamless: {}", seamless);
         text +=  std::format("\n-format_dialog: {}", newChat.params.format_dialog);
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
-        text +=  newChat.formatRepresentation + "\n\n";
+        //text +=  newChat.formatRepresentation + "\n\n";
         text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
 
         text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
@@ -336,7 +391,7 @@ struct modelThread{
             summary += getSummary();
 
             std::cout << separator << summary;
-        }
+        } else std::cout << username << std::endl;
 
         return summary;
     }
@@ -357,7 +412,7 @@ struct modelThread{
             summary += getSummary();
 
             std::cout << separator << summary;
-        }
+        }// else std::cout << getInputName();
 
         return summary;
     }
@@ -602,8 +657,9 @@ struct modelThread{
         newChat.finished = false;
         isContinue = 'w';
         isPregen = 'w';
-        lastResult = newChat.params.input_suffix;
-        //lastResult = name;
+        //lastResult = newChat.params.input_suffix;
+        //lastResult = "";
+        lastResult = name;
     }
     
     void continueGen(){
@@ -675,6 +731,7 @@ struct modelThread{
 
                 //getTimigsPre();
                 //newChat.capture_lasts();
+                //resultsStringPairs.back().second = newChat.formatRepresentation;
 
                 while (isContinue != 'i'){
                     updateTimings();

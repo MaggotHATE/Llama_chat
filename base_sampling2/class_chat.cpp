@@ -191,7 +191,7 @@ int main(int argc, char ** argv) {
 
                 SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display()).c_str());
 
-                if (threadedChat.resultsStringPairs.size() > 1) {
+                if (threadedChat.resultsStringPairs.size() > 2) {
                     std::cout << threadedChat.getInputName();
                 }
 

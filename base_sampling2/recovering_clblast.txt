@@ -83,7 +83,7 @@ static void ggml_compute_forward_mul_mat(
     }
 #endif
 
-
+#if GGML_USE_LLAMAFILE
 -----------------------------------------------------------------------------------------
 
 struct ggml_cplan ggml_graph_plan(const struct ggml_cgraph * cgraph, int n_threa
