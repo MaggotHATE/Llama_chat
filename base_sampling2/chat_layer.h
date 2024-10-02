@@ -185,7 +185,7 @@ private:
     bool input_echo           = true;
     bool need_to_save_session = false;
     bool debug                = false;
-    bool is_antiprompt        = false;
+
     bool streaming            = true;
     bool saveToFile           = false;
     
@@ -225,12 +225,13 @@ private:
 
 public:
     gpt_params params;
-    bool tempFirst           = true;
-    bool finished            = true;
-    int n_past_last           = 0;
-    int n_remain_last         = 0;
-    int n_consumed_last       = 0;
-    int n_embd_inp_last       = 0;
+    bool is_antiprompt  = false;
+    bool tempFirst      = true;
+    bool finished       = true;
+    int n_past_last     = 0;
+    int n_remain_last   = 0;
+    int n_consumed_last = 0;
+    int n_embd_inp_last = 0;
 
     // experimenting with simple dynamic paramenters
     float d_temp_min = 1.8;
@@ -240,7 +241,7 @@ public:
     bool d_temp_up = true;
 
     chat_state rewind_state;
-
+    std::string has_antiprompt = "";
 
     std::string formatRepresentation = "";
 
@@ -1243,6 +1244,7 @@ public:
             if (std::size(ids) == 1 && last_token == ids[0]) {
                 if (params.interactive) {
                     is_interacting = true;
+                    has_antiprompt = std::format("{}: already has antiprompt", __func__);
                 }
                 is_antiprompt = true;
                 break;
@@ -1385,12 +1387,6 @@ public:
     int checkAntiprompt() {
         // check for reverse prompt in the last n_prev tokens
         if (std::size(params.antiprompt)) {
-            //std::string last_output;
-            //for (auto id : last_n_tokens) {
-            //for (auto id : last_tokens) {
-            //for (auto id : ctx_sampling->prev) {
-            //    last_output += llama_token_to_piece(ctx, id);
-            //}
             const int n_prev = 32;
             const std::string last_output = gpt_sampler_prev_str(smpl, ctx, n_prev);
 
@@ -1406,6 +1402,7 @@ public:
 
                 if (last_output.find(antiprompt, search_start_pos) != std::string::npos) {
                     //formatRepresentation += params.antiprompt[0];
+                    has_antiprompt = std::format("{}: already has antiprompt", __func__);
                     if (params.interactive) {
                         is_interacting = true;
                     }
@@ -1416,24 +1413,26 @@ public:
                 }
             }
         }
-        
+
         check_antiprompt_tkns();
-        
+
         return 1;
     }
-    
-    int setEOS(){
+    // inserts antiprompt after EOS/EOG
+    std::string checkEOS() {
+        std::string end_string = "";
+
         // deal with end of text token in interactive mode
-        //if (last_n_tokens.back() == llama_token_eos(ctx)) {
-        //if (last_tokens.back() == llama_token_eos(ctx)) {
-        //if (ctx_sampling->prev.back() == llama_token_eos(ctx)) {
-        //if (llama_sampling_last(ctx_sampling) == llama_token_eos(model)) {
         if (llama_token_is_eog(model, gpt_sampler_last(smpl))) {
             if (params.interactive) {
                 if (std::size(params.antiprompt) != 0) {
                     // tokenize and inject first reverse prompt
                     const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false, true);
                     embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
+
+                    end_string = params.antiprompt.front();
+                    has_antiprompt = std::format("{}: antiprompt inserted: '''{}'''", __func__, end_string);
+
                     is_antiprompt = true;
                 }
 
@@ -1442,7 +1441,7 @@ public:
             }
         }
         
-        return 1;
+        return end_string;
     }
     
     void appendSuffix(std::string& buffer){
@@ -1781,6 +1780,7 @@ public:
     int inputOnlyNew(std::string& input){
         //std::cout << " ***** " << input << std::endl;
         formatRepresentation = "";
+        has_antiprompt = "";
 
         embd_msg.clear();
         
@@ -1852,7 +1852,7 @@ public:
 
             checkAntiprompt();
 
-            setEOS();
+            if (!is_antiprompt) checkEOS();
 
             if (n_past > 0 && is_interacting) {
                 //fprintf(stderr, "6");

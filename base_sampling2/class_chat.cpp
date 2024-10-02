@@ -162,6 +162,9 @@ int main(int argc, char ** argv) {
     
     int latency = 30;
     if (settings.localConfig.contains("latency")) latency = settings.localConfig["latency"];
+
+    bool fancyDisplay = false;
+    if (settings.localConfig.contains("fancyDisplay")) fancyDisplay = settings.localConfig["fancyDisplay"];
     
     // cycle for automated generation with wildcards
     std::string input1;
@@ -184,16 +187,16 @@ int main(int argc, char ** argv) {
             //else 
             std::this_thread::sleep_for(std::chrono::milliseconds(latency));
             if (threadedChat.isContinue == 'w') {
-            SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display()).c_str());
+            SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display(fancyDisplay)).c_str());
             }
             //if (threadedChat.loaded == 9) threadedChat.display();
         } else {
 
-                SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display()).c_str());
+                SetConsoleTitle((window_title + " | " + std::to_string(regens) + " | " + threadedChat.display(fancyDisplay)).c_str());
 
-                if (threadedChat.resultsStringPairs.size() > 2) {
-                    std::cout << threadedChat.getInputName();
-                }
+                // if (threadedChat.resultsStringPairs.size() > 2 && !fancyDisplay) {
+                    // std::cout << threadedChat.getInputName();
+                // }
 
                 std::string input;
 
@@ -223,7 +226,7 @@ int main(int argc, char ** argv) {
                     case 'r': {
                         window_title = "ChatTest: Regen ";
                         threadedChat.rewind();
-                        threadedChat.display();
+                        threadedChat.display(fancyDisplay);
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, false);
                         threadedChat.runGenerationAsync(false);
@@ -244,7 +247,7 @@ int main(int argc, char ** argv) {
                         std::getline(std::cin, input2);
                         input2 = test_char_descr + "\n" + input2;
                         threadedChat.appendQuestion(input2);
-                        threadedChat.display();
+                        threadedChat.display(fancyDisplay);
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, true);
                         threadedChat.runGenerationAsync();
@@ -301,7 +304,7 @@ int main(int argc, char ** argv) {
                         if (!input.empty()) inputPrompt = input;
                         remove_last_nl(inputPrompt);
                         threadedChat.appendQuestion(inputPrompt);
-                        threadedChat.display();
+                        threadedChat.display(fancyDisplay);
                         threadedChat.startGen();
                         //threadedChat.getResultAsyncStringFull2(true, true);
                         threadedChat.runGenerationAsync();

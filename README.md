@@ -62,7 +62,7 @@ Libraries:
 * `make chat_vk` for Vulkan UI version
 6. `make chatTest`, `make chatTest_cl` and `make chatTest_vk` for building the debugging program
 * if you want to switch off OpenMP, add `OPENMP_OFF=1`, same for SGEMM -`SGEMM_OFF=1`
-* if your GPU/iGPU don't support Vulkan, compile UI with SDL2=1 or using `_sdl` recipes (i.e. chat_sdl, chat_cl_sdl, etc.)
+* if your GPU/iGPU don't support Vulkan, compile UI with SDL2=1 or using `_sdl` recipes (i.e. `chat_sdl`, `chat_cl_sdl`, etc.)
 * if you need Windows console for debugging, compile with CONW=1
 * see more in makefile
 

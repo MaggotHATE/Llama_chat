@@ -253,35 +253,6 @@ struct modelThread{
 
         return result;
     }
-    
-    void displayResults(){
-        Clear();
-        
-        for (auto r : resultsString){
-            std::cout << r;
-        }
-        
-        std::cout << "Generated: " << last_tokens << std::endl;
-        std::cout << lastTimings << std::endl;
-        
-        std::cout<< DELIMINER;
-    }
-
-    std::string getMessagesDBG() {
-        std::string messages_display;
-
-        for (auto r : resultsStringPairs){
-            if (r.first == "AI"){
-                messages_display += "\n>> ";
-            } else {
-                messages_display += "\n<< ";
-            }
-
-            messages_display += r.second;
-        }
-
-        return messages_display;
-    }
 
     std::string getMessagesPure() {
         std::string messages_display;
@@ -289,18 +260,42 @@ struct modelThread{
         for (auto r : resultsStringPairs){
             if (r.first == "AI"){
                 messages_display += r.second;
+                if (!hasAntiprompt(r.second)) messages_display += newChat.params.antiprompt.front();
             } else {
-                // if (r.first != "INSTRUCT") {
-                    // if (newChat.params.input_prefix.empty()) messages_display += r.first;
-                    // else messages_display += newChat.params.input_prefix;
-                // }
-                if (r.first == "INSTRUCT") messages_display += "INSTRUCT\n" + formatMessage(newChat.params.format_instruct, r.second);
+                if (r.first == "INSTRUCT") messages_display += formatMessage(newChat.params.format_instruct, r.second);
                 else messages_display += formatMessage(newChat.params.format_dialog, r.second);
+            }
+        }
+
+        //if (resultsStringPairs.back().first == "AI") messages_display += getInputName();
+
+        return messages_display;
+    }
+
+    std::string getMessagesFancy() {
+        std::string messages_display;
+        std::string header = "\nINSTRUCT:\n";
+
+        for (auto r : resultsStringPairs){
+            messages_display += header + r.second;
+
+            if (r.first == "AI" || r.first == "INSTRUCT"){
+                header = "\nINPUT:\n";
+            } else {
+                header = "\nOUTPUT:\n";
             }
 
         }
 
+        messages_display += header;
+
         return messages_display;
+    }
+
+    std::string getMessages(bool fancy = false) {
+        if (fancy) return getMessagesFancy();
+
+        return getMessagesPure();
     }
 
     std::string getMessagesNamed(std::string modelname, std::string username) {
@@ -342,6 +337,8 @@ struct modelThread{
         text +=  std::format("\n-eos: {}", newChat.params.eos);
         text +=  std::format("\n-seamless: {}", seamless);
         text +=  std::format("\n-format_dialog: {}", newChat.params.format_dialog);
+        text +=  std::format("\n-has_antiprompt: {}", newChat.has_antiprompt);
+        text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
         //text +=  newChat.formatRepresentation + "\n\n";
@@ -396,13 +393,13 @@ struct modelThread{
         return summary;
     }
 
-    std::string display() {
+    std::string display(bool fancy = false) {
         std::string summary = "\n";
         Clear();
 
         displayPre();
 
-        std::cout << getMessagesPure();
+        std::cout << getMessages(fancy);
 
         if (isContinue == 'w') {
             std::cout << lastResult << std::endl;
