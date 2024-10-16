@@ -12,6 +12,8 @@
     extern std::string GGML_OPENCL_RESULT_DEVICE_NAME;
 #endif
 
+extern std::string last_candidates;
+
 using namespace std;
 
 template <typename T>
@@ -274,15 +276,15 @@ struct modelThread{
 
     std::string getMessagesFancy() {
         std::string messages_display;
-        std::string header = "\nINSTRUCT:\n";
+        std::string header = "";
 
         for (auto r : resultsStringPairs){
             messages_display += header + r.second;
 
             if (r.first == "AI" || r.first == "INSTRUCT"){
-                header = "\nINPUT:\n";
+                header = "\n>>>\n";
             } else {
-                header = "\nOUTPUT:\n";
+                header = "\n<<<\n";
             }
 
         }
@@ -332,6 +334,7 @@ struct modelThread{
         if (std::size(newChat.params.antiprompt)) {
             for (auto antiprompt : newChat.params.antiprompt) text += std::format("\n-Antiprompt: {}", antiprompt);
         }
+        //text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-EOS: {}", newChat.getEOS());
         text +=  std::format("\n-bos: {}", newChat.params.bos);
         text +=  std::format("\n-eos: {}", newChat.params.eos);
@@ -538,7 +541,29 @@ struct modelThread{
             if (full) file_o << text << DELIMINER;
 
             file_o << getSummary() << DELIMINER;
+            file_o << last_candidates << DELIMINER;
 
+            file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
+            file_o.close();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool writeTextFileCompact(std::string path, std::string name, bool full = false){
+        std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + ".txt";
+
+        std::ofstream file_o(path1, std::ios::app);
+        if (file_o.is_open()) {
+            file_o << "--------------------" << DELIMINER;
+            file_o << __func__ << DELIMINER;
+            if (full) file_o << text << DELIMINER;
+
+            file_o << getSummary() << DELIMINER;
+            file_o << last_candidates << DELIMINER;
+
+            if (full) file_o << '\n' << resultsStringPairs.front().second << DELIMINER;
             file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
             file_o.close();
             return true;
@@ -984,7 +1009,7 @@ struct model_card {
 };
 
 struct configurableChat{
-    gpt_params params;
+    common_params params;
     //gpt_params paramsDefault;
     
     nlohmann::json localConfig;
@@ -1227,6 +1252,12 @@ struct configurableChat{
         aChat.params.sparams.top_k = params.sparams.top_k;
         aChat.params.sparams.top_p = params.sparams.top_p;
         aChat.params.sparams.min_p = params.sparams.min_p;
+        aChat.params.sparams.min_p_rand = params.sparams.min_p_rand;
+        aChat.params.sparams.noise_min = params.sparams.noise_min;
+        aChat.params.sparams.noise_max = params.sparams.noise_max;
+        aChat.params.sparams.range_min = params.sparams.range_min;
+        aChat.params.sparams.range_max = params.sparams.range_max;
+        aChat.params.sparams.k_limit = params.sparams.k_limit;
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
         aChat.params.sparams.p_step = params.sparams.p_step;
@@ -1377,6 +1408,12 @@ struct configurableChat{
         if (params.sparams.top_k != paramsDefault.sparams.top_k) modelConfig[model]["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
+        if (params.sparams.min_p_rand != paramsDefault.sparams.min_p_rand) modelConfig[model]["min_p_rand"] = params.sparams.min_p_rand;
+        if (params.sparams.noise_min != paramsDefault.sparams.noise_min) modelConfig[model]["noise_min"] = params.sparams.noise_min;
+        if (params.sparams.noise_max != paramsDefault.sparams.noise_max) modelConfig[model]["noise_max"] = params.sparams.noise_max;
+        if (params.sparams.range_min != paramsDefault.sparams.range_min) modelConfig[model]["range_min"] = params.sparams.range_min;
+        if (params.sparams.range_max != paramsDefault.sparams.range_max) modelConfig[model]["range_max"] = params.sparams.range_max;
+        if (params.sparams.k_limit != paramsDefault.sparams.k_limit) modelConfig[model]["k_limit"] = params.sparams.k_limit;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         
         if (params.sparams.p_step_func != paramsDefault.sparams.p_step_func) {
@@ -1492,6 +1529,12 @@ struct configurableChat{
         if (params.sparams.top_k != paramsDefault.sparams.top_k) newCard["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) newCard["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
+        if (params.sparams.min_p_rand != paramsDefault.sparams.min_p_rand) newCard["min_p_rand"] = params.sparams.min_p_rand;
+        if (params.sparams.noise_min != paramsDefault.sparams.noise_min) newCard["noise_min"] = params.sparams.noise_min;
+        if (params.sparams.noise_max != paramsDefault.sparams.noise_max) newCard["noise_max"] = params.sparams.noise_max;
+        if (params.sparams.range_min != paramsDefault.sparams.range_min) newCard["range_min"] = params.sparams.range_min;
+        if (params.sparams.range_max != paramsDefault.sparams.range_max) newCard["range_max"] = params.sparams.range_max;
+        if (params.sparams.k_limit != paramsDefault.sparams.k_limit) newCard["k_limit"] = params.sparams.k_limit;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;

@@ -435,9 +435,6 @@ $(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
 	
 $(TMP)$(PREFIX)_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
-	
-$(TMP)$(PREFIX)_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-backend.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-quants.o: \
 	$(ggmlsrc_f)/ggml-quants.c \
@@ -452,6 +449,12 @@ $(TMP)$(PREFIX)_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-aarch64.h \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
+
+$(TMP)$(PREFIX)_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.cpp \
+	$(ggmlsrc_f)/ggml-backend-impl.h \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-backend.h
+	$(CC)  $(CXXFLAGS)   -c $< -o $@
 
 $(TMP)$(PREFIX)_sgemm.o: $(ggmlsrc_f)/llamafile/sgemm.cpp $(ggmlsrc_f)/llamafile/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@

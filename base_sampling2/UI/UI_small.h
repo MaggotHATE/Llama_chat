@@ -563,7 +563,7 @@ static void sliderMirostatEta(float& mirostat_eta, float& default_mirostat_eta){
     } ImGui::SameLine(); HelpMarker(("Mirostat target entropy. Default: " + std::to_string(default_mirostat_eta)).c_str());
 }
 
-static void paramsPanel(gpt_params& params, int& totalThreads) {
+static void paramsPanel(common_params& params, int& totalThreads) {
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
         sliderTemp(params.sparams.temp, paramsDefault.sparams.temp);
         
@@ -600,7 +600,7 @@ static void paramsPanel(gpt_params& params, int& totalThreads) {
         sliderMirostatEta(params.sparams.mirostat_eta, paramsDefault.sparams.mirostat_eta);
 }
 
-static void paramsPanelNew(gpt_params& params, int& totalThreads, ImVec2 size){
+static void paramsPanelNew(common_params& params, int& totalThreads, ImVec2 size){
     if(ImGui::BeginChild("Params", size, false)) {
         
         

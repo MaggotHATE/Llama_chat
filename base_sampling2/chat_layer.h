@@ -57,9 +57,17 @@ extern int xtc_total;
 extern int xtc_removed;
 extern float xtc_percent;
 
+extern int rx_total;
+extern int rx_removed;
+extern float rx_percent;
+
+extern int k_total;
+
+extern bool k_set;
+
 #define SESSIONS_FOLDER "sessions/"
 
-static gpt_params paramsDefault;
+static common_params paramsDefault;
 
 static bool is_interacting = false;
 
@@ -161,7 +169,7 @@ private:
 	
     llama_context * ctx = nullptr;
     llama_model * model = nullptr;
-    gpt_sampler * smpl = nullptr;
+    common_sampler * smpl = nullptr;
 
 
     int n_ctx;
@@ -224,7 +232,7 @@ private:
     struct ggml_threadpool * threadpool_batch = NULL;
 
 public:
-    gpt_params params;
+    common_params params;
     bool is_antiprompt  = false;
     bool tempFirst      = true;
     bool finished       = true;
@@ -358,7 +366,7 @@ public:
             cleared = true;
             
             params.n_keep = n_keep;
-            gpt_sampler_free(smpl);
+            common_sampler_free(smpl);
             llama_perf_context_reset(ctx);
             llama_free(ctx);
             llama_free_model(model);
@@ -489,85 +497,101 @@ public:
     
     std::string getSparamsChanged(bool fullnames = true) {
         std::string result = fullnames ? "logits" : "@";
-
-        std::string name_penalty_repeat = fullnames ? "penalty_repeat" : "p_r";
-        std::string name_penalty_threshold = fullnames ? "penalty_threshold" : "p_t";
-        std::string name_penalty_freq = fullnames ? "penalty_freq" : "p_f";
-        std::string name_penalty_present = fullnames ? "penalty_present" : "p_p";
-        //DRY
-        std::string name_dry_multiplier = fullnames ? "dry_multiplier" : "d_m";
-        std::string name_dry_base = fullnames ? "dry_base" : "d_b";
-        std::string name_dry_allowed_length = fullnames ? "dry_allowed_length" : "d_l";
-        std::string name_dry_penalty_last_n = fullnames ? "dry_penalty_last_n" : "d_n";
-
-        std::string name_temp = fullnames ? "temp" : "T";
-        std::string name_dynatemp_range = fullnames ? "dynatemp_range" : "dT";
-
-        std::string name_mirostat = fullnames ? "mirostat" : "I";
-        std::string name_mirostat_tau = fullnames ? "mirostat_tau" : "I_t";
-        std::string name_mirostat_eta = fullnames ? "mirostat_eta" : "I_e";
-
         std::string name_top_k = fullnames ? "top_k" : "K";
-        std::string name_tfs_z = fullnames ? "tfs_z" : "F";
-        std::string name_typical_p = fullnames ? "typical_p" : "Y";
-        std::string name_p_step = fullnames ? "p_step" : "S";
-        std::string name_xtc_probability = fullnames ? "xtc_probability" : "x_p";
-        std::string name_xtc_threshold = fullnames ? "xtc_threshold" : "x_t";
-        std::string name_top_p = fullnames ? "top_p" : "P";
-        std::string name_min_p = fullnames ? "min_p" : "M";
+        std::string name_rx = fullnames ? "range" : "R";
 
-        if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += std::format("-> {}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
-        if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format("-> {}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
-        if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format("-> {}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
-        if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format("-> {}={:.2f}", name_penalty_present, params.sparams.penalty_present);
-        //DRY
-        if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) result += std::format("-> {}={:.2f}", name_dry_multiplier, params.sparams.dry_multiplier);
-        if (params.sparams.dry_base != paramsDefault.sparams.dry_base) result += std::format("-> {}={:.2f}", name_dry_base, params.sparams.dry_base); 
-        if (params.sparams.dry_allowed_length != paramsDefault.sparams.dry_allowed_length) result += std::format("-> {}={}", name_dry_allowed_length, params.sparams.dry_allowed_length);
-        if (params.sparams.dry_penalty_last_n != paramsDefault.sparams.dry_penalty_last_n) result += std::format("-> {}={}", name_dry_penalty_last_n, params.sparams.dry_penalty_last_n);
-        // mirostat is special 
-        if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
-            if (params.sparams.dynatemp_range > 0) {
-                result += std::format("->{}({:.2f}-{:.2f})",name_dynatemp_range,params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
-                if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
-            } else {
-                result += name_temp; 
-                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("={:.2f}",params.sparams.temp); 
-                result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
+        if (params.sparams.temp <= 0) {
+            if (params.sparams.n_probs > 0) {
+                result += std::format("-> {}={}", name_top_k, params.sparams.n_probs);
             }
-            result += "-> " + name_mirostat + " = " + std::to_string(params.sparams.mirostat); 
-            result += std::format(";{}={:.2f}", name_mirostat_tau, params.sparams.mirostat_tau); 
-            result += std::format(";{}={:.2f}", name_mirostat_eta, params.sparams.mirostat_eta);
+            if (params.sparams.range_min < 1.0f && params.sparams.range_max == 1.0f) {
+                result += std::format("-> {}={:.2f}-{:.2f}:{}/{}({:.2f}%)",name_rx, params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent);
+            }
+            if (params.sparams.range_min < 1.0f) {
+                result += std::format("-> k={}/{}", params.sparams.k_limit, k_total);
+                if (k_set) result += " set!";
+            }
+            result += "-> greedy";
         } else {
-            for (auto s : params.sparams.samplers_sequence){
-                result += "->";
-                switch (s) {
-                    case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += std::format("={}",params.sparams.top_k); break;
-                    case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.2f}",params.sparams.tfs_z); break;
-                    case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.2f}",params.sparams.typical_p); break;
-                    case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); result += std::format("({})", p_step_total); break;
-                    case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
-                    case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
-                    case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); result += std::format("({})", min_p_total); break;
-                    case 't': {
-                            if (params.sparams.dynatemp_range > 0) {
-                                result += std::format("{}({:.2f}-{:.2f})",name_dynatemp_range, params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
-                                if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) result += std::format("*{:.2f}", params.sparams.smoothing_curve);
-                            } else {
-                                result += name_temp;
-                                if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("={:.2f}",params.sparams.temp);
-                                // smoothing_curve doesn't work without dynatemp anyway
-                            }
-                            if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("^{:.2f}", params.sparams.smoothing_factor);
+            std::string name_penalty_repeat = fullnames ? "penalty_repeat" : "p_r";
+            std::string name_penalty_threshold = fullnames ? "penalty_threshold" : "p_t";
+            std::string name_penalty_freq = fullnames ? "penalty_freq" : "p_f";
+            std::string name_penalty_present = fullnames ? "penalty_present" : "p_p";
+            //DRY
+            std::string name_dry_multiplier = fullnames ? "dry_multiplier" : "d_m";
+            std::string name_dry_base = fullnames ? "dry_base" : "d_b";
+            std::string name_dry_allowed_length = fullnames ? "dry_allowed_length" : "d_l";
+            std::string name_dry_penalty_last_n = fullnames ? "dry_penalty_last_n" : "d_n";
 
-                            result += std::format("({})", temp_total);
-                            break;
-                        }
-                    default : break;
+            std::string name_temp = fullnames ? "temp" : "T";
+            std::string name_dynatemp_range = fullnames ? "dynatemp_range" : "dT";
+
+            std::string name_mirostat = fullnames ? "mirostat" : "I";
+            std::string name_mirostat_tau = fullnames ? "mirostat_tau" : "I_t";
+            std::string name_mirostat_eta = fullnames ? "mirostat_eta" : "I_e";
+
+            
+            std::string name_tfs_z = fullnames ? "tfs_z" : "F";
+            std::string name_typical_p = fullnames ? "typical_p" : "Y";
+            std::string name_p_step = fullnames ? "p_step" : "S";
+            std::string name_xtc_probability = fullnames ? "xtc_probability" : "x_p";
+            std::string name_xtc_threshold = fullnames ? "xtc_threshold" : "x_t";
+            std::string name_top_p = fullnames ? "top_p" : "P";
+            std::string name_min_p = fullnames ? "min_p" : "M";
+
+            if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += std::format("-> {}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
+            if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format("-> {}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
+            if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format("-> {}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
+            if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format("-> {}={:.2f}", name_penalty_present, params.sparams.penalty_present);
+            //DRY
+            if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) result += std::format("-> {}={:.2f}", name_dry_multiplier, params.sparams.dry_multiplier);
+            if (params.sparams.dry_base != paramsDefault.sparams.dry_base) result += std::format("-> {}={:.2f}", name_dry_base, params.sparams.dry_base); 
+            if (params.sparams.dry_allowed_length != paramsDefault.sparams.dry_allowed_length) result += std::format("-> {}={}", name_dry_allowed_length, params.sparams.dry_allowed_length);
+            if (params.sparams.dry_penalty_last_n != paramsDefault.sparams.dry_penalty_last_n) result += std::format("-> {}={}", name_dry_penalty_last_n, params.sparams.dry_penalty_last_n);
+            // mirostat is special 
+            if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
+                if (params.sparams.dynatemp_range > 0) {
+                    result += std::format("->{}({:.2f}-{:.2f})",name_dynatemp_range,params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
+                    if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
+                } else {
+                    result += name_temp; 
+                    if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("={:.2f}",params.sparams.temp); 
+                    result += std::format("/{:.2f}*{:.2f}", params.sparams.smoothing_factor, params.sparams.smoothing_curve);
+                }
+                result += "-> " + name_mirostat + " = " + std::to_string(params.sparams.mirostat); 
+                result += std::format(";{}={:.2f}", name_mirostat_tau, params.sparams.mirostat_tau); 
+                result += std::format(";{}={:.2f}", name_mirostat_eta, params.sparams.mirostat_eta);
+            } else {
+                for (auto s : params.sparams.samplers_sequence){
+                    result += "->";
+                    switch (s) {
+                        case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += std::format("={}",params.sparams.top_k); break;
+                        case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.2f}",params.sparams.tfs_z); break;
+                        case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.2f}",params.sparams.typical_p); break;
+                        case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); result += std::format("({})", p_step_total); break;
+                        case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
+                        case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
+                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); result += std::format("({})", min_p_total); break;
+                        case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
+                        case 't': {
+                                if (params.sparams.dynatemp_range > 0) {
+                                    result += std::format("{}({:.2f}-{:.2f})",name_dynatemp_range, params.sparams.temp > params.sparams.dynatemp_range ? params.sparams.temp - params.sparams.dynatemp_range : 0, params.sparams.temp + params.sparams.dynatemp_range);
+                                    if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) result += std::format("*{:.2f}", params.sparams.smoothing_curve);
+                                } else {
+                                    result += name_temp;
+                                    if (params.sparams.temp != paramsDefault.sparams.temp) result += std::format("={:.2f}",params.sparams.temp);
+                                    // smoothing_curve doesn't work without dynatemp anyway
+                                }
+                                if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) result += std::format("^{:.2f}", params.sparams.smoothing_factor);
+
+                                result += std::format("({})", temp_total);
+                                break;
+                            }
+                        default : break;
+                    }
                 }
             }
         }
-
         return result;
     }
 
@@ -637,7 +661,7 @@ public:
                 case 'a':{
                     if (std::size(params.antiprompt)){
                         formatRepresentation += params.antiprompt[0];
-                        const auto line_antiprompt_format = ::llama_tokenize(ctx, params.antiprompt[0], false, true);
+                        const auto line_antiprompt_format = common_tokenize(ctx, params.antiprompt[0], false, true);
                         embd_inp.insert(embd_inp.end(), line_antiprompt_format.begin(), line_antiprompt_format.end());
                     }
                     break;
@@ -645,7 +669,7 @@ public:
                 case 'b':{
                     if (!params.bos.empty()) {
                         formatRepresentation += params.bos;
-                        const auto line_bos_format = ::llama_tokenize(ctx, params.bos, false, true);
+                        const auto line_bos_format = common_tokenize(ctx, params.bos, false, true);
                         embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
                     }
                     break;
@@ -653,34 +677,34 @@ public:
                 case 'e':{
                     if (!params.eos.empty()) {
                         formatRepresentation += params.eos;
-                        const auto line_eos_format = ::llama_tokenize(ctx, params.eos, false, true);
+                        const auto line_eos_format = common_tokenize(ctx, params.eos, false, true);
                         embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
                     }
                     break;
                 }
                 case 'p':{
                     formatRepresentation += params.input_prefix;
-                    const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
+                    const auto line_pfx = common_tokenize(ctx, params.input_prefix, false, true);
                     embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
                     break;
                 }
                 case 'i':{
                     /* if (format == params.format_instruct) */ formatRepresentation += buffer;
                     //else formatRepresentation += "{input}";
-                    const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
+                    const auto line_inp = common_tokenize(ctx, buffer, false, false);
                     embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
                     if (n_remain > 0) n_remain -= std::size(line_inp);
                     break;
                 }
                 case 's':{
                     formatRepresentation += params.input_suffix;
-                    const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+                    const auto line_sfx = common_tokenize(ctx, params.input_suffix, false, true);
                     embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
                     break;
                 }
                 case 'd':{
                     formatRepresentation += "\n";
-                    const auto line_delim = ::llama_tokenize(ctx, "\n", false, true);
+                    const auto line_delim = common_tokenize(ctx, "\n", false, true);
                     embd_inp.insert(embd_inp.end(), line_delim.begin(), line_delim.end());
                     break;
                 }
@@ -747,7 +771,7 @@ public:
 
         antiprompt_ids.reserve(std::size(params.antiprompt));
         for (const std::string & antiprompt : params.antiprompt) {
-            antiprompt_ids.emplace_back(::llama_tokenize(ctx, antiprompt, false, true));
+            antiprompt_ids.emplace_back(common_tokenize(ctx, antiprompt, false, true));
         }
     }
 
@@ -815,7 +839,7 @@ public:
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
-        llama_init_result llama_init = llama_init_from_gpt_params(params);
+        common_init_result llama_init = common_init_from_params(params);
 
         model = llama_init.model;
         ctx = llama_init.context;
@@ -846,17 +870,17 @@ public:
         // LET'S TRY THIS
         //llama_init_backend(params.numa);
         llama_backend_init();
-        printf("..............Backend initialized strict................\n");
+        printf("..............Backend initialized strict (%s)................\n", __func__);
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
-        llama_init_result llama_init = llama_init_from_gpt_params(params);
+        common_init_result llama_init = common_init_from_params(params);
 
         model = llama_init.model;
         ctx = llama_init.context;
         printf("..............Model initialized (%s)................\n", __func__);
         assignThreads();
-        printf("..............Threads assigned................\n");
+        printf("..............Threads assigned  (%s)................\n", __func__);
         
         
         if (model == NULL) {
@@ -872,8 +896,8 @@ public:
 
         // setting seed
         status += setRandomSeed(); // 6
-        gpt_sampler_get_seed(smpl);
-        printf("setRandomSeed = %d\n", status);
+        common_sampler_get_seed(smpl);
+        printf("%s: setRandomSeed = %d\n", __func__, status);
         
         return status;
     }
@@ -921,13 +945,13 @@ public:
             printf("..............Backend initialized common................\n");
 #endif
             // load the model and apply lora adapter, if any
-            llama_init_result llama_init = llama_init_from_gpt_params(params);
+            common_init_result llama_init = common_init_from_params(params);
 
             model = llama_init.model;
             ctx = llama_init.context;
             printf("..............Model initialized (%s)................\n", __func__);
             assignThreads();
-            printf("..............Threads assigned................\n");
+            printf("..............Threads assigned (%s)................\n", __func__);
 
             if (model == NULL) {
                 fprintf(stderr, "%s: error: unable to load model\n", __func__);
@@ -937,29 +961,32 @@ public:
             status += 3; // +3
 
 
-            printf("loadModel = %d\n", status);
+            printf("%s: loadModel = %d\n", __func__, status);
             if (status < 3) return 0;
 
             // setting seed
             status += setRandomSeed();
-            
+            //common_sampler_get_seed(smpl);
+            printf("%s: setRandomSeed = %d\n", __func__, params.sparams.seed);
+
             if (status == 0) return 0;
         }
         
         cleared = false;
         n_keep = params.n_keep;
 
-        printf("llama_n_ctx \n");
-        
         n_ctx = llama_n_ctx(ctx);
+        printf("%s: llama_n_ctx \n", __func__);
 
-        printf("gpt_sampler_init\n");
-        smpl = gpt_sampler_init(model, sparams);
+        smpl = common_sampler_init(model, sparams);
+        printf("%s: common_sampler_init\n", __func__);
         if (!smpl) {
             fprintf(stderr, "%s: failed to initialize sampling subsystem\n", __func__);
             exit(1);
         }
 
+        common_sampler_get_seed(smpl);
+        printf("%s: common_sampler_get_seed\n", __func__);
         ga_n = params.grp_attn_n;
         ga_w = params.grp_attn_w;
 
@@ -1072,7 +1099,7 @@ public:
         }
 
         
-        fprintf(stderr, "\nsampling: repeat_last_n = %d, penalty_repeat = %f, penalty_present = %f, penalty_freq = %f, top_k = %d, tfs_z = %f, top_p = %f, typical_p = %f, temp = %f, mirostat = %d, mirostat_lr = %f, mirostat_ent = %f\n",
+        fprintf(stderr, "\nsampling:\n repeat_last_n = %d,\n penalty_repeat = %f,\n penalty_present = %f,\n penalty_freq = %f,\n top_k = %d,\n tfs_z = %f,\n top_p = %f,\n typical_p = %f,\n temp = %f,\n mirostat = %d,\n mirostat_lr = %f,\n mirostat_ent = %f\n",
                 sparams.penalty_last_n, sparams.penalty_repeat, sparams.penalty_present, sparams.penalty_freq, sparams.top_k, sparams.tfs_z, sparams.top_p, sparams.typical_p, sparams.temp, sparams.mirostat, sparams.mirostat_eta, sparams.mirostat_tau);
 
         if (params.interactive) {
@@ -1092,7 +1119,7 @@ public:
         n_remain           = params.n_predict;
         n_remain_last      = std::size(embd_inp);
 
-        printf("Load finished\n");
+        printf("%s: Load finished\n", __func__);
 
         return 9;
     }
@@ -1147,18 +1174,24 @@ public:
             // if we run out of context:
             // - take the n_keep first tokens from the original prompt (via n_past)
             // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
+
             if (n_past + (int) std::size(embd) >= n_ctx) {
-                // if (params.n_predict == -2) {
-                    // printf("\n\n%s: context full and n_predict == -%d => stopping\n", __func__, params.n_predict);
-                    // break;
-                // }
-                
+                if (!params.ctx_shift){
+                    printf("\n\n%s: context full and context shift is disabled => stopping\n", __func__);
+                    return;
+                }
+
+                if (params.n_predict == -2) {
+                    printf("\n\n%s: context full and n_predict == -%d => stopping\n", __func__, params.n_predict);
+                    return;
+                }
+
                 const int n_left    = n_past - params.n_keep;
                 const int n_discard = n_left/2;
-                
+
                 llama_kv_cache_seq_rm   (ctx, 0, params.n_keep            , params.n_keep + n_discard);
                 llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
-                
+
                 n_past -= n_discard;
 
                 path_session.clear();
@@ -1180,7 +1213,7 @@ public:
             }
         }
     }
-    
+
     int reuse() {
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (n_session_consumed < (int) std::size(session_tokens)) {
@@ -1239,7 +1272,7 @@ public:
     
     void check_antiprompt_tkns() {
         // check for reverse prompt using special tokens
-        llama_token last_token = gpt_sampler_last(smpl);
+        llama_token last_token = common_sampler_last(smpl);
         for (std::vector<llama_token> ids : antiprompt_ids) {
             if (std::size(ids) == 1 && last_token == ids[0]) {
                 if (params.interactive) {
@@ -1302,11 +1335,11 @@ public:
         }
 
         // new generation function, moved to common 
-        const llama_token id = gpt_sampler_sample(smpl, ctx, -1);
+        const llama_token id = common_sampler_sample(smpl, ctx, -1);
 
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.emplace_back(id);
-        gpt_sampler_accept(smpl, id, /* apply_grammar= */ true);
+        common_sampler_accept(smpl, id, /* apply_grammar= */ true);
 
         // add it to the context
         //embd.emplace_back(id);
@@ -1366,7 +1399,7 @@ public:
                     // grammar_rules.data(), grammar_rules.size(),
                     // parsed_grammar.symbol_ids.at("root"));
             // }
-            gpt_sampler_reset(smpl);
+            common_sampler_reset(smpl);
         }
         
         //is_interacting = false;
@@ -1388,7 +1421,7 @@ public:
         // check for reverse prompt in the last n_prev tokens
         if (std::size(params.antiprompt)) {
             const int n_prev = 32;
-            const std::string last_output = gpt_sampler_prev_str(smpl, ctx, n_prev);
+            const std::string last_output = common_sampler_prev_str(smpl, ctx, n_prev);
 
             is_antiprompt = false;
             // Check if each of the reverse prompts appears at the end of the output.
@@ -1423,11 +1456,11 @@ public:
         std::string end_string = "";
 
         // deal with end of text token in interactive mode
-        if (llama_token_is_eog(model, gpt_sampler_last(smpl))) {
+        if (llama_token_is_eog(model, common_sampler_last(smpl))) {
             if (params.interactive) {
                 if (std::size(params.antiprompt) != 0) {
                     // tokenize and inject first reverse prompt
-                    const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false, true);
+                    const auto first_antiprompt = common_tokenize(ctx, params.antiprompt.front(), false, true);
                     embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
 
                     end_string = params.antiprompt.front();
@@ -1485,7 +1518,7 @@ public:
                 
                 // push the prompt in the sampling context in order to apply repetition penalties later
                 // for the prompt, we don't apply grammar rules
-                gpt_sampler_accept(smpl, embd_inp[n_consumed], /* apply_grammar= */ false);
+                common_sampler_accept(smpl, embd_inp[n_consumed], /* apply_grammar= */ false);
                 
                 
                 ++n_consumed;
@@ -1502,7 +1535,7 @@ public:
             //printf("-pei");
             for (auto id : embd) { 
                 //std::string tknStr = llama_token_to_string(ctx, id); 
-                const std::string tknStr = llama_token_to_piece(ctx, id); 
+                const std::string tknStr = common_token_to_piece(ctx, id); 
                 //result += (std::string) tknStr;
                 result += tknStr;
                 //if (streaming) printf("%s", tknStr);
@@ -1521,7 +1554,7 @@ public:
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
     
     void resetCTX(){
-        gpt_sampler_reset(smpl);
+        common_sampler_reset(smpl);
     }
     
     void appendPrefixBos(){
@@ -1551,9 +1584,9 @@ public:
         
        // embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
            
-        const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
-        const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
-        const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
+        const auto line_pfx = common_tokenize(ctx, params.input_prefix, false, true);
+        const auto line_inp = common_tokenize(ctx, buffer, false, false);
+        const auto line_sfx = common_tokenize(ctx, params.input_suffix, false, true);
         
         embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
         embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
@@ -1666,7 +1699,7 @@ public:
         
         for (auto id : embd) { 
             //return llama_token_to_string(ctx, id); 
-            return llama_token_to_piece(ctx, id); 
+            return common_token_to_piece(ctx, id); 
         }
     }
     
@@ -1675,7 +1708,7 @@ public:
         
         for (auto id : embd_msg) { 
             //return llama_token_to_string(ctx, id); 
-            return llama_token_to_piece(ctx, id); 
+            return common_token_to_piece(ctx, id); 
         }
     }
     

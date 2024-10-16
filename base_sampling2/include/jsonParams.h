@@ -21,7 +21,7 @@
 #define DELIMINER '\n'
 #endif
 
-static void readGrammarFile(gpt_params& params, std::string fileName){
+static void readGrammarFile(common_params& params, std::string fileName){
     std::ifstream file(fileName);
     if (!file) {
         fprintf(stderr, "error: failed to open file '%s'\n", fileName);
@@ -34,7 +34,7 @@ static void readGrammarFile(gpt_params& params, std::string fileName){
     }
 }
 
-static void processInstructFile(std::string filename, gpt_params& params, bool headless = false){
+static void processInstructFile(std::string filename, common_params& params, bool headless = false){
     std::ifstream file(filename);
     if (!file) {
         fprintf(stderr, "error: failed to open file '%s'\n", filename);
@@ -294,7 +294,7 @@ static void process_STcard_Anytag(std::string& text, std::string card_path, std:
 
 }
 
-static void processFormatTemplate(nlohmann::json& config, gpt_params& params) {
+static void processFormatTemplate(nlohmann::json& config, common_params& params) {
     std::string format_template = "";
     if (checkJString(config, "format_file")) {
         format_template = getText(config["format_file"]);
@@ -413,7 +413,7 @@ static std::string get_last_formatted(std::vector<std::pair<std::string, std::st
     return total.substr(previous.size(), total.size() - previous.size());
 }
 
-static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
     if (checkJBool(config, "headless")) headless = true;
     if (checkJString(config, "file")) {
         processInstructFile(config["file"], params, headless);
@@ -528,6 +528,12 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
     if (checkJNum(config, "top_k")) params.sparams.top_k = config["top_k"];
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
+    if (checkJNum(config, "min_p_rand")) params.sparams.min_p_rand = config["min_p_rand"];
+    if (checkJNum(config, "noise_min")) params.sparams.noise_min = config["noise_min"];
+    if (checkJNum(config, "noise_max")) params.sparams.noise_max = config["noise_max"];
+    if (checkJNum(config, "range_min")) params.sparams.range_min = config["range_min"];
+    if (checkJNum(config, "range_max")) params.sparams.range_max = config["range_max"];
+    if (checkJNum(config, "k_limit")) params.sparams.k_limit = config["k_limit"];
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
@@ -606,7 +612,7 @@ static void getParamsFromJson(nlohmann::json& config, gpt_params& params, bool h
 
 }
 
-static void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromPreset(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
     
     if (checkJString(config, "card")) {
         std::string cardPath = config["card"];
@@ -625,7 +631,7 @@ static void getParamsFromPreset(nlohmann::json& config, gpt_params& params, bool
     }
 }
 
-static void getParamsFromGroup(nlohmann::json& config, gpt_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromGroup(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
 
     if(config.contains("group") && config["group"].is_object()){
         std::cout << "Found group settings" << params.model << std::endl;
@@ -637,7 +643,7 @@ static void getParamsFromGroup(nlohmann::json& config, gpt_params& params, bool 
     }
 }
 
-static void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool headless = false){
+static void readParamsFromJson(nlohmann::json& config, common_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
@@ -654,7 +660,7 @@ static void readParamsFromJson(nlohmann::json& config, gpt_params& params, bool 
     
 }
 
-static void readParamsFromJson(nlohmann::json& config, std::string modelName, gpt_params& params, bool headless = false){
+static void readParamsFromJson(nlohmann::json& config, std::string modelName, common_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
     getParamsFromPreset(config, params, false, headless);
@@ -675,7 +681,7 @@ static void readParamsFromJson(nlohmann::json& config, std::string modelName, gp
 
 }
 
-static void readParamsFromFile(std::string fimeName, gpt_params& params, bool headless = false){
+static void readParamsFromFile(std::string fimeName, common_params& params, bool headless = false){
     std::fstream o1(fimeName);
     if (o1.is_open()) {
         nlohmann::json config;
@@ -699,7 +705,7 @@ static void readParamsFromFile(std::string fimeName, gpt_params& params, bool he
     }
 }
 
-static void readParamsFromFile(std::string fimeName, std::string modelName, gpt_params& params, bool headless = false ){
+static void readParamsFromFile(std::string fimeName, std::string modelName, common_params& params, bool headless = false ){
     std::fstream o1(fimeName);
     if (o1.is_open()) {
         nlohmann::json config;

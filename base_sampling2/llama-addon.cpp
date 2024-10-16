@@ -45,6 +45,40 @@ int p_step_total = 0;
 int xtc_total = 0;
 int xtc_removed = 0;
 float xtc_percent = 0.0;
+int candidates_max = 0;
+std::string last_candidates = "";
+
+int rx_total = 0;
+int rx_removed = 0;
+float rx_percent = 0.0;
+
+int k_total = 99;
+
+bool k_set = false;
+
+static bool writeToFile(std::string path, std::string text){
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static bool writeFloatToFile(std::string path, float data, std::string add){
+    std::string text = add + std::to_string(data);
+    
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
 
 static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add){
     std::string text = add + "(" + std::to_string(candidates->size) + ")";
@@ -73,8 +107,95 @@ static bool writeCandidatesToFile2(std::string path, llama_token_data_array * ca
         int chance = candidates->data[i].p * 100;
         int logit = candidates->data[i].logit;
         if (chance > 0 || candidates->size == 1) { 
-            text += "[" + std::to_string(chance) + "%|" + std::to_string(logit) + "] "; 
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
         } else ++zeroes;
+    }
+    //if (zeroes > 0) text += " Zeroes: " + std::to_string(zeroes);
+    //text += "\n";
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static bool writeCandidatesToFile2vec(std::string path, std::vector<llama_token_data> & candidates, std::string add){
+    std::string text = add + "(" + std::to_string(candidates.size()) + "): ";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        int chance = candidates[i].p * 100;
+        int logit = candidates[i].logit;
+        if (chance > 0 || candidates.size() == 1) { 
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+        } else ++zeroes;
+    }
+    //if (zeroes > 0) text += " Zeroes: " + std::to_string(zeroes);
+    //text += "\n";
+    std::ofstream file(path, std::ios::app);
+    if (file.is_open()) {
+        file << text;
+        file.close();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static std::string getFormattedCandidates(llama_token_data_array * candidates){
+    std::string text = "(" + std::to_string(candidates->size) + "): ";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        int chance = candidates->data[i].p * 100;
+        int logit = candidates->data[i].logit;
+        if (chance > 0 || candidates->size == 1) { 
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+        } else ++zeroes;
+    }
+    //if (zeroes > 0) text += "~" + std::to_string(zeroes);
+
+    return text;
+}
+
+static std::string getFormattedCandidatesFull(llama_token_data_array * candidates){
+    std::string text = "(" + std::to_string(candidates->size) + "): ";
+    for (size_t i = 0; i < candidates->size; ++i) {
+        int chance = candidates->data[i].p * 100;
+        int logit = candidates->data[i].logit;
+        if (logit > 0 || candidates->size == 1) { 
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+        }
+    }
+    //if (zeroes > 0) text += "~" + std::to_string(zeroes);
+
+    return text;
+}
+
+static std::string getFormattedCandidatesVec(std::vector<llama_token_data> & candidates){
+    std::string text = "(" + std::to_string(candidates.size()) + "): ";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        int chance = candidates[i].p * 100;
+        int logit = candidates[i].logit;
+        if (chance > 0 || candidates.size() == 1) { 
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+        } else ++zeroes;
+    }
+    //if (zeroes > 0) text += "~" + std::to_string(zeroes);
+
+    return text;
+}
+
+static bool writeCandidatesToFileLogitsOnly(std::string path, llama_token_data_array * candidates, std::string add){
+    if (candidates->size <= 1) return false;
+
+    std::string text = add + "(" + std::to_string(candidates->size) + "): ";
+    int zeroes = 0;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        int logit = candidates->data[i].logit;
+        text += "[" + std::to_string(logit) + "] "; 
     }
     //if (zeroes > 0) text += " Zeroes: " + std::to_string(zeroes);
     text += "\n";
@@ -90,20 +211,49 @@ static bool writeCandidatesToFile2(std::string path, llama_token_data_array * ca
 
 //-------------------common sampling functions------------------------
 
-static void llama_sampler_sort_only_impl(llama_token_data_array * cur_p) {
-    if (!cur_p->sorted) {
-        std::sort(cur_p->data, cur_p->data + cur_p->size, [](const llama_token_data & a, const llama_token_data & b) {
-            return a.logit > b.logit;
-        });
-        cur_p->sorted = true;
+static uint32_t get_rng_seed(uint32_t seed) {
+    if (seed == LLAMA_DEFAULT_SEED) {
+        // use system clock if std::random_device is not a true RNG
+        static bool is_rd_prng = std::random_device().entropy() == 0;
+        if (is_rd_prng) {
+            return (uint32_t) std::chrono::system_clock::now().time_since_epoch().count();
+        }
+        std::random_device rd;
+        return rd();
+    }
+    return seed;
+}
+
+static void llama_sampler_k_token_impl(llama_token_data_array * cur_p, size_t k) {
+    cur_p->data += k;
+    cur_p->size = 1;
+}
+
+static void llama_sampler_shift_only_impl(llama_token_data_array * cur_p, size_t pos_front, int n_remove) {
+    size_t pos_end = cur_p->size - n_remove;
+    for (size_t i = pos_front; i <= pos_end; ++i) {
+        cur_p->data[i] = cur_p->data[i + n_remove];
     }
 }
 
-static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
+
+static void llama_sampler_shift_only_impl(llama_token_data_array * cur_p, size_t pos_front, size_t pos_end) {
+    int n_remove = cur_p->size - pos_end;
+    for (size_t i = pos_front; i <= pos_end; ++i) {
+        cur_p->data[i] = cur_p->data[i + n_remove];
+    }
+}
+
+static void llama_sampler_sort_only_impl(llama_token_data_array * cur_p) {
     GGML_ASSERT(cur_p->size > 0);
 
-    // Sort the logits in descending order
-    llama_sampler_sort_only_impl(cur_p);
+    std::sort(cur_p->data, cur_p->data + cur_p->size, [](const llama_token_data & a, const llama_token_data & b) {
+        return a.logit > b.logit;
+    });
+}
+
+static void llama_sampler_calculate_impl(llama_token_data_array * cur_p) {
+    GGML_ASSERT(cur_p->size > 0);
 
     float max_l = cur_p->data[0].logit;
     float cum_sum = 0.0f;
@@ -117,6 +267,18 @@ static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
     for (size_t i = 0; i < cur_p->size; ++i) {
         cur_p->data[i].p /= cum_sum;
     }
+}
+
+static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
+    GGML_ASSERT(cur_p->size > 0);
+
+    // Sort the logits in descending order
+    if (!cur_p->sorted) {
+        llama_sampler_sort_only_impl(cur_p);
+        cur_p->sorted = true;
+    }
+
+    llama_sampler_calculate_impl(cur_p);
 }
 
 static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t range, float randomizationFactor = 1.0f, bool isTrueRNG = true, unsigned int rngSeed = 123456789) {
@@ -133,7 +295,7 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t rang
 
     // Create a Gaussian distribution with mean 0 and standard deviation of your choice
     std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-
+std::string cur_p_disp = "\n" + getFormattedCandidatesFull(cur_p);
     // Apply Gaussian noise to each logit
     for (size_t i = 0; i < range; ++i) {
         // Add Gaussian noise to the logit
@@ -141,12 +303,106 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t rang
     }
 
     cur_p->sorted = false;
+
+    llama_sampler_softmax_impl(cur_p);
+
+cur_p_disp += "\n" + getFormattedCandidatesFull(cur_p) + "\n";
+writeToFile("randomization.txt", cur_p_disp);
+    // cur_p->sorted = false;
+}
+
+//-------------------LIMIT K------------------------
+
+struct llama_sampler_limit_k {
+    const int32_t k;
+    bool k_set = false;
+};
+
+static const char * llama_sampler_limit_k_name(const struct llama_sampler * /*smpl*/) {
+    return "limit-k";
+}
+
+static void llama_sampler_limit_k_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_limit_k *) smpl->ctx;
+
+    // if (ctx->k_set == false) {
+        // llama_sampler_softmax_impl(cur_p);
+        // llama_sampler_k_token_impl(cur_p, ctx->k);
+        // ctx->k_set = true;
+    // }
+
+    if (ctx->k_set == false) {
+        llama_sampler_softmax_impl(cur_p);
+        cur_p->data += ctx->k;
+        cur_p->size -= ctx->k;
+        llama_sampler_softmax_impl(cur_p);
+
+        std::string conf_disp = "\n";
+        int n = 10;
+        int idx = 0;
+        float top_confidence = 0;
+        //std::map<int, float> top_confidence;
+        if (n + 1 > cur_p->size) n = cur_p->size;
+        for (int i = 1; i <= n; ++i) {
+            float conf = cur_p->data[i].p - cur_p->data[i+1].p;
+            if (top_confidence < conf) {
+                top_confidence = conf;
+                idx = i;
+            }
+
+            conf_disp += "\n #" + std::to_string(i) + " [" + std::to_string(conf) + "/" + std::to_string(cur_p->data[i].p) + " - " + std::to_string(cur_p->data[i+1].p) + "]";
+        }
+
+        cur_p->data[0].p = cur_p->data[idx].p;
+        cur_p->size = 1;
+
+        conf_disp += "\n !" + std::to_string(idx) + " [" + std::to_string(top_confidence) + "]";
+        writeToFile("k_addon.txt", conf_disp);
+
+        k_total = cur_p->size;
+
+        ctx->k_set = true;
+    }
+}
+
+static struct llama_sampler * llama_sampler_limit_k_clone(const struct llama_sampler * smpl) {
+    auto * ctx = (const llama_sampler_limit_k *) smpl->ctx;
+
+    return llama_sampler_init_limit_k(ctx->k);
+}
+
+static void llama_sampler_limit_k_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_limit_k *) smpl->ctx;
+}
+
+// static void llama_sampler_limit_k_reset(struct llama_sampler * smpl) {
+    // auto * ctx = (llama_sampler_limit_k *) smpl->ctx;
+    // ctx->k_set = false;
+// }
+
+static struct llama_sampler_i llama_sampler_limit_k_i = {
+    /* .name   = */ llama_sampler_limit_k_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_limit_k_apply,
+    /* .reset  = */ nullptr,
+    /* .clone  = */ llama_sampler_limit_k_clone,
+    /* .free   = */ llama_sampler_limit_k_free,
+};
+
+struct llama_sampler * llama_sampler_init_limit_k(int32_t k) {
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_limit_k_i,
+        /* .ctx   = */ new llama_sampler_limit_k {
+            /* .k = */ k,
+        },
+    };
 }
 
 //-------------------MIN-P WITH NOISE------------------------
 
 struct llama_sampler_min_p_addon {
     const float  p;
+    const float  rand;
     const size_t min_keep;
 };
 
@@ -188,12 +444,16 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
     }
 
     // Variables to hold the external values
-    llama_sampler_noise_impl(cur_p, cur_p->size, 1.0f);
+    if (ctx->rand > 0.1f) {
+        llama_sampler_softmax_impl(cur_p);
+        llama_sampler_noise_impl(cur_p, cur_p->size, ctx->rand);
+    }
 
     // if the cur_p are sorted or the unsorted implementation failed, use this implementation
     if (!min_p_applied) {
         // Sort the logits in descending order
         llama_sampler_sort_only_impl(cur_p);
+        cur_p->sorted = true;
 
         const float min_logit = cur_p->data[0].logit + logf(ctx->p); // min logit for p_i >= p * p_max
         size_t i = 1; // first token always matches
@@ -209,11 +469,13 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
         //writeCandidatesToFile("candidates.txt", cur_p, "\nMIN_P:");
     }
     min_p_total = cur_p->size;
+
+    if (candidates_max < cur_p->size) candidates_max = cur_p->size;
 }
 
 static struct llama_sampler * llama_sampler_min_p_addon_clone(const struct llama_sampler * smpl) {
     const auto * ctx = (const llama_sampler_min_p_addon *) smpl->ctx;
-    return llama_sampler_init_min_p_addon(ctx->p, ctx->min_keep);
+    return llama_sampler_init_min_p_addon(ctx->p, ctx->rand, ctx->min_keep);
 }
 
 static void llama_sampler_min_p_addon_free(struct llama_sampler * smpl) {
@@ -229,12 +491,192 @@ static struct llama_sampler_i llama_sampler_min_p_addon_i = {
     /* .free   = */ llama_sampler_min_p_addon_free,
 };
 
-struct llama_sampler * llama_sampler_init_min_p_addon(float p, size_t min_keep) {
+struct llama_sampler * llama_sampler_init_min_p_addon(float p, float rand, size_t min_keep) {
     return new llama_sampler {
         /* .iface = */ &llama_sampler_min_p_addon_i,
         /* .ctx   = */ new llama_sampler_min_p_addon {
             /* .p        = */ p,
+            /* .rand     = */ rand,
             /* .min_keep = */ min_keep,
+        },
+    };
+}
+
+//------------------------Range eXclusion---------------------------------
+
+struct llama_sampler_rx_addon {
+    const float max;
+    const float min;
+    const size_t min_keep;
+};
+
+void llama_sample_rx_addon_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    rx_total += cur_p->size;
+    rx_percent = ((float)rx_removed / (float)rx_total) * 100;
+
+    const auto * ctx = (llama_sampler_rx_addon *) smpl->ctx;
+    if (ctx->min >= 1.0f || ctx->min >= ctx->max || cur_p->size < 2) {
+        return;
+    }
+
+    llama_sampler_softmax_impl(cur_p);
+
+    int pos_first = -1;
+    int to_remove = 0;
+
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        if (cur_p->data[i].p >= ctx->min) {
+            if (cur_p->data[i].p > ctx->max) pos_first = i;
+            else ++to_remove;
+        } else break;
+    }
+
+    if (cur_p->size - to_remove < 1) to_remove = cur_p->size - 1;
+
+    if (cur_p->size - to_remove >= ctx->min_keep && to_remove > 0) {
+
+// std::string data = "\n\nINPUT : from " + std::to_string(pos_first) + "; remove " + std::to_string(to_remove) + ". " + getFormattedCandidates(cur_p);
+
+// 10 - 50
+// 60 50 40 20 10 09 05
+// pos_first = 0; to_remove = 4
+// from 1 to 2
+// 10 - 100
+// 60 50 40 20 10 09 05
+// pos_first = -1; to_remove = 4
+// from 1 to 2
+
+
+        for (size_t i = pos_first + 1; i <= cur_p->size - (to_remove + 1); ++i) {
+            cur_p->data[i] = cur_p->data[i + to_remove];
+        }
+
+rx_removed = rx_removed + to_remove;
+rx_percent = ((float)rx_removed / (float)rx_total) * 100;
+
+        cur_p->size -= to_remove;
+
+// data += "\nRESULT: " + std::to_string(to_remove) + " to_remove; ";
+// writeCandidatesToFile2("rx_addon.txt", cur_p, data);
+    }
+}
+
+static const char * llama_sampler_rx_addon_name(const struct llama_sampler * /*smpl*/) {
+    return "rx";
+}
+
+static struct llama_sampler * llama_sampler_rx_addon_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_rx_addon *) smpl->ctx;
+    return llama_sampler_init_rx_addon(ctx->max, ctx->min, ctx->min_keep);
+}
+
+static void llama_sampler_rx_addon_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_rx_addon *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_rx_addon_i = {
+    /* .name   = */ llama_sampler_rx_addon_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sample_rx_addon_apply,
+    /* .reset  = */ nullptr,
+    /* .clone  = */ llama_sampler_rx_addon_clone,
+    /* .free   = */ llama_sampler_rx_addon_free,
+};
+
+struct llama_sampler * llama_sampler_init_rx_addon(float max, float min, size_t min_keep) {
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_rx_addon_i,
+        /* .ctx   = */ new llama_sampler_rx_addon {
+            /* .front     = */ max,
+            /* .end     = */   min,
+            /* .min_keep = */  min_keep,
+        },
+    };
+}
+
+//-------------------NOISE SAMPLING--------------------------
+
+struct llama_sampler_noise_addon {
+    const float  min;
+    const float  max;
+
+    const uint32_t seed;
+    uint32_t       seed_cur;
+
+    std::mt19937 rng;
+};
+
+static void llama_sampler_noise_addon_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_noise_addon *) smpl->ctx;
+
+    // Check the range
+    if (ctx->min > ctx->max) return;
+
+    // Create a Gaussian distribution
+    std::normal_distribution<float> distribution(ctx->min, ctx->max);
+
+std::string data = "\n\nINPUT : " + getFormattedCandidates(cur_p);
+
+    // Apply Gaussian noise to each logit
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        cur_p->data[i].logit += distribution(ctx->rng);
+    }
+
+data += "\nRESULT: ";
+writeCandidatesToFile2("noise_addon.txt", cur_p, data);
+
+    if (candidates_max < cur_p->size) candidates_max = cur_p->size;
+
+    cur_p->sorted = false;
+}
+
+static const char * llama_sampler_noise_addon_name(const struct llama_sampler * /*smpl*/) {
+    return "noise";
+}
+
+static struct llama_sampler * llama_sampler_noise_addon_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_noise_addon *) smpl->ctx;
+    auto * result = llama_sampler_init_noise_addon(ctx->min, ctx->max, ctx->seed);
+
+    // copy the state
+    {
+        auto * result_ctx = (llama_sampler_noise_addon *) result->ctx;
+
+        result_ctx->rng = ctx->rng;
+    }
+
+    return result;
+}
+
+static void llama_sampler_noise_addon_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_noise_addon *) smpl->ctx;
+}
+
+static void llama_sampler_noise_addon_reset(struct llama_sampler * smpl) {
+    auto * ctx = (llama_sampler_noise_addon *) smpl->ctx;
+    ctx->seed_cur = get_rng_seed(ctx->seed);
+    ctx->rng.seed(ctx->seed_cur);
+}
+
+static struct llama_sampler_i llama_sampler_noise_addon_i = {
+    /* .name   = */ llama_sampler_noise_addon_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_noise_addon_apply,
+    /* .reset  = */ llama_sampler_noise_addon_reset,
+    /* .clone  = */ llama_sampler_noise_addon_clone,
+    /* .free   = */ llama_sampler_noise_addon_free,
+};
+
+struct llama_sampler * llama_sampler_init_noise_addon(float min, float max, uint32_t seed) {
+    auto seed_cur = get_rng_seed(seed);
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_noise_addon_i,
+        /* .ctx   = */ new llama_sampler_noise_addon {
+            /* .min        = */ min,
+            /* .max = */ max,
+            /* .seed = */ seed,
+            /* .seed_cur = */ seed_cur,
+            /* .rng = */ std::mt19937(seed_cur),
         },
     };
 }
@@ -248,50 +690,70 @@ struct llama_sampler_xtc_addon {
     const bool   probability_once;
     const int    min;
     const size_t min_keep;
+
+    const uint32_t seed;
+    uint32_t       seed_cur;
+
+    std::mt19937 rng;
 };
 
-void llama_sample_xtc_addon_apply(struct llama_sampler * smpl, llama_token_data_array * candidates) {
-    const auto * ctx = (llama_sampler_xtc_addon *) smpl->ctx;
+void llama_sample_xtc_addon_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_xtc_addon *) smpl->ctx;
 
-    if (ctx->probability <= 0.0f || ctx->threshold <= 0.0f || ctx->min < 1 || candidates->size <= 1) {
+    xtc_total += cur_p->size;
+    xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
+
+    if (ctx->probability <= 0.0f
+        || ctx->threshold_max <= 0.0f
+        || ctx->threshold_max <= ctx->threshold
+        || cur_p->size <= 2) {
         return;
     }
 
-    xtc_total += candidates->size;
-    xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
+    std::uniform_real_distribution<float> distance(0.0f, 1.0f);
+    float chance = distance(ctx->rng);
+    if (chance > ctx->probability) return;
 
-    std::random_device rd;
-    float chance = (float)(rd()%100)/100;
-    if (ctx->probability_once && chance > ctx->probability) return;
+    // in case it's not sorted/recalculated yet
+    llama_sampler_softmax_impl(cur_p);
 
-    llama_sampler_softmax_impl(candidates);
+    int pos_first = -1;
+    int pos_last = 0;
+    int to_keep = 1;
+    int to_remove = 0;
 
-    int removed = 0;
-    // going through all candidates from back to front, easier to keep the last of probables
-    for (int i = (candidates->size - 1); i >= 0; --i) {
-        if (candidates->data[i].p >= ctx->threshold && candidates->data[i].p <= ctx->threshold_max) {
-            if (removed == 0 || ctx->probability_once || chance <= ctx->probability) {
-                ++removed;
-                if (removed >= ctx->min) {
-                    // .logits are used for sorting and calculating .p in llama_sample_softmax_impl
-                    candidates->data[i].logit = -999.0f;
-                    if (!ctx->probability_once) chance = (float)(rd()%100)/100;
-
-                    ++xtc_removed;
-                    xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
-                }
-            }
+    if (ctx->threshold > 0.5f && cur_p->data[0].p >= ctx->threshold && cur_p->data[0].p <= ctx->threshold_max) {
+        to_keep = 0;
+        pos_last = 0;
+        to_remove = 1;
+    } else if (ctx->threshold <= 0.5f) {
+        for (size_t i = 0; i < cur_p->size; ++i) {
+            if (cur_p->data[i].p - ctx->threshold >= -1e-5) {
+                if (cur_p->data[i].p - ctx->threshold_max > 1e-3) pos_first = i;
+                pos_last = i;
+            } else break;
         }
-    }
-    //writeCandidatesToFile2("xtc_addon.txt", candidates, "C");
-    // still need this check
-    if (removed >= ctx->min) {
-        // sorting with new logits, ex-last probable will be the first anyway
-        llama_sampler_sort_only_impl(candidates);
-        
-        // resizing now that penalized tokens are at the back
-        candidates->size = candidates->size - removed + 1;
 
+        to_remove = pos_last - (to_keep + pos_first);
+    }
+
+    if (cur_p->size - to_remove >= ctx->min_keep && to_remove > 0) {
+
+// std::string data = "\n\nINPUT : " + std::to_string(to_remove) + " to_remove; " + std::to_string(pos_first) + " pos_first; " + getFormattedCandidates(cur_p);
+
+        last_candidates = getFormattedCandidates(cur_p) + "\n";
+
+        llama_sampler_shift_only_impl(cur_p, pos_first + 1, to_remove);
+
+xtc_removed = xtc_removed + to_remove;
+xtc_percent = ((float)xtc_removed / (float)xtc_total) * 100;
+
+        cur_p->size = cur_p->size - to_remove;
+
+// data += "\nRESULT: " + std::to_string(to_remove) + " to_remove; ";
+// writeCandidatesToFile2("xtc_addon.txt", cur_p, data);
+
+last_candidates += getFormattedCandidates(cur_p);
     }
 }
 
@@ -301,32 +763,51 @@ static const char * llama_sampler_xtc_addon_name(const struct llama_sampler * /*
 
 static struct llama_sampler * llama_sampler_xtc_addon_clone(const struct llama_sampler * smpl) {
     const auto * ctx = (const llama_sampler_xtc_addon *) smpl->ctx;
-    return llama_sampler_init_xtc_addon(ctx->probability, ctx->threshold, ctx->threshold_max, ctx->probability_once, ctx->min, ctx->min_keep);
+    auto * result = llama_sampler_init_xtc_addon(ctx->probability, ctx->threshold, ctx->threshold_max, ctx->probability_once, ctx->min, ctx->min_keep, ctx->seed);
+
+    // copy the state
+    {
+        auto * result_ctx = (llama_sampler_xtc_addon *) result->ctx;
+
+        result_ctx->rng = ctx->rng;
+    }
+
+    return result;
 }
 
 static void llama_sampler_xtc_addon_free(struct llama_sampler * smpl) {
     delete (llama_sampler_xtc_addon *) smpl->ctx;
 }
 
+static void llama_sampler_xtc_addon_reset(struct llama_sampler * smpl) {
+    auto * ctx = (llama_sampler_xtc_addon *) smpl->ctx;
+    ctx->seed_cur = get_rng_seed(ctx->seed);
+    ctx->rng.seed(ctx->seed_cur);
+}
+
 static struct llama_sampler_i llama_sampler_xtc_addon_i = {
     /* .name   = */ llama_sampler_xtc_addon_name,
     /* .accept = */ nullptr,
     /* .apply  = */ llama_sample_xtc_addon_apply,
-    /* .reset  = */ nullptr,
+    /* .reset  = */ llama_sampler_xtc_addon_reset,
     /* .clone  = */ llama_sampler_xtc_addon_clone,
     /* .free   = */ llama_sampler_xtc_addon_free,
 };
 
-struct llama_sampler * llama_sampler_init_xtc_addon(float probability, float threshold, float threshold_max, bool probability_once, int min, size_t min_keep) {
+struct llama_sampler * llama_sampler_init_xtc_addon(float probability, float threshold, float threshold_max, bool probability_once, int min, size_t min_keep, uint32_t seed) {
+    auto seed_cur = get_rng_seed(seed);
     return new llama_sampler {
         /* .iface = */ &llama_sampler_xtc_addon_i,
         /* .ctx   = */ new llama_sampler_xtc_addon {
             /* .p        = */ probability,
-            /* .min_keep = */ threshold,
-            /* .min_keep = */ threshold_max,
-            /* .min_keep = */ probability_once,
-            /* .min_keep = */ min,
+            /* .threshold = */ threshold,
+            /* .threshold_max = */ threshold_max,
+            /* .probability_once = */ probability_once,
+            /* .min = */ min,
             /* .min_keep = */ min_keep,
+            /* .seed = */ seed,
+            /* .seed_cur = */ seed_cur,
+            /* .rng = */ std::mt19937(seed_cur),
         },
     };
 }
