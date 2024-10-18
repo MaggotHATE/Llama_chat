@@ -67,7 +67,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 params.logit_bias.data()));
 
     llama_sampler_chain_add(result->chain,
-            llama_sampler_init_penalties_addon(
+            llama_sampler_init_penalties(
                 llama_n_vocab  (model),
                 llama_token_eos(model),
                 llama_token_nl (model),
@@ -75,13 +75,11 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 params.penalty_repeat,
                 params.penalty_freq,
                 params.penalty_present,
-                params.penalty_threshold,
                 params.penalize_nl,
                 params.ignore_eos));
 
-    if (params.temp > 0.0f) {
+    //if (params.temp > 0.0f) {
         if (params.mirostat == 0) {
-            if (params.k_limit > 0) llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.k_limit));
             for (const auto & cnstr : params.samplers_sequence) {
                 switch (cnstr) {
                     case 'k':
@@ -101,6 +99,9 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         break;
                     case 't':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext_addon (params.temp, params.dynatemp_range, params.dynatemp_exponent, params.smoothing_factor, params.smoothing_curve));
+                        break;
+                    case 'T':
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext (params.temp, params.dynatemp_range, params.dynatemp_exponent));
                         break;
                     case 's':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_p_step_addon (params.p_step, params.min_keep));
@@ -131,22 +132,24 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         } else {
             GGML_ASSERT(false && "unknown mirostat version");
         }
-    } else {
-        if (params.n_probs > 0) {
+    //} else {
+    //    if (params.n_probs > 0) {
             // some use cases require to sample greedily, but still obtain the probabilities of the top tokens
             // ref: https://github.com/ggerganov/llama.cpp/pull/9605
             //
             // the following will not produce exactly the same probs as applyging softmax to the full vocabulary, but
             // it is much faster, since we avoid sorting all tokens and should give a good approximation
-            llama_sampler_chain_add(result->chain, llama_sampler_init_top_k(params.n_probs));
-        }
+    //        llama_sampler_chain_add(result->chain, llama_sampler_init_top_k(params.n_probs));
+    //    }
 
-        if (params.k_limit > 0) llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.k_limit));
+        // if (params.k_limit > 0) llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.k_limit));
 
-        if (params.range_min < 1.0f && params.range_max == 1.0f) llama_sampler_chain_add(result->chain, llama_sampler_init_rx_addon (params.range_max, params.range_min, 2));
+        // if (params.range_min < 1.0f && params.range_max == 1.0f) llama_sampler_chain_add(result->chain, llama_sampler_init_rx_addon (params.range_max, params.range_min, 2));
 
-        llama_sampler_chain_add(result->chain, llama_sampler_init_greedy());
-    }
+        // if (params.noise_min > 0.0f) llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));
+
+    //    llama_sampler_chain_add(result->chain, llama_sampler_init_greedy());
+    //}
 
     return result;
 }

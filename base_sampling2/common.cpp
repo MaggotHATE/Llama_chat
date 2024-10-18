@@ -867,7 +867,7 @@ struct common_init_result common_init_from_params(common_params & params) {
             llama_free_model(model);
 
             return iparams;
-        }
+        } else printf("%s: vectors applied \n", __func__);
     }
 
     // load and optionally apply lora adapters

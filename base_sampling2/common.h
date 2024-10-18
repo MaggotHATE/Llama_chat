@@ -154,8 +154,8 @@ struct common_sampler_params {
     float    xtc_threshold_max     = 1.0; // maximum tokens probablitity for this to run
     bool     xtc_probability_once  = false; // should we calculate chances one or for each token
     int      xtc_min               = 2; // minimum number of penalizeable tokens
-    int      noise_min             = 0.0f; // minimum in randomization range
-    int      noise_max             = 1.0f; // maximum in randomization range
+    float    noise_min             = 0.0f; // minimum in randomization range
+    float    noise_max             = 1.0f; // maximum in randomization range
     float    range_max             = 1.0; // maximum tokens probablitity in range
     float    range_min             = 1.0; // minimum tokens probablitity in range
     int      k_limit               = 0; // token shift for the first greedy sampling

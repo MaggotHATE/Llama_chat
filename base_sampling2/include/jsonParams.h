@@ -130,6 +130,17 @@ static bool checkJObj(nlohmann::json& config, std::string name){
     return false;
 }
 
+static bool checkJArr(nlohmann::json& config, std::string name){
+    if(config.contains(name)){
+        if(config[name].is_array()) {
+            std::cout << name << " array found!" << std::endl;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 static nlohmann::json getJson(std::string fileName){
     if (fileName.find(".json") == fileName.npos) fileName += ".json";
     std::cout << "Opening json " << fileName << std::endl;
@@ -592,6 +603,13 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     
     if (checkJNum(config, "cache_type_k")) params.cache_type_k = config["cache_type_k"];
     if (checkJNum(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
+    
+    if (checkJObj(config, "control_vectors")) {
+        for (auto& el : config["control_vectors"].items()) {
+            params.control_vectors.push_back({ el.value(), el.key(), });
+        }
+
+    }
     
     std::cout << "headless: " << headless << std::endl;
 

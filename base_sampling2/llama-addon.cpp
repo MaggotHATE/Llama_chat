@@ -466,7 +466,6 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
 
         // Resize the output vector to keep only the matching tokens
         cur_p->size = i;
-        //writeCandidatesToFile("candidates.txt", cur_p, "\nMIN_P:");
     }
     min_p_total = cur_p->size;
 
@@ -531,21 +530,11 @@ void llama_sample_rx_addon_apply(struct llama_sampler * smpl, llama_token_data_a
         } else break;
     }
 
+// std::string data = "\n\nINPUT : from " + std::to_string(pos_first) + "; remove " + std::to_string(to_remove) + ". " + getFormattedCandidates(cur_p);
+
     if (cur_p->size - to_remove < 1) to_remove = cur_p->size - 1;
 
     if (cur_p->size - to_remove >= ctx->min_keep && to_remove > 0) {
-
-// std::string data = "\n\nINPUT : from " + std::to_string(pos_first) + "; remove " + std::to_string(to_remove) + ". " + getFormattedCandidates(cur_p);
-
-// 10 - 50
-// 60 50 40 20 10 09 05
-// pos_first = 0; to_remove = 4
-// from 1 to 2
-// 10 - 100
-// 60 50 40 20 10 09 05
-// pos_first = -1; to_remove = 4
-// from 1 to 2
-
 
         for (size_t i = pos_first + 1; i <= cur_p->size - (to_remove + 1); ++i) {
             cur_p->data[i] = cur_p->data[i + to_remove];
@@ -555,10 +544,10 @@ rx_removed = rx_removed + to_remove;
 rx_percent = ((float)rx_removed / (float)rx_total) * 100;
 
         cur_p->size -= to_remove;
+    }
 
 // data += "\nRESULT: " + std::to_string(to_remove) + " to_remove; ";
 // writeCandidatesToFile2("rx_addon.txt", cur_p, data);
-    }
 }
 
 static const char * llama_sampler_rx_addon_name(const struct llama_sampler * /*smpl*/) {
@@ -615,15 +604,15 @@ static void llama_sampler_noise_addon_apply(struct llama_sampler * smpl, llama_t
     // Create a Gaussian distribution
     std::normal_distribution<float> distribution(ctx->min, ctx->max);
 
-std::string data = "\n\nINPUT : " + getFormattedCandidates(cur_p);
+// std::string data = "\n\nINPUT : " + getFormattedCandidates(cur_p);
 
     // Apply Gaussian noise to each logit
     for (size_t i = 0; i < cur_p->size; ++i) {
         cur_p->data[i].logit += distribution(ctx->rng);
     }
 
-data += "\nRESULT: ";
-writeCandidatesToFile2("noise_addon.txt", cur_p, data);
+// data += "\nRESULT: ";
+// writeCandidatesToFile2("noise_addon.txt", cur_p, data);
 
     if (candidates_max < cur_p->size) candidates_max = cur_p->size;
 

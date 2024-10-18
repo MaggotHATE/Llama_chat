@@ -334,6 +334,9 @@ struct modelThread{
         if (std::size(newChat.params.antiprompt)) {
             for (auto antiprompt : newChat.params.antiprompt) text += std::format("\n-Antiprompt: {}", antiprompt);
         }
+        for (auto v : newChat.params.control_vectors) {
+            text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
+        }
         //text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-EOS: {}", newChat.getEOS());
         text +=  std::format("\n-bos: {}", newChat.params.bos);
@@ -563,8 +566,7 @@ struct modelThread{
             file_o << getSummary() << DELIMINER;
             file_o << last_candidates << DELIMINER;
 
-            if (full) file_o << '\n' << resultsStringPairs.front().second << DELIMINER;
-            file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
+            file_o << '\n' << getMessagesPure() << DELIMINER;
             file_o.close();
             return true;
         } else {
@@ -1492,7 +1494,11 @@ struct configurableChat{
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
             params.antiprompt.emplace_back("### Instruction:");
         }
-        
+        if(std::size(params.control_vectors)) {
+            for (auto v : params.control_vectors) {
+                modelConfig[model]["control_vectors"][v.fname] = v.strength;
+            }
+        }
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
         
         //modelConfig["temp_first"] = tempFirst;
@@ -1596,7 +1602,11 @@ struct configurableChat{
             newCard["reverse-prompt"] = "### Instruction:";
             params.antiprompt.emplace_back("### Instruction:");
         }
-        
+        if(std::size(params.control_vectors)) {
+            for (auto v : params.control_vectors) {
+                modelConfig["control_vectors"][v.fname] = v.strength;
+            }
+        }
         if(grammarFile != "") newCard["grammar-file"] = grammarFile;
         
         return newCard;

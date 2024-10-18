@@ -255,7 +255,7 @@ int main(int argc, char ** argv) {
                     }
                     case 's': {
                         //threadedChat.writeTextFile();
-                        threadedChat.writeTextFileCompact("","s", false);
+                        threadedChat.writeTextFileCompact("","", false);
                         break;
                     }
                     case 'c': {

@@ -15,6 +15,9 @@
 #include <random>
 #include <unordered_map>
 
+int num_probs_tops = 0;
+int num_probs_bottoms = 0;
+
 static int llama_sample_dist(llama_token_data_array * cur_p, std::mt19937 & rng) {
     // iterator for the probabilities
 #ifdef __GNUC__
@@ -62,6 +65,30 @@ static void llama_log_softmax(float * array, size_t size) {
     }
 }
 */
+
+static void llama_sampler_temp_impl(llama_token_data_array * cur_p, float temp) {
+    if (temp <= 0.0f) {
+        // find the token with the highest logit and set the rest to -inf
+        size_t max_i = 0;
+        float  max_l = cur_p->data[0].logit;
+
+        for (size_t i = 1; i < cur_p->size; ++i) {
+            if (cur_p->data[i    ].logit > max_l) {
+                cur_p->data[max_i].logit = -INFINITY;
+                max_i = i;
+                max_l = cur_p->data[i].logit;
+            } else {
+                cur_p->data[i].logit = -INFINITY;
+            }
+        }
+
+        return;
+    }
+
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        cur_p->data[i].logit /= temp;
+    }
+}
 
 static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
     GGML_ASSERT(cur_p->size > 0);
@@ -431,6 +458,10 @@ static void llama_sampler_dist_apply(struct llama_sampler * smpl, llama_token_da
     llama_sampler_softmax_impl(cur_p);
 
     cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
+
+    float prob_selected = cur_p->data[cur_p->selected].p;
+    if (prob_selected >= 0.5f) ++num_probs_tops;
+    else ++num_probs_bottoms;
 }
 
 static struct llama_sampler * llama_sampler_dist_clone(const struct llama_sampler * smpl) {
@@ -915,9 +946,7 @@ static const char * llama_sampler_temp_name(const struct llama_sampler * /*smpl*
 
 static void llama_sampler_temp_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_temp *) smpl->ctx;
-    for (size_t i = 0; i < cur_p->size; ++i) {
-        cur_p->data[i].logit /= ctx->temp;
-    }
+    llama_sampler_temp_impl(cur_p, ctx->temp);
 }
 
 static struct llama_sampler * llama_sampler_temp_clone(const struct llama_sampler * smpl) {
@@ -1001,9 +1030,7 @@ static void llama_sampler_temp_ext_apply(struct llama_sampler * smpl, llama_toke
     #endif
 
         // Apply the dynamically calculated temperature scaling
-        for (size_t i = 0; i < cur_p->size; ++i) {
-            cur_p->data[i].logit /= dyn_temp;
-        }
+        llama_sampler_temp_impl(cur_p, ctx->temp);
 
         // Re-compute softmax probabilities after scaling logits with dynamic temperature
         const double max_l_double = cur_p->data[0].logit;
@@ -1027,9 +1054,7 @@ static void llama_sampler_temp_ext_apply(struct llama_sampler * smpl, llama_toke
         }
     #endif
     } else {
-        for (size_t i = 0; i < cur_p->size; ++i) {
-            cur_p->data[i].logit /= ctx->temp;
-        }
+        llama_sampler_temp_impl(cur_p, ctx->temp);
     }
 }
 
@@ -1484,6 +1509,9 @@ struct llama_sampler_penalties {
     const bool    ignore_eos;
 
     ring_buffer<llama_token> prev;
+
+    // Frequency map to count occurrences of each token in last_tokens
+    std::unordered_map<llama_token, size_t> token_count;
 };
 
 static const char * llama_sampler_penalties_name(const struct llama_sampler * /*smpl*/) {
@@ -1496,7 +1524,15 @@ static void llama_sampler_penalties_accept(struct llama_sampler * smpl, llama_to
         return;
     }
 
+    if (ctx->prev.size() >= (size_t) ctx->penalty_last_n) {
+        assert(ctx->token_count.at(ctx->prev.front()) > 0);
+        if (--ctx->token_count[ctx->prev.front()] == 0) {
+            ctx->token_count.erase(ctx->prev.front());
+        }
+    }
+
     ctx->prev.push_back(token);
+    ctx->token_count[token]++;
 }
 
 static void llama_sampler_penalties_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
@@ -1548,23 +1584,14 @@ static void llama_sampler_penalties_apply(struct llama_sampler * smpl, llama_tok
         }
     }
 
-    // Create a frequency map to count occurrences of each token in last_tokens
-    // TODO: optimize this by maintaining the token count in the sampler context
-    using llama_token_cnt = std::unordered_map<llama_token, int>;
-    llama_token_cnt token_count;
-
-    for (int i = 0; i < std::min<int>(ctx->penalty_last_n, ctx->prev.size()); ++i) {
-        token_count[ctx->prev.rat(i)]++;
-    }
-
     // Apply frequency and presence penalties to the cur_p
     for (size_t i = 0; i < cur_p->size; ++i) {
-        const auto token_iter = token_count.find(cur_p->data[i].id);
-        if (token_iter == token_count.end()) {
+        const auto token_iter = ctx->token_count.find(cur_p->data[i].id);
+        if (token_iter == ctx->token_count.end()) {
             continue;
         }
 
-        const int count = token_iter->second;
+        const size_t count = token_iter->second;
 
         // The academic publication that described this technique actually just only divided, but that would cause tokens with negative logits to become more likely, which is obviously wrong.
         // This is common fix for this problem, which is to multiply by the penalty instead of dividing.
@@ -1588,6 +1615,7 @@ static void llama_sampler_penalties_apply(struct llama_sampler * smpl, llama_tok
 static void llama_sampler_penalties_reset(struct llama_sampler * smpl) {
     auto * ctx = (llama_sampler_penalties *) smpl->ctx;
     ctx->prev.clear();
+    ctx->token_count.clear();
 }
 
 static struct llama_sampler * llama_sampler_penalties_clone(const struct llama_sampler * smpl) {
@@ -1659,6 +1687,7 @@ struct llama_sampler * llama_sampler_init_penalties(
             /* .penalize_nl     = */ penalize_nl,
             /* .ignore_eos      = */ ignore_eos,
             /* .prev            = */ ring_buffer<llama_token>(penalty_last_n),
+            /* .token_count     = */ std::unordered_map<llama_token, size_t>(),
         },
     };
 }

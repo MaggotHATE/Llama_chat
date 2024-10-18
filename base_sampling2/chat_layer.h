@@ -65,6 +65,10 @@ extern int k_total;
 
 extern bool k_set;
 
+extern int num_probs_tops;
+
+extern int num_probs_bottoms;
+
 #define SESSIONS_FOLDER "sessions/"
 
 static common_params paramsDefault;
@@ -500,19 +504,23 @@ public:
         std::string name_top_k = fullnames ? "top_k" : "K";
         std::string name_rx = fullnames ? "range" : "R";
 
-        if (params.sparams.temp <= 0) {
-            if (params.sparams.n_probs > 0) {
-                result += std::format("-> {}={}", name_top_k, params.sparams.n_probs);
-            }
-            if (params.sparams.range_min < 1.0f && params.sparams.range_max == 1.0f) {
-                result += std::format("-> {}={:.2f}-{:.2f}:{}/{}({:.2f}%)",name_rx, params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent);
-            }
-            if (params.sparams.range_min < 1.0f) {
-                result += std::format("-> k={}/{}", params.sparams.k_limit, k_total);
-                if (k_set) result += " set!";
-            }
-            result += "-> greedy";
-        } else {
+        //if (params.sparams.temp <= 0) {
+            // if (params.sparams.n_probs > 0) {
+                // result += std::format("-> {}={}", name_top_k, params.sparams.n_probs);
+            // }
+            // if (params.sparams.range_min < 1.0f && params.sparams.range_max == 1.0f) {
+                // result += std::format("-> {}={:.2f}-{:.2f}:{}/{}({:.2f}%)",name_rx, params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent);
+            // }
+            // if (params.sparams.range_min < 1.0f) {
+                // result += std::format("-> k={}/{}", params.sparams.k_limit, k_total);
+                // if (k_set) result += " set!";
+            // }
+            // if (params.sparams.noise_min > 0.0f) {
+                // result += std::format("-> noise={:.2f}-{:.2f}", params.sparams.noise_min, params.sparams.noise_max);
+            // }
+
+        //    result += std::format("-> {:.2f} greedy",params.sparams.temp);
+        //} else {
             std::string name_penalty_repeat = fullnames ? "penalty_repeat" : "p_r";
             std::string name_penalty_threshold = fullnames ? "penalty_threshold" : "p_t";
             std::string name_penalty_freq = fullnames ? "penalty_freq" : "p_f";
@@ -538,6 +546,7 @@ public:
             std::string name_xtc_threshold = fullnames ? "xtc_threshold" : "x_t";
             std::string name_top_p = fullnames ? "top_p" : "P";
             std::string name_min_p = fullnames ? "min_p" : "M";
+            std::string name_noise = fullnames ? "noise" : "O";
 
             if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += std::format("-> {}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
             if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format("-> {}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
@@ -571,6 +580,7 @@ public:
                         case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); result += std::format("({})", p_step_total); break;
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
+                        case 'o': result += std::format("{}={:.2f}-{}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
                         case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); result += std::format("({})", min_p_total); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
                         case 't': {
@@ -587,11 +597,17 @@ public:
                                 result += std::format("({})", temp_total);
                                 break;
                             }
+                        case 'T': {
+                                result += std::format("{}={:.2f}", name_temp, params.sparams.temp);
+                                if (params.sparams.temp <= 0) result += "(greedy)";
+                                break;
+                            }
                         default : break;
                     }
                 }
             }
-        }
+        //}
+        result += std::format("({}vs{})", num_probs_tops, num_probs_bottoms);
         return result;
     }
 
@@ -840,6 +856,7 @@ public:
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
         common_init_result llama_init = common_init_from_params(params);
+        printf("..............common_init_from_params (%s)................\n", __func__);
 
         model = llama_init.model;
         ctx = llama_init.context;
@@ -875,6 +892,7 @@ public:
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
         common_init_result llama_init = common_init_from_params(params);
+        printf("..............common_init_from_params (%s)................\n", __func__);
 
         model = llama_init.model;
         ctx = llama_init.context;
@@ -946,6 +964,7 @@ public:
 #endif
             // load the model and apply lora adapter, if any
             common_init_result llama_init = common_init_from_params(params);
+            printf("..............common_init_from_params (%s)................\n", __func__);
 
             model = llama_init.model;
             ctx = llama_init.context;
