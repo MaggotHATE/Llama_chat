@@ -295,7 +295,7 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t rang
 
     // Create a Gaussian distribution with mean 0 and standard deviation of your choice
     std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-std::string cur_p_disp = "\n" + getFormattedCandidatesFull(cur_p);
+// std::string cur_p_disp = "\n" + std::to_string(cur_p->selected) + getFormattedCandidatesFull(cur_p);
     // Apply Gaussian noise to each logit
     for (size_t i = 0; i < range; ++i) {
         // Add Gaussian noise to the logit
@@ -306,8 +306,8 @@ std::string cur_p_disp = "\n" + getFormattedCandidatesFull(cur_p);
 
     llama_sampler_softmax_impl(cur_p);
 
-cur_p_disp += "\n" + getFormattedCandidatesFull(cur_p) + "\n";
-writeToFile("randomization.txt", cur_p_disp);
+// cur_p_disp += "\n" + getFormattedCandidatesFull(cur_p) + "\n";
+// writeToFile("randomization.txt", cur_p_disp);
     // cur_p->sorted = false;
 }
 
@@ -604,7 +604,7 @@ static void llama_sampler_noise_addon_apply(struct llama_sampler * smpl, llama_t
     // Create a Gaussian distribution
     std::normal_distribution<float> distribution(ctx->min, ctx->max);
 
-// std::string data = "\n\nINPUT : " + getFormattedCandidates(cur_p);
+// std::string data = "\n\nINPUT: " + std::to_string(cur_p->selected) + getFormattedCandidates(cur_p);
 
     // Apply Gaussian noise to each logit
     for (size_t i = 0; i < cur_p->size; ++i) {

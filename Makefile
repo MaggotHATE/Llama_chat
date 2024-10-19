@@ -264,6 +264,7 @@ LDFLAGS  =
 
 PREFIX_S =
 PREFIX_O =
+PREFIX_A =
 
 ifndef SGEMM_OFF
 	CXXFLAGS += -DGGML_USE_LLAMAFILE
@@ -279,10 +280,17 @@ ifndef OPENMP_OFF
 	override PREFIX_O = _OMP
 endif # OPENMP
 
-PREFIX_BASE = s2$(PREFIX_S)$(PREFIX_O)
+ifndef AMX_OFF
+	CXXFLAGS += -DGGML_USE_AMX
+	CXXFLAGS_UI += -DGGML_USE_AMX
+	CFLAGS += -DGGML_USE_AMX
+	override PREFIX_A = _AMX
+endif # AMX
+
+PREFIX_BASE = s2$(PREFIX_S)$(PREFIX_A)$(PREFIX_O)
 
 ifdef SAMPLING1
-PREFIX_BASE = s1$(PREFIX_S)$(PREFIX_O)
+PREFIX_BASE = s1$(PREFIX_S)$(PREFIX_A)$(PREFIX_O)
 endif
 
 # Windows Sockets 2 (Winsock) for network-capable apps
@@ -391,8 +399,17 @@ OBJS_GGUF = \
     $(TMP)$(PREFIX)_sampling.o \
     $(TMP)$(PREFIX)_common.o \
     $(TMP)$(PREFIX)_unicode.o \
-    $(TMP)$(PREFIX)_unicode-data.o \
-    $(TMP)$(PREFIX)_sgemm.o
+    $(TMP)$(PREFIX)_unicode-data.o
+
+# SGEMM and others
+
+ifndef SGEMM_OFF
+	OBJS_GGUF += $(TMP)$(PREFIX)_sgemm.o
+endif # SGEMM_OFF
+
+ifndef AMX_OFF
+	OBJS_GGUF += $(TMP)$(PREFIX)_amx.o $(TMP)$(PREFIX)_mmq.o
+endif # AMX
 
 ifdef SAMPLING1
 	OBJS_GGUF += $(TMP)$(PREFIX)_grammar-parser.o
@@ -458,7 +475,18 @@ $(TMP)$(PREFIX)_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.cpp \
 
 $(TMP)$(PREFIX)_sgemm.o: $(ggmlsrc_f)/llamafile/sgemm.cpp $(ggmlsrc_f)/llamafile/sgemm.h $(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-	
+
+$(TMP)$(PREFIX)_amx.o: \
+	$(ggmlsrc_f)/ggml-amx.cpp \
+	$(ggmlsrc_f)/ggml-amx.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TMP)$(PREFIX)_mmq.o: \
+	$(ggmlsrc_f)/ggml-amx/mmq.cpp \
+	$(ggmlsrc_f)/ggml-amx/mmq.h \
+	$(ggmlsrc_f)/ggml.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(TMP)$(PREFIX)_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

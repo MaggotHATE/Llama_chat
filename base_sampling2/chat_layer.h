@@ -796,7 +796,7 @@ public:
             int enc_input_size = std::size(embd_inp);
             llama_token * enc_input_buf = embd_inp.data();
 
-            if (llama_encode(ctx, llama_batch_get_one(enc_input_buf, enc_input_size, 0, 0))) {
+            if (llama_encode(ctx, llama_batch_get_one(enc_input_buf, enc_input_size))) {
                 return 1;
             }
 
@@ -1269,7 +1269,7 @@ public:
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-            if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval, n_past, 0))) {
+            if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 std::string report = std::format("evaluate_main(): failed to eval: {}\n{}\n Failed: {}", params.model, params.prompt,embd[i]);
                 writeTextFile(std::to_string(getRand()) + ".txt", report);

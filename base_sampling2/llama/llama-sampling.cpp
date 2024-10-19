@@ -66,22 +66,19 @@ static void llama_log_softmax(float * array, size_t size) {
 }
 */
 
+
+static void llama_sampler_greedy_impl(llama_token_data_array * cur_p) {
+    cur_p->selected = 0;
+    for (size_t i = 1; i < cur_p->size; ++i) {
+        if (cur_p->data[i].logit > cur_p->data[cur_p->selected].logit) {
+            cur_p->selected = i;
+        }
+    }
+}
+
 static void llama_sampler_temp_impl(llama_token_data_array * cur_p, float temp) {
     if (temp <= 0.0f) {
-        // find the token with the highest logit and set the rest to -inf
-        size_t max_i = 0;
-        float  max_l = cur_p->data[0].logit;
-
-        for (size_t i = 1; i < cur_p->size; ++i) {
-            if (cur_p->data[i    ].logit > max_l) {
-                cur_p->data[max_i].logit = -INFINITY;
-                max_i = i;
-                max_l = cur_p->data[i].logit;
-            } else {
-                cur_p->data[i].logit = -INFINITY;
-            }
-        }
-
+        llama_sampler_greedy_impl(cur_p);
         return;
     }
 
@@ -455,6 +452,14 @@ static const char * llama_sampler_dist_name(const struct llama_sampler * /*smpl*
 static void llama_sampler_dist_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     auto * ctx = (llama_sampler_dist *) smpl->ctx;
 
+    if (cur_p->selected != -1) {
+        float prob_selected = cur_p->data[cur_p->selected].p;
+        if (prob_selected >= 0.5f) ++num_probs_tops;
+        else ++num_probs_bottoms;
+
+        return;
+    }
+
     llama_sampler_softmax_impl(cur_p);
 
     cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
@@ -547,6 +552,9 @@ static const char * llama_sampler_top_k_name(const struct llama_sampler * /*smpl
 
 static void llama_sampler_top_k_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_top_k *) smpl->ctx;
+
+    if (cur_p->selected != -1) return;
+
     llama_sampler_top_k_impl(cur_p, ctx->k);
 }
 
@@ -591,7 +599,7 @@ static const char * llama_sampler_top_p_name(const struct llama_sampler * /*smpl
 static void llama_sampler_top_p_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_top_p *) smpl->ctx;
 
-    if (ctx->p >= 1.0f) {
+    if (ctx->p >= 1.0f || cur_p->selected != -1) {
         return;
     }
 
@@ -658,7 +666,7 @@ static const char * llama_sampler_min_p_name(const struct llama_sampler * /*smpl
 static void llama_sampler_min_p_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_min_p *) smpl->ctx;
 
-    if (ctx->p <= 0.0f || !cur_p->size) {
+    if (cur_p->selected != -1 || ctx->p <= 0.0f || !cur_p->size) {
         return;
     }
 
@@ -754,7 +762,7 @@ static const char * llama_sampler_tail_free_name(const struct llama_sampler * /*
 static void llama_sampler_tail_free_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_tail_free *) smpl->ctx;
 
-    if (ctx->z >= 1.0f || cur_p->size <= 2) {
+    if (cur_p->selected != -1 || ctx->z >= 1.0f || cur_p->size <= 2) {
         return;
     }
 
@@ -851,7 +859,7 @@ static void llama_sampler_typical_apply(struct llama_sampler * smpl, llama_token
 
     // Reference implementation:
     // https://github.com/huggingface/transformers/compare/main...cimeister:typical-sampling:typical-pr
-    if (ctx->p >= 1.0f) {
+    if (cur_p->selected != -1 || ctx->p >= 1.0f) {
         return;
     }
 
@@ -946,6 +954,9 @@ static const char * llama_sampler_temp_name(const struct llama_sampler * /*smpl*
 
 static void llama_sampler_temp_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_temp *) smpl->ctx;
+
+    if (cur_p->selected != -1) return;
+
     llama_sampler_temp_impl(cur_p, ctx->temp);
 }
 
@@ -990,6 +1001,9 @@ static const char * llama_sampler_temp_ext_name(const struct llama_sampler * /*s
 
 static void llama_sampler_temp_ext_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     const auto * ctx = (llama_sampler_temp_ext *) smpl->ctx;
+
+    if (cur_p->selected != -1) return;
+
     if (ctx->delta > 0) {
         const float min_temp = std::max(0.0f, ctx->temp - ctx->delta);
         const float max_temp = ctx->temp + ctx->delta;
@@ -1107,7 +1121,8 @@ static const char * llama_sampler_xtc_name(const struct llama_sampler * /*smpl*/
 static void llama_sample_xtc_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     auto * ctx = (llama_sampler_xtc *) smpl->ctx;
 
-    if (ctx->probability <= 0.0f
+    if (cur_p->selected != -1
+        || ctx->probability <= 0.0f
         || ctx->threshold > 0.5f
         || cur_p->size < 2) {
         return;
@@ -1777,6 +1792,9 @@ struct llama_sampler * llama_sampler_init_logit_bias(
 
 struct llama_sampler_infill {
     const struct llama_vocab * vocab;
+
+    std::vector<char> buf0;
+    std::vector<char> buf1;
 };
 
 static const char * llama_sampler_infill_name(const struct llama_sampler * /*smpl*/) {
@@ -1842,26 +1860,43 @@ static void llama_sampler_infill_apply(struct llama_sampler * smpl, llama_token_
     size_t n_combined = 0; GGML_UNUSED(n_combined);
 
     // combine tokens with common prefix
-    for (size_t i = 0; i < cur_p->size; ++i) {
-        for (size_t j = 0; j < cur_p->size; ++j) {
-            if (cur_p->data[i].logit == -INFINITY) {
+    for (size_t i0 = 0; i0 < cur_p->size; ++i0) {
+        for (size_t i1 = 0; i1 < cur_p->size; ++i1) {
+            if (cur_p->data[i0].logit == -INFINITY) {
                 break;
             }
 
-            if (i == j || cur_p->data[j].logit == -INFINITY) {
+            if (i0 == i1 || cur_p->data[i1].logit == -INFINITY) {
                 continue;
             }
 
-            if (llama_token_is_prefix_impl(*ctx->vocab, cur_p->data[i].id, cur_p->data[j].id)) {
-                if (cur_p->data[i].p >  cur_p->data[j].p) {
-                    cur_p->data[i].p += cur_p->data[j].p;
-                    cur_p->data[j].logit = -INFINITY;
-                    cur_p->data[j].p     = 0.0f;
-                } else {
-                    cur_p->data[j].p += cur_p->data[i].p;
-                    cur_p->data[i].logit = -INFINITY;
-                    cur_p->data[i].p     = 0.0f;
+            int len0 = llama_token_to_piece_impl(*ctx->vocab, cur_p->data[i0].id, ctx->buf0.data(), ctx->buf0.size(), 0, false);
+            if (len0 < 0) {
+                ctx->buf0.resize(len0);
+                len0 = llama_token_to_piece_impl(*ctx->vocab, cur_p->data[i0].id, ctx->buf0.data(), ctx->buf0.size(), 0, false);
+                assert(len0 > 0);
+            }
+
+            int len1 = llama_token_to_piece_impl(*ctx->vocab, cur_p->data[i1].id, ctx->buf1.data(), ctx->buf1.size(), 0, false);
+            if (len1 < 0) {
+                ctx->buf1.resize(len1);
+                len1 = llama_token_to_piece_impl(*ctx->vocab, cur_p->data[i1].id, ctx->buf1.data(), ctx->buf1.size(), 0, false);
+                assert(len1 > 0);
+            }
+
+            // token i0 is a prefix of token i1
+            if (len0 > 0 && len0 <= len1 && memcmp(ctx->buf0.data(), ctx->buf1.data(), len0) == 0) {
+                int dst = i0;
+                int src = i1;
+
+                // merge into the token with higher probability
+                if (cur_p->data[i1].p > cur_p->data[i0].p) {
+                    std::swap(dst, src);
                 }
+
+                cur_p->data[dst].p += cur_p->data[src].p;
+                cur_p->data[src].logit = -INFINITY;
+                cur_p->data[src].p     = 0.0f;
 
                 n_combined++;
             }
@@ -1968,6 +2003,8 @@ struct llama_sampler * llama_sampler_init_infill_impl(
         /* .iface = */ &llama_sampler_infill_i,
         /* .ctx   = */ new llama_sampler_infill {
             /* .vocab = */ &vocab,
+            /* .buf0 = */ std::vector<char>(512),
+            /* .buf1 = */ std::vector<char>(512),
         },
     };
 }
