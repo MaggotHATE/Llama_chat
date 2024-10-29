@@ -372,19 +372,6 @@ std::string common_params_get_system_info(const common_params & params) {
 // String utils
 //
 
-std::vector<std::string> string_split(std::string input, char separator) {
-    std::vector<std::string> parts;
-    size_t separator_pos = input.find(separator);
-    while (separator_pos != std::string::npos) {
-        std::string part = input.substr(0, separator_pos);
-        parts.emplace_back(part);
-        input = input.substr(separator_pos + 1);
-        separator_pos = input.find(separator);
-    }
-    parts.emplace_back(input);
-    return parts;
-}
-
 std::string string_strip(const std::string & str) {
     size_t start = 0;
     size_t end = str.size();
@@ -991,7 +978,7 @@ static ggml_type kv_cache_type_from_str(const std::string & s) {
         return GGML_TYPE_Q5_1;
     }
 
-    throw std::runtime_error("Invalid cache type: " + s);
+    throw std::runtime_error("Unsupported cache type: " + s);
 }
 
 struct llama_context_params common_context_params_to_llama(const common_params & params) {

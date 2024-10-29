@@ -78,6 +78,15 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 params.penalize_nl,
                 params.ignore_eos));
 
+    if (params.dry_multiplier > 0) {
+        std::vector<const char*> c_breakers;
+        c_breakers.reserve(params.dry_sequence_breakers.size());
+        for (const auto& str : params.dry_sequence_breakers) {
+            c_breakers.push_back(str.c_str());
+        }
+        llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (model, params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
+    }
+
     //if (params.temp > 0.0f) {
         if (params.mirostat == 0) {
             for (const auto & cnstr : params.samplers_sequence) {
@@ -98,7 +107,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         llama_sampler_chain_add(result->chain, llama_sampler_init_typical  (params.typical_p, params.min_keep));
                         break;
                     case 't':
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext_addon (params.temp, params.dynatemp_range, params.dynatemp_exponent, params.smoothing_factor, params.smoothing_curve));
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext_addon (params.temp, params.dynatemp_range, params.dynatemp_exponent, params.smoothing_factor, params.smoothing_curve, params.temp_adaptive));
                         break;
                     case 'T':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext (params.temp, params.dynatemp_range, params.dynatemp_exponent));
@@ -112,6 +121,9 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                     case 'r':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_rx_addon (params.range_max, params.range_min, params.min_keep));
                         break;
+                    case 'l':
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.k_shift));
+                        break;
                     case 'x':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_xtc_addon (params.xtc_probability, params.xtc_threshold, params.xtc_threshold_max, params.xtc_probability_once, params.xtc_min, params.min_keep, params.seed));
                         break;
@@ -122,6 +134,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         break;
                 }
             }
+            //llama_sampler_chain_add(result->chain, llama_sampler_init_post_addon(params.seed, params.xtc_probability, params.xtc_threshold));
             llama_sampler_chain_add(result->chain, llama_sampler_init_dist(params.seed));
         } else if (params.mirostat == 1) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));

@@ -289,6 +289,28 @@ static void sliderDynatemp_range(float& dynatemp_range, float& temp, float& defa
     } ImGui::SameLine(); HelpMarker( (std::format("Dynamically adjusts randomness in a range of temp +- dynatemp_range. Activated if dynatemp_range > 0. Default: {:.2f}. Current: ({:.2f} - {:.2f})",default_dynatemp_range, temp > dynatemp_range ? temp - dynatemp_range : 0, temp + dynatemp_range)).c_str());
 }
 
+static void sliderKShift(int& k_shift, int& default_k_shift)
+{
+    {
+        if (ImGui::Button(" -##k_shift")) {
+            --k_shift;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##k_shift")) {
+            k_shift++;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderInt("k_shift", &k_shift, 0, 100);
+    if (ImGui::BeginPopupContextItem("k_shift"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            k_shift = default_k_shift;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker(("Shifts the first inference of the entire dialog to k token, can help with reasosning on greedy sampling. Default: " + std::to_string(default_k_shift)).c_str());
+}
+
 static void sliderTopK(int& top_k, int& default_top_k)
 {
     {
@@ -308,7 +330,7 @@ static void sliderTopK(int& top_k, int& default_top_k)
             top_k = default_top_k;
         }
         ImGui::EndPopup();
-    } ImGui::SameLine(); HelpMarker(("Top-k sampling. Selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output. Default: " + std::to_string(default_top_k)).c_str());
+    } ImGui::SameLine(); HelpMarker(("Top-k sampling. Selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output. Set to 1 for greedy sampling. Default: " + std::to_string(default_top_k)).c_str());
 }
 
 static void sliderTopP(float& top_p, float& default_top_p){
@@ -563,6 +585,27 @@ static void sliderMirostatEta(float& mirostat_eta, float& default_mirostat_eta){
     } ImGui::SameLine(); HelpMarker(("Mirostat target entropy. Default: " + std::to_string(default_mirostat_eta)).c_str());
 }
 
+static void sliderXTCthreshold(float& xtc_threshold, float& default_xtc_threshold){
+    {
+        if (ImGui::Button(" -##xtc_threshold")) {
+            xtc_threshold -= 0.001f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+ ##xtc_threshold")) {
+            xtc_threshold += 0.001f;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::SliderFloat("xtc_threshold", &xtc_threshold, 0.00f, 0.50f);
+    if (ImGui::BeginPopupContextItem("xtc_threshold"))
+    {
+        if (ImGui::Selectable("Reset to default")){
+            xtc_threshold = default_xtc_threshold;
+        }
+        ImGui::EndPopup();
+    } ImGui::SameLine(); HelpMarker(("XTC lower threshold. Default: " + std::to_string(default_xtc_threshold)).c_str());
+}
+
 static void paramsPanel(common_params& params, int& totalThreads) {
         //ImGui::SliderInt("n_threads", &localSettings.n_threads, 1, 4);
         sliderTemp(params.sparams.temp, paramsDefault.sparams.temp);
@@ -572,31 +615,35 @@ static void paramsPanel(common_params& params, int& totalThreads) {
         sliderTempSmoothingCurve(params.sparams.smoothing_curve, paramsDefault.sparams.smoothing_curve);
         
         sliderDynatemp_range(params.sparams.dynatemp_range, params.sparams.temp, paramsDefault.sparams.dynatemp_range);
-        
+
+        sliderKShift(params.sparams.k_shift, paramsDefault.sparams.k_shift);
+
         sliderTopK(params.sparams.top_k, paramsDefault.sparams.top_k);
-        
+
         sliderTopP(params.sparams.top_p, paramsDefault.sparams.top_p);
-        
+
         sliderMinP(params.sparams.min_p, paramsDefault.sparams.min_p);
-        
+
         sliderRepeatPen(params.sparams.penalty_repeat, paramsDefault.sparams.penalty_repeat);
-        
+
         sliderRepeatThresh(params.sparams.penalty_threshold, paramsDefault.sparams.penalty_threshold);
-        
+
         sliderFrequencyPen(params.sparams.penalty_freq, paramsDefault.sparams.penalty_freq);
-        
+
         sliderPresencePen(params.sparams.penalty_present, paramsDefault.sparams.penalty_present);
-        
+
         sliderTfsZ(params.sparams.tfs_z, paramsDefault.sparams.tfs_z);
-        
+
         sliderTypicalP(params.sparams.typical_p, paramsDefault.sparams.typical_p);
-        
+
         sliderPStep(params.sparams.p_step, paramsDefault.sparams.p_step);
-        
+
+        sliderXTCthreshold(params.sparams.xtc_threshold, paramsDefault.sparams.xtc_threshold);
+
         sliderMirostat(params.sparams.mirostat, paramsDefault.sparams.mirostat);
-        
+
         sliderMirostatTau(params.sparams.mirostat_tau, paramsDefault.sparams.mirostat_tau);
-        
+
         sliderMirostatEta(params.sparams.mirostat_eta, paramsDefault.sparams.mirostat_eta);
 }
 
@@ -1563,6 +1610,7 @@ struct chatUI{
             sessionHistory[localSettings.modelName].emplace_back(inputStr);
         }
         newChat.appendQuestion(inputStr);
+        remove_last_nl(inputStr);
         localResultPairs = newChat.resultsStringPairs;
         //newChat.getResultAsyncString();
         inputStr = "";
@@ -1717,6 +1765,14 @@ struct chatUI{
                         ImGui::EndPopup();
                     }
                 }
+
+                if (ImGui::Button("Save all")) {
+                    auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+
+                    if (saveAnswer){
+                        newChat.writeTextFileSimple(saveAnswer);
+                    }
+                }
             }
                 
             
@@ -1801,6 +1857,15 @@ struct chatUI{
                         }
                         
                         ImGui::EndPopup();
+                    }
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Save all")) {
+                    auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
+
+                    if (saveAnswer){
+                        newChat.writeTextFileSimple(saveAnswer);
                     }
                 }
             }
@@ -2528,18 +2593,7 @@ struct chatUI{
             //show_settings_advanced = !show_settings_advanced;
             ImGui::OpenPopup("Sampling settings");
         }
-            
-        if (newChat.isContinue == 'i') {
-            ImGui::SameLine();
-            if (ImGui::Button("Save all")) {
-                auto saveAnswer = tinyfd_saveFileDialog( std::to_string(messageNum).c_str() , currPath.c_str() , 1 , instructFilterPatterns, NULL);
 
-                if (saveAnswer){
-                    newChat.writeTextFileSimple(saveAnswer);
-                }
-            }
-        }
-        
         ImVec2 settings_size = ImVec2(width * 0.95f, ImGui::GetTextLineHeightWithSpacing() * 33);
         if (ImGui::BeginPopup("Basic settings", ImGuiWindowFlags_NoSavedSettings)) {
             
@@ -2804,6 +2858,7 @@ struct chatUI{
                     if (newChat.isContinue != 'w') {
                         if (!isGeneratingTest){
                             newChat.appendQuestion(Test.prompt);
+                            remove_last_nl(Test.prompt);
                             localResultPairs = newChat.resultsStringPairs;
                             newChat.startGen();
                             //newChat.getResultAsyncStringFull2(false, true);

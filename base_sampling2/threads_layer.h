@@ -282,9 +282,9 @@ struct modelThread{
             messages_display += header + r.second;
 
             if (r.first == "AI" || r.first == "INSTRUCT"){
-                header = "\n>>>\n";
+                header = "\n>>> ";
             } else {
-                header = "\n<<<\n";
+                header = "\n<<< ";
             }
 
         }
@@ -327,6 +327,8 @@ struct modelThread{
         text +=  std::format("\n-ctx size: {}" , newChat.params.n_ctx);
         text +=  std::format("\n-batch size: {}", newChat.params.n_batch);
         text +=  std::format("\n-ubatch size: {}", newChat.params.n_ubatch);
+        text +=  std::format("\n-cache_type_k: {}", newChat.params.cache_type_k);
+        text +=  std::format("\n-cache_type_v: {}", newChat.params.cache_type_v);
 #ifdef GGML_USE_CLBLAST
         text +=  std::format("\n-GPU: {}", GGML_OPENCL_RESULT_DEVICE_NAME);
 #endif
@@ -1250,6 +1252,7 @@ struct configurableChat{
     void pushSettings(chat& aChat){
         //aChat.params.n_threads = n_threads;
         aChat.params.sparams.temp = params.sparams.temp;
+        aChat.params.sparams.temp_adaptive = params.sparams.temp_adaptive;
         //aChat.params.n_keep = params.n_keep;
         aChat.params.sparams.top_k = params.sparams.top_k;
         aChat.params.sparams.top_p = params.sparams.top_p;
@@ -1259,7 +1262,7 @@ struct configurableChat{
         aChat.params.sparams.noise_max = params.sparams.noise_max;
         aChat.params.sparams.range_min = params.sparams.range_min;
         aChat.params.sparams.range_max = params.sparams.range_max;
-        aChat.params.sparams.k_limit = params.sparams.k_limit;
+        aChat.params.sparams.k_shift = params.sparams.k_shift;
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
         aChat.params.sparams.p_step = params.sparams.p_step;
@@ -1407,6 +1410,7 @@ struct configurableChat{
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) modelConfig[model]["temp_smoothing"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) modelConfig[model]["smoothing_factor"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) modelConfig[model]["smoothing_curve"] = params.sparams.smoothing_curve;
+        if (params.sparams.temp_adaptive != paramsDefault.sparams.temp_adaptive) modelConfig[model]["temp_adaptive"] = params.sparams.temp_adaptive;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) modelConfig[model]["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
@@ -1415,7 +1419,7 @@ struct configurableChat{
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) modelConfig[model]["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) modelConfig[model]["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) modelConfig[model]["range_max"] = params.sparams.range_max;
-        if (params.sparams.k_limit != paramsDefault.sparams.k_limit) modelConfig[model]["k_limit"] = params.sparams.k_limit;
+        if (params.sparams.k_shift != paramsDefault.sparams.k_shift) modelConfig[model]["k_shift"] = params.sparams.k_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         
         if (params.sparams.p_step_func != paramsDefault.sparams.p_step_func) {
@@ -1532,6 +1536,7 @@ struct configurableChat{
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) newCard["temp_smoothing"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_factor != paramsDefault.sparams.smoothing_factor) newCard["smoothing_factor"] = params.sparams.smoothing_factor;
         if (params.sparams.smoothing_curve != paramsDefault.sparams.smoothing_curve) newCard["smoothing_curve"] = params.sparams.smoothing_curve;
+        if (params.sparams.temp_adaptive != paramsDefault.sparams.temp_adaptive) newCard["temp_adaptive"] = params.sparams.temp_adaptive;
         if (params.sparams.top_k != paramsDefault.sparams.top_k) newCard["top_k"] = params.sparams.top_k;
         if (params.sparams.top_p != paramsDefault.sparams.top_p) newCard["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
@@ -1540,7 +1545,7 @@ struct configurableChat{
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) newCard["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) newCard["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) newCard["range_max"] = params.sparams.range_max;
-        if (params.sparams.k_limit != paramsDefault.sparams.k_limit) newCard["k_limit"] = params.sparams.k_limit;
+        if (params.sparams.k_shift != paramsDefault.sparams.k_shift) newCard["k_shift"] = params.sparams.k_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;

@@ -217,6 +217,7 @@ extern "C" {
 
     typedef struct llama_token_data_array {
         // TODO: consider SoA
+        // NOTE: this pointer can be modified by the samplers
         llama_token_data * data;
         size_t size;
         int64_t selected; // this is the index in the data array (i.e. not the token id)
@@ -1069,12 +1070,13 @@ extern "C" {
 
     // available samplers:
 
-    LLAMA_API struct llama_sampler * llama_sampler_init_greedy     (void);
-    LLAMA_API struct llama_sampler * llama_sampler_init_dist       (uint32_t seed);
+    LLAMA_API struct llama_sampler * llama_sampler_init_greedy(void);
+    LLAMA_API struct llama_sampler * llama_sampler_init_dist  (uint32_t seed);
 
     /// @details Sorts candidate tokens by their logits in descending order and calculate probabilities based on logits.
     /// NOTE: Avoid using on the full vocabulary as the sorting can become slow. For example, apply top-k or top-p sampling first.
-    LLAMA_API struct llama_sampler * llama_sampler_init_softmax    (void);
+    DEPRECATED(LLAMA_API struct llama_sampler * llama_sampler_init_softmax    (void),
+        "will be removed in the future (see https://github.com/ggerganov/llama.cpp/pull/9896#discussion_r1800920915)");
 
     /// @details Top-K sampling described in academic paper "The Curious Case of Neural Text Degeneration" https://arxiv.org/abs/1904.09751
     LLAMA_API struct llama_sampler * llama_sampler_init_top_k      (int32_t k);
@@ -1090,6 +1092,8 @@ extern "C" {
 
     /// @details Locally Typical Sampling implementation described in the paper https://arxiv.org/abs/2202.00666.
     LLAMA_API struct llama_sampler * llama_sampler_init_typical    (float   p, size_t min_keep);
+
+    /// #details Updates the logits l_i` = l_i/t. When t <= 0.0f, the maximum logit is kept at it's original value, the rest are set to -inf
     LLAMA_API struct llama_sampler * llama_sampler_init_temp       (float   t);
 
     /// @details Dynamic temperature implementation (a.k.a. entropy) described in the paper https://arxiv.org/abs/2309.02772.
@@ -1136,6 +1140,16 @@ extern "C" {
                                float   penalty_present, // 0.0 = disabled
                                 bool   penalize_nl,     // consider newlines as a repeatable token
                                 bool   ignore_eos);     // ignore the end-of-sequence token
+
+    ///  @details DRY sampler, designed by p-e-w, as described in: https://github.com/oobabooga/text-generation-webui/pull/5677, porting Koboldcpp implementation authored by pi6am: https://github.com/LostRuins/koboldcpp/pull/982
+    LLAMA_API struct llama_sampler *    llama_sampler_init_dry(
+            const struct llama_model *  model,
+                               float    dry_multiplier,
+                               float    dry_base,
+                             int32_t    dry_allowed_length,
+                             int32_t    dry_penalty_last_n,
+                          const char ** seq_breakers,
+                              size_t    num_breakers);
 
     LLAMA_API struct llama_sampler * llama_sampler_init_logit_bias(
                              int32_t   n_vocab,

@@ -536,6 +536,7 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     if (checkJNum(config, "temp_smoothing")) params.sparams.smoothing_factor = config["temp_smoothing"];
     if (checkJNum(config, "smoothing_factor")) params.sparams.smoothing_factor = config["smoothing_factor"];
     if (checkJNum(config, "smoothing_curve")) params.sparams.smoothing_curve = config["smoothing_curve"];
+    if (checkJBool(config, "temp_adaptive")) params.sparams.temp_adaptive = config["temp_adaptive"];
     if (checkJNum(config, "top_k")) params.sparams.top_k = config["top_k"];
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
@@ -544,7 +545,7 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     if (checkJNum(config, "noise_max")) params.sparams.noise_max = config["noise_max"];
     if (checkJNum(config, "range_min")) params.sparams.range_min = config["range_min"];
     if (checkJNum(config, "range_max")) params.sparams.range_max = config["range_max"];
-    if (checkJNum(config, "k_limit")) params.sparams.k_limit = config["k_limit"];
+    if (checkJNum(config, "k_shift")) params.sparams.k_shift = config["k_shift"];
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
