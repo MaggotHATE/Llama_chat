@@ -176,6 +176,39 @@ static std::string getFormattedCandidatesFull(llama_token_data_array * candidate
     return text;
 }
 
+static std::string getFormattedCandidatesPart(llama_token_data_array * candidates, size_t part){
+    std::string text = "(" + std::to_string(candidates->size) + "): ";
+    
+    size_t cur_size = std::min(part, candidates->size);
+    
+    for (size_t i = 0; i < cur_size; ++i) {
+        int chance = candidates->data[i].p * 100;
+        float logit = candidates->data[i].logit;
+        if (logit > 0 || candidates->size == 1) { 
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+        }
+    }
+    //if (zeroes > 0) text += "~" + std::to_string(zeroes);
+
+    return text;
+}
+
+static std::string getFormattedCandidatesPartLogitsOnly(llama_token_data_array * candidates, size_t part){
+    std::string text = "(" + std::to_string(candidates->size) + "): ";
+    
+    size_t cur_size = std::min(part, candidates->size);
+    
+    for (size_t i = 0; i < cur_size; ++i) {
+        float logit = candidates->data[i].logit;
+        if (logit > 0.0f || candidates->size == 1) { 
+            text += " #" + std::to_string(i) +"[" + std::to_string(logit) + "]"; 
+        }
+    }
+    //if (zeroes > 0) text += "~" + std::to_string(zeroes);
+
+    return text;
+}
+
 static std::string getFormattedCandidatesVec(std::vector<llama_token_data> & candidates){
     std::string text = "(" + std::to_string(candidates.size()) + "): ";
     int zeroes = 0;
@@ -352,6 +385,9 @@ static void llama_sampler_top_shift_impl(llama_token_data_array * cur_p, int k) 
         return a.logit > b.logit;
     });
 
+std::string cur_p_disp = "\n" + getFormattedCandidatesPartLogitsOnly(cur_p, 8);
+writeToFile("k_addon.txt", cur_p_disp);
+
     // shift to a token #[k]
     cur_p->data += k;
     cur_p->size -= k;
@@ -383,6 +419,27 @@ static void llama_sampler_confidence_shift_impt(llama_token_data_array * cur_p) 
     writeToFile("k_addon.txt", conf_disp);
 
     k_total = cur_p->size;
+}
+
+static void llama_sampler_confidence_shift2_impl(llama_token_data_array * cur_p, float conf_diff, int k_max) {
+    // sort before shifting
+    llama_sampler_sort_only_impl(cur_p);
+
+std::string cur_p_disp = "\n" + getFormattedCandidatesPartLogitsOnly(cur_p, 6);
+
+    float confidence = cur_p->data[0].logit - cur_p->data[1].logit;
+    int k = 0;
+    
+    while (confidence > conf_diff && k < k_max) {
+        cur_p->data += 1;
+        cur_p->size -= 1;
+        ++k;
+
+        confidence = cur_p->data[0].logit - cur_p->data[1].logit;
+    }
+
+cur_p_disp += "\nCutting out " + std::to_string(k) + " tokens before " + std::to_string(confidence) + " conf diff vs " + std::to_string(conf_diff);
+writeToFile("k_addon.txt", cur_p_disp);
 }
 
 // dist
@@ -488,6 +545,7 @@ struct llama_sampler * llama_sampler_init_post_addon(uint32_t seed, float probab
 //-------------------LIMIT K------------------------
 
 struct llama_sampler_limit_k {
+    const float   confidence_shift;
     const int32_t k;
     bool k_set = false;
 };
@@ -499,11 +557,16 @@ static const char * llama_sampler_limit_k_name(const struct llama_sampler * /*sm
 static void llama_sampler_limit_k_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     auto * ctx = (llama_sampler_limit_k *) smpl->ctx;
 
-    if (ctx->k <= 0 || ctx->k_set == true) {
+    if (ctx->k_set == true) {
         return;
     }
 
-    llama_sampler_top_shift_impl(cur_p, ctx->k);
+    // if (ctx->k <= 0) {
+        // return;
+    // }
+
+    //llama_sampler_top_shift_impl(cur_p, ctx->k);
+    llama_sampler_confidence_shift2_impl(cur_p, ctx->confidence_shift, ctx->k);
     ctx->k_set = true;
 
     //llama_sampler_confidence_shift_impt(cur_p);
@@ -514,7 +577,7 @@ static void llama_sampler_limit_k_apply(struct llama_sampler * smpl, llama_token
 static struct llama_sampler * llama_sampler_limit_k_clone(const struct llama_sampler * smpl) {
     auto * ctx = (const llama_sampler_limit_k *) smpl->ctx;
 
-    return llama_sampler_init_limit_k(ctx->k);
+    return llama_sampler_init_limit_k(ctx->confidence_shift, ctx->k);
 }
 
 static void llama_sampler_limit_k_free(struct llama_sampler * smpl) {
@@ -535,11 +598,12 @@ static struct llama_sampler_i llama_sampler_limit_k_i = {
     /* .free   = */ llama_sampler_limit_k_free,
 };
 
-struct llama_sampler * llama_sampler_init_limit_k(int32_t k) {
+struct llama_sampler * llama_sampler_init_limit_k(float confidence_shift, int32_t k) {
     return new llama_sampler {
         /* .iface = */ &llama_sampler_limit_k_i,
         /* .ctx   = */ new llama_sampler_limit_k {
-            /* .k = */ k,
+            /* .confidence_shift = */ confidence_shift,
+            /* .k                = */ k,
         },
     };
 }
@@ -1383,3 +1447,98 @@ struct llama_sampler * llama_sampler_init_penalties_addon(
 
 //------------------------DRY---------------------------------
 // implemented in the mainline llama.cpp
+
+// tail-free backup
+
+struct llama_sampler_tail_free {
+    const float  z;
+    const size_t min_keep;
+};
+
+static const char * llama_sampler_tail_free_name(const struct llama_sampler * /*smpl*/) {
+    return "tail-free";
+}
+
+static void llama_sampler_tail_free_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    const auto * ctx = (llama_sampler_tail_free *) smpl->ctx;
+
+    if (ctx->z >= 1.0f || cur_p->size <= 2) {
+        return;
+    }
+
+    llama_sampler_softmax_impl(cur_p);
+
+    // Compute the first and second derivatives
+    std::vector<float> first_derivatives(cur_p->size - 1);
+    std::vector<float> second_derivatives(cur_p->size - 2);
+
+    for (size_t i = 0; i < first_derivatives.size(); ++i) {
+        first_derivatives[i] = cur_p->data[i].p - cur_p->data[i + 1].p;
+    }
+    for (size_t i = 0; i < second_derivatives.size(); ++i) {
+        second_derivatives[i] = first_derivatives[i] - first_derivatives[i + 1];
+    }
+
+    // Calculate absolute value of second derivatives
+    for (size_t i = 0; i < second_derivatives.size(); ++i) {
+        second_derivatives[i] = std::abs(second_derivatives[i]);
+    }
+
+    // Normalize the second derivatives
+    {
+        const float second_derivatives_sum = std::accumulate(second_derivatives.begin(), second_derivatives.end(), 0.0f);
+
+        if (second_derivatives_sum > 1e-6f) {
+            for (float & value : second_derivatives) {
+                value /= second_derivatives_sum;
+            }
+        } else {
+            for (float & value : second_derivatives) {
+                value = 1.0f / second_derivatives.size();
+            }
+        }
+    }
+
+    float cum_sum = 0.0f;
+    size_t last_idx = cur_p->size;
+    for (size_t i = 0; i < second_derivatives.size(); ++i) {
+        cum_sum += second_derivatives[i];
+
+        // Check if the running sum is greater than z or if we have kept at least min_keep tokens
+        if (cum_sum > ctx->z && i >= ctx->min_keep) {
+            last_idx = i;
+            break;
+        }
+    }
+
+    // Resize the output vector to keep only the tokens above the tail location
+    cur_p->size = last_idx;
+}
+
+static struct llama_sampler * llama_sampler_tail_free_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_tail_free *) smpl->ctx;
+    return llama_sampler_init_tail_free(ctx->z, ctx->min_keep);
+}
+
+static void llama_sampler_tail_free_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_tail_free *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_tail_free_i = {
+    /* .name   = */ llama_sampler_tail_free_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_tail_free_apply,
+    /* .reset  = */ nullptr,
+    /* .clone  = */ llama_sampler_tail_free_clone,
+    /* .free   = */ llama_sampler_tail_free_free,
+};
+
+struct llama_sampler * llama_sampler_init_tail_free(float z, size_t min_keep) {
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_tail_free_i,
+        /* .ctx   = */ new llama_sampler_tail_free {
+            /* .z        = */ z,
+            /*. min_keep = */ min_keep,
+        },
+    };
+}

@@ -167,6 +167,9 @@ llama_token common_sampler_last(const struct common_sampler * gsmpl);
 // print the sampler chain into a string
 std::string common_sampler_print(const struct common_sampler * gsmpl);
 
+void common_sampler_set_shift(struct common_sampler_params & params);
+void common_sampler_reset_shift(struct common_sampler_params & params);
+
 // get a string representation of the last accepted tokens
 std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx, int n);
 

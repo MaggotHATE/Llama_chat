@@ -91,6 +91,9 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         if (params.mirostat == 0) {
             for (const auto & cnstr : params.samplers_sequence) {
                 switch (cnstr) {
+                    case 'l':
+                        if (params.shifted == false) llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.confidence_shift, params.k_shift));
+                        break;
                     case 'k':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_top_k    (params.top_k));
                         break;
@@ -120,9 +123,6 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         break;
                     case 'r':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_rx_addon (params.range_max, params.range_min, params.min_keep));
-                        break;
-                    case 'l':
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.k_shift));
                         break;
                     case 'x':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_xtc_addon (params.xtc_probability, params.xtc_threshold, params.xtc_threshold_max, params.xtc_probability_once, params.xtc_min, params.min_keep, params.seed));
@@ -286,6 +286,14 @@ std::string common_sampler_print(const struct common_sampler * gsmpl) {
     return result;
 }
 
+void common_sampler_set_shift(struct common_sampler_params & params) {
+    if (params.shifted == false) params.shifted = true;
+}
+
+void common_sampler_reset_shift(struct common_sampler_params & params) {
+    if (params.shifted == true) params.shifted = false;
+}
+
 std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx_main, int n) {
     n = std::min(n, (int) gsmpl->prev.size());
 
@@ -314,4 +322,3 @@ ring_buffer<llama_token> llama_sampling_get_prev(common_sampler * gsmpl) {
 void llama_sampling_set_prev(ring_buffer<llama_token> prev_state, common_sampler * gsmpl) {
     gsmpl->prev = prev_state;
 }
-

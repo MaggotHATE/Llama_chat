@@ -546,6 +546,7 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     if (checkJNum(config, "range_min")) params.sparams.range_min = config["range_min"];
     if (checkJNum(config, "range_max")) params.sparams.range_max = config["range_max"];
     if (checkJNum(config, "k_shift")) params.sparams.k_shift = config["k_shift"];
+    if (checkJNum(config, "confidence_shift")) params.sparams.confidence_shift = config["confidence_shift"];
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);

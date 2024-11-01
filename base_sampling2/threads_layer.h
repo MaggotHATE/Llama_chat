@@ -634,6 +634,7 @@ struct modelThread{
     void rewind() {
         resultsStringPairs.pop_back();
         newChat.rewind();
+        if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
     
     void unload(){
@@ -1263,6 +1264,7 @@ struct configurableChat{
         aChat.params.sparams.range_min = params.sparams.range_min;
         aChat.params.sparams.range_max = params.sparams.range_max;
         aChat.params.sparams.k_shift = params.sparams.k_shift;
+        aChat.params.sparams.confidence_shift = params.sparams.confidence_shift;
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
         aChat.params.sparams.p_step = params.sparams.p_step;
@@ -1420,6 +1422,7 @@ struct configurableChat{
         if (params.sparams.range_min != paramsDefault.sparams.range_min) modelConfig[model]["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) modelConfig[model]["range_max"] = params.sparams.range_max;
         if (params.sparams.k_shift != paramsDefault.sparams.k_shift) modelConfig[model]["k_shift"] = params.sparams.k_shift;
+        if (params.sparams.confidence_shift != paramsDefault.sparams.confidence_shift) modelConfig[model]["confidence_shift"] = params.sparams.confidence_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         
         if (params.sparams.p_step_func != paramsDefault.sparams.p_step_func) {
@@ -1545,7 +1548,7 @@ struct configurableChat{
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) newCard["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) newCard["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) newCard["range_max"] = params.sparams.range_max;
-        if (params.sparams.k_shift != paramsDefault.sparams.k_shift) newCard["k_shift"] = params.sparams.k_shift;
+        if (params.sparams.confidence_shift != paramsDefault.sparams.confidence_shift) newCard["confidence_shift"] = params.sparams.confidence_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;

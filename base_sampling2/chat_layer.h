@@ -583,7 +583,7 @@ public:
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
                         case 'o': result += std::format("{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
                         case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); result += std::format("({})", min_p_total); break;
-                        case 'l': result += std::format("{}={}", name_k_shift, params.sparams.k_shift); break;
+                        case 'l': result += std::format("{}:{}({} max)", name_k_shift, params.sparams.confidence_shift, params.sparams.k_shift); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
                         case 't': {
                                 if (params.sparams.temp_adaptive == true) {
@@ -1364,7 +1364,7 @@ public:
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.emplace_back(id);
         common_sampler_accept(smpl, id, /* apply_grammar= */ true);
-
+        common_sampler_set_shift(params.sparams);
         // add it to the context
         //embd.emplace_back(id);
         embd.emplace_back(id);
