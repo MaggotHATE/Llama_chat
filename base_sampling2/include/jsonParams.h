@@ -424,112 +424,8 @@ static std::string get_last_formatted(std::vector<std::pair<std::string, std::st
     return total.substr(previous.size(), total.size() - previous.size());
 }
 
-static void getParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
-    if (checkJBool(config, "headless")) headless = true;
-    if (checkJString(config, "file")) {
-        processInstructFile(config["file"], params, headless);
-        processPrompt(params.prompt);
-    } else if (!hasFile) {
-        if (checkJString(config, "format_file")) {
-            processFormatTemplate(config, params);
-            if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                process_STcard_Anytag(params.prompt, config["st_card"], config["user"]);
-            } else if (checkJString(config, "char")) {
-                text_fill(params.prompt, "char", config["char"], "{{", "}}");
-            }
-        } else {
-            if (checkJString(config, "format")) {
-                params.prompt = formatPrompt(config);
-            } else if (checkJString(config, "prompt")) {
-                params.prompt = config["prompt"];
-                processPrompt(params.prompt);
-                promptFileLink(params.prompt, "{{{", "}}}");
-
-                if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard_Anytag(params.prompt, config["st_card"], config["user"]);
-                } else if (checkJString(config, "char")) {
-                    text_fill(params.prompt, "char", config["char"], "{{", "}}");
-                } else promptFileLink(params.prompt, "{{", "}}");
-            }
-            
-            if (checkJString(config, "reverse-prompt")){
-                if(!params.antiprompt.size()) 
-                    params.antiprompt.emplace_back(config["reverse-prompt"]);
-                else
-                    params.antiprompt[0] = config["reverse-prompt"];
-                
-                if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard_Anytag(params.antiprompt[0], config["st_card"], config["user"]);
-                } else if (checkJString(config, "char")) {
-                    text_fill(params.antiprompt[0], "char", config["char"], "{{", "}}");
-                }
-            }
-            
-            if (checkJString(config, "input_prefix")) {
-                params.input_prefix = config["input_prefix"];
-                if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard_Anytag(params.input_prefix, config["st_card"], config["user"]);
-                } else if (checkJString(config, "char")) {
-                    text_fill(params.input_prefix, "char", config["char"], "{{", "}}");
-                }
-            }
-            if (checkJString(config, "input_suffix")) {
-                params.input_suffix = config["input_suffix"];
-                if (checkJString(config, "st_card") && checkJString(config, "user")) {
-                    process_STcard_Anytag(params.input_suffix, config["st_card"], config["user"]);
-                } else if (checkJString(config, "char")) {
-                    text_fill(params.input_suffix, "char", config["char"], "{{", "}}");
-                }
-            }
-        }
-        
-    }
-    
-    if (checkJString(config, "model")) params.model = config["model"];
-    
-    if (checkJString(config, "format_instruct")) params.format_instruct = config["format_instruct"];
-    if (checkJString(config, "format_dialog")) params.format_dialog = config["format_dialog"];
-    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
-    if (checkJString(config, "bos")) params.bos = config["bos"];
-    if (checkJString(config, "eos")) params.eos = config["eos"];
-    if (checkJNum(config, "seed")) params.sparams.seed = config["seed"];
-    // threading inference
-    if (checkJNum(config, "n_threads")) params.cpuparams.n_threads = config["n_threads"];
-    if (checkJNum(config, "n_threads_poll")) params.cpuparams.poll = config["n_threads_poll"];
-    if (checkJNum(config, "n_threads_sched_priority")) {
-        int sched_priority = config["n_threads_sched_priority"];
-        switch (sched_priority){
-            case 1: params.cpuparams.priority = GGML_SCHED_PRIO_MEDIUM; break;
-            case 2: params.cpuparams.priority = GGML_SCHED_PRIO_HIGH; break;
-            case 3: params.cpuparams.priority = GGML_SCHED_PRIO_REALTIME; break;
-            default: params.cpuparams.priority = GGML_SCHED_PRIO_NORMAL; break;
-        }
-    }
-    // threading prompt processing
-    if (checkJNum(config, "n_threads_batch")) params.cpuparams_batch.n_threads = config["n_threads_batch"];
-    if (checkJNum(config, "n_threads_batch_poll")) params.cpuparams_batch.poll = config["n_threads_batch_poll"];
-    if (checkJNum(config, "n_threads_batch_sched_priority")) {
-        int sched_priority = config["n_threads_batch_sched_priority"];
-        switch (sched_priority){
-            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
-            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
-            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
-            default: params.cpuparams_batch.priority = GGML_SCHED_PRIO_NORMAL; break;
-        }
-    }
-    //gpu offload
-    if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
-
-// context-related
-    if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
-    if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
-    if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
-    if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
-    if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
-    if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
-    if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
-
-//sampling
+static void getSamplingParamsFromJson(nlohmann::json& config, common_params& params) {
+// samplers
     load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
     load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
 
@@ -564,6 +460,7 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     if (checkJNum(config, "frequency_penalty")) params.sparams.penalty_freq = config["frequency_penalty"];
     if (checkJNum(config, "presence_penalty")) params.sparams.penalty_present = config["presence_penalty"];
     if (checkJNum(config, "penalty_last_n")) params.sparams.penalty_last_n = config["penalty_last_n"];
+
 //DRY
     if (checkJNum(config, "dry_multiplier")) params.sparams.dry_multiplier = config["dry_multiplier"];
     if (checkJNum(config, "dry_base")) params.sparams.dry_base = config["dry_base"];
@@ -574,47 +471,114 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     if (checkJNum(config, "mirostat")) params.sparams.mirostat = config["mirostat"];
     if (checkJNum(config, "mirostat_tau")) params.sparams.mirostat_tau = config["mirostat_tau"];
     if (checkJNum(config, "mirostat_eta")) params.sparams.mirostat_eta = config["mirostat_eta"];
-    //if (config["color"].is_boolean()) params.use_color = config["color"];
-// misc
-    if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
-    if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
-    if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
-    if (config["no_kv_offload"].is_boolean()) params.no_kv_offload = config["no_kv_offload"];
-    if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = config["input_prefix_bos"];
-    if (config["main_gpu"].is_boolean()) params.main_gpu = config["main_gpu"];
 
-    if (checkJString(config, "grammar")) params.sparams.grammar = config["grammar"];
-    if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
-    
-    #ifdef GGML_OLD_FORMAT
-    if (checkJNum(config, "rms-norm-eps")) params.rms_norm_eps = config["rms-norm-eps"];
-    #endif
-    
-    if (checkJNum(config, "rope_freq_base")) params.rope_freq_base = config["rope_freq_base"];
-    if (checkJNum(config, "rope_freq_scale")) params.rope_freq_scale = config["rope_freq_scale"];
-    
-    if (checkJNum(config, "yarn_orig_ctx")) params.yarn_orig_ctx = config["yarn_orig_ctx"];
-    if (checkJNum(config, "yarn_attn_factor")) params.yarn_attn_factor = config["yarn_attn_factor"];
-    if (checkJNum(config, "yarn_beta_slow")) params.yarn_beta_slow = config["yarn_beta_slow"];
-    
-    if (checkJString(config, "rope_scaling_type")) {
-        if (config["rope_scaling_type"] == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
-        else if (config["rope_scaling_type"] == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
-        else if (config["rope_scaling_type"] == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
-    }
-    
-    if (checkJNum(config, "cache_type_k")) params.cache_type_k = config["cache_type_k"];
-    if (checkJNum(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
-    
-    if (checkJObj(config, "control_vectors")) {
-        for (auto& el : config["control_vectors"].items()) {
-            params.control_vectors.push_back({ el.value(), el.key(), });
+}
+
+static void getPromptingParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false) {
+    if (checkJBool(config, "headless")) headless = true;
+    if (checkJString(config, "file")) {
+        processInstructFile(config["file"], params, headless);
+        processPrompt(params.prompt);
+    } else if (!hasFile) {
+        if (checkJString(config, "format_file")) {
+            processFormatTemplate(config, params);
+            if (checkJString(config, "st_card") && checkJString(config, "user")) {
+                process_STcard_Anytag(params.prompt, config["st_card"], config["user"]);
+            } else if (checkJString(config, "char")) {
+                text_fill(params.prompt, "char", config["char"], "{{", "}}");
+            }
+        } else {
+            if (checkJString(config, "format")) {
+                params.prompt = formatPrompt(config);
+            } else if (checkJString(config, "prompt")) {
+                params.prompt = config["prompt"];
+                processPrompt(params.prompt);
+                promptFileLink(params.prompt, "{{{", "}}}");
+
+                if (checkJString(config, "st_card") && checkJString(config, "user")) {
+                    process_STcard_Anytag(params.prompt, config["st_card"], config["user"]);
+                } else if (checkJString(config, "char")) {
+                    text_fill(params.prompt, "char", config["char"], "{{", "}}");
+                } else promptFileLink(params.prompt, "{{", "}}");
+            }
+
+            if (checkJString(config, "reverse-prompt")){
+                if(!params.antiprompt.size()) 
+                    params.antiprompt.emplace_back(config["reverse-prompt"]);
+                else
+                    params.antiprompt[0] = config["reverse-prompt"];
+                
+                if (checkJString(config, "st_card") && checkJString(config, "user")) {
+                    process_STcard_Anytag(params.antiprompt[0], config["st_card"], config["user"]);
+                } else if (checkJString(config, "char")) {
+                    text_fill(params.antiprompt[0], "char", config["char"], "{{", "}}");
+                }
+            }
+
+            if (checkJString(config, "input_prefix")) {
+                params.input_prefix = config["input_prefix"];
+                if (checkJString(config, "st_card") && checkJString(config, "user")) {
+                    process_STcard_Anytag(params.input_prefix, config["st_card"], config["user"]);
+                } else if (checkJString(config, "char")) {
+                    text_fill(params.input_prefix, "char", config["char"], "{{", "}}");
+                }
+            }
+
+            if (checkJString(config, "input_suffix")) {
+                params.input_suffix = config["input_suffix"];
+                if (checkJString(config, "st_card") && checkJString(config, "user")) {
+                    process_STcard_Anytag(params.input_suffix, config["st_card"], config["user"]);
+                } else if (checkJString(config, "char")) {
+                    text_fill(params.input_suffix, "char", config["char"], "{{", "}}");
+                }
+            }
         }
-
+        
     }
-    
+
+    if (checkJString(config, "format_instruct")) params.format_instruct = config["format_instruct"];
+    if (checkJString(config, "format_dialog")) params.format_dialog = config["format_dialog"];
+    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
+    if (checkJString(config, "bos")) params.bos = config["bos"];
+    if (checkJString(config, "eos")) params.eos = config["eos"];
+    if (checkJNum(config, "seed")) params.sparams.seed = config["seed"];
+
     std::cout << "headless: " << headless << std::endl;
 
+}
+
+static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& params) {
+// threaded inference
+    if (checkJNum(config, "n_threads")) params.cpuparams.n_threads = config["n_threads"];
+    if (checkJNum(config, "n_threads_poll")) params.cpuparams.poll = config["n_threads_poll"];
+    if (checkJNum(config, "n_threads_sched_priority")) {
+        int sched_priority = config["n_threads_sched_priority"];
+        switch (sched_priority){
+            case 1: params.cpuparams.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 2: params.cpuparams.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 3: params.cpuparams.priority = GGML_SCHED_PRIO_REALTIME; break;
+            default: params.cpuparams.priority = GGML_SCHED_PRIO_NORMAL; break;
+        }
+    }
+
+// threading prompt processing
+    if (checkJNum(config, "n_threads_batch")) params.cpuparams_batch.n_threads = config["n_threads_batch"];
+    if (checkJNum(config, "n_threads_batch_poll")) params.cpuparams_batch.poll = config["n_threads_batch_poll"];
+    if (checkJNum(config, "n_threads_batch_sched_priority")) {
+        int sched_priority = config["n_threads_batch_sched_priority"];
+        switch (sched_priority){
+            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
+            default: params.cpuparams_batch.priority = GGML_SCHED_PRIO_NORMAL; break;
+        }
+    }
+
+//gpu offload
+    if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
+    if (config["main_gpu"].is_boolean()) params.main_gpu = config["main_gpu"];
+
+// backend-specific
 #ifdef GGML_USE_VULKAN
     if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
     if (checkJNum(config, "n_threads_vk")) params.cpuparams.n_threads = config["n_threads_vk"];
@@ -630,61 +594,121 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     if (checkJNum(config, "clblast_platform_id")) params.clblast_platform_id = config["clblast_platform_id"];
 #endif
 
+// context-related
+    if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
+    if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
+    if (checkJNum(config, "grp_attn_w")) params.grp_attn_w = config["grp_attn_w"];
+    if (checkJNum(config, "n_keep")) params.n_keep = config["n_keep"];
+    if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
+    if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
+    if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
+
+// misc
+    if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
+    if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
+    if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
+    if (config["no_kv_offload"].is_boolean()) params.no_kv_offload = config["no_kv_offload"];
+    if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = config["input_prefix_bos"];
+
+    if (checkJString(config, "grammar")) params.sparams.grammar = config["grammar"];
+    if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
+
+    #ifdef GGML_OLD_FORMAT
+    if (checkJNum(config, "rms-norm-eps")) params.rms_norm_eps = config["rms-norm-eps"];
+    #endif
+
+    if (checkJNum(config, "rope_freq_base")) params.rope_freq_base = config["rope_freq_base"];
+    if (checkJNum(config, "rope_freq_scale")) params.rope_freq_scale = config["rope_freq_scale"];
+    
+    if (checkJNum(config, "yarn_orig_ctx")) params.yarn_orig_ctx = config["yarn_orig_ctx"];
+    if (checkJNum(config, "yarn_attn_factor")) params.yarn_attn_factor = config["yarn_attn_factor"];
+    if (checkJNum(config, "yarn_beta_slow")) params.yarn_beta_slow = config["yarn_beta_slow"];
+    
+    if (checkJString(config, "rope_scaling_type")) {
+        if (config["rope_scaling_type"] == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
+        else if (config["rope_scaling_type"] == "linear") { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
+        else if (config["rope_scaling_type"] == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
+    }
+
+    if (checkJNum(config, "cache_type_k")) params.cache_type_k = config["cache_type_k"];
+    if (checkJNum(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
+
+    if (checkJObj(config, "control_vectors")) {
+        for (auto& el : config["control_vectors"].items()) {
+            params.control_vectors.push_back({ el.value(), el.key(), });
+        }
+    }
 }
 
-static void getParamsFromPreset(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
+    // the main parameter
+    if (checkJString(config, "model")) params.model = config["model"];
+    // prompt-related
+    getPromptingParamsFromJson(config, params, hasFile, headless);
+    // performance and misc
+    getPerformanceParamsFromJson(config, params);
+    //sampling
+    getSamplingParamsFromJson(config, params);
+}
+
+static void getParamsFromPreset(nlohmann::json& config, common_params& params){
     
     if (checkJString(config, "card")) {
         std::string cardPath = config["card"];
-        
         nlohmann::json card = getJson(cardPath);
-        
-        getParamsFromJson(card, params, hasFile, headless);
+        getSamplingParamsFromJson(card, params);
+    } else if (checkJObj(config, "card")) {
+        nlohmann::json card = config["card"];
+        getSamplingParamsFromJson(card, params);
     }
-    
+
     if (checkJString(config, "preset")) {
         std::string presetPath = config["preset"];
-        
         nlohmann::json preset = getJson(presetPath);
-        
-        getParamsFromJson(preset, params, hasFile, headless);
+        getSamplingParamsFromJson(preset, params);
+    } else if (checkJObj(config, "preset")) {
+        nlohmann::json preset = config["preset"];
+        getSamplingParamsFromJson(preset, params);
     }
 }
 
-static void getParamsFromGroup(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
+static void getParamsFromObject(std::string object_name, nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
 
-    if(config.contains("group") && config["group"].is_object()){
-        std::cout << "Found group settings" << params.model << std::endl;
-        nlohmann::json modelConfig = config["group"];
+    if(checkJObj(config, object_name)){
+        std::cout << "Found object settings in " << params.model << std::endl;
+        nlohmann::json modelConfig = config[object_name];
         bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
         getParamsFromJson(modelConfig, params, hasFiles, headless);
-        getParamsFromPreset(modelConfig, params, false, headless);
-        getParamsFromGroup(modelConfig, params, false, headless);
+        // sampling params only
+        getParamsFromPreset(modelConfig, params);
+        getParamsFromObject("group",modelConfig, params, false, headless);
     }
 }
 
 static void readParamsFromJson(nlohmann::json& config, common_params& params, bool headless = false){
-    
+
     getParamsFromJson(config, params, false, headless);
-    getParamsFromPreset(config, params, false, headless);
-    getParamsFromGroup(config, params, false, headless);
+    // sampling params only
+    getParamsFromPreset(config, params);
+    getParamsFromObject("group",config, params, false, headless);
     
     if(config.contains(params.model) && config[params.model].is_object()){
         std::cout << "Found settings for model " << params.model << std::endl;
         nlohmann::json modelConfig = config[params.model];
         bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
         getParamsFromJson(modelConfig, params, hasFiles, headless);
-        getParamsFromPreset(modelConfig, params, false, headless);
-        getParamsFromGroup(modelConfig, params, false, headless);
+        // sampling params only
+        getParamsFromPreset(modelConfig, params);
+        getParamsFromObject("group",modelConfig, params, false, headless);
     }
-    
+
 }
 
 static void readParamsFromJson(nlohmann::json& config, std::string modelName, common_params& params, bool headless = false){
     
     getParamsFromJson(config, params, false, headless);
-    getParamsFromPreset(config, params, false, headless);
-    getParamsFromGroup(config, params, false, headless);
+    getParamsFromPreset(config, params);
+    getParamsFromObject("group",config, params, false, headless);
     params.model = modelName;
     
     if(config.contains("model")){
@@ -693,11 +717,10 @@ static void readParamsFromJson(nlohmann::json& config, std::string modelName, co
             nlohmann::json modelConfig = config[params.model];
             bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
             getParamsFromJson(modelConfig, params, hasFiles, headless);
-            getParamsFromPreset(modelConfig, params, false, headless);
-            getParamsFromGroup(modelConfig, params, false, headless);
+            getParamsFromPreset(modelConfig, params);
+            getParamsFromObject("group",modelConfig, params, false, headless);
         }
     }
-    
 
 }
 
@@ -708,7 +731,8 @@ static void readParamsFromFile(std::string fimeName, common_params& params, bool
         o1 >> std::setw(4) >> config;
         
         getParamsFromJson(config, params, false, headless);
-        getParamsFromPreset(config, params, false, headless);
+        getParamsFromPreset(config, params);
+        getParamsFromObject("group",config, params, false, headless);
         
         if(config.contains("model")){
             if(config["model"].is_string() && config[params.model].is_object()){
@@ -716,7 +740,8 @@ static void readParamsFromFile(std::string fimeName, common_params& params, bool
                 nlohmann::json modelConfig = config[params.model];
                 bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
                 getParamsFromJson(modelConfig, params, hasFiles, headless);
-                getParamsFromPreset(modelConfig, params, false, headless);
+                getParamsFromPreset(modelConfig, params);
+                getParamsFromObject("group",config, params, false, headless);
             }
         }
         
@@ -732,7 +757,8 @@ static void readParamsFromFile(std::string fimeName, std::string modelName, comm
         o1 >> std::setw(4) >> config;
         
         getParamsFromJson(config, params, false, headless);
-        getParamsFromPreset(config, params, false, headless);
+        getParamsFromPreset(config, params);
+        getParamsFromObject("group",config, params, false, headless);
         params.model = modelName;
         
         if(config.contains(modelName)){
@@ -741,11 +767,11 @@ static void readParamsFromFile(std::string fimeName, std::string modelName, comm
                 nlohmann::json modelConfig = config[params.model];
                 bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
                 getParamsFromJson(modelConfig, params, hasFiles, headless);
-                getParamsFromPreset(modelConfig, params, false, headless);
+                getParamsFromPreset(modelConfig, params);
+                getParamsFromObject("group",config, params, false, headless);
             }
         }
-        
-        
+
         o1.close();
     }
 }

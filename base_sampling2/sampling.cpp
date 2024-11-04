@@ -92,7 +92,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
             for (const auto & cnstr : params.samplers_sequence) {
                 switch (cnstr) {
                     case 'l':
-                        if (params.shifted == false) llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.confidence_shift, params.k_shift));
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_limit_k (params.confidence_shift, params.k_shift));
                         break;
                     case 'k':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_top_k    (params.top_k));

@@ -240,6 +240,8 @@ public:
     bool is_antiprompt  = false;
     bool tempFirst      = true;
     bool finished       = true;
+    bool add_bos        = false;
+    bool add_eos        = false;
     int n_past_last     = 0;
     int n_remain_last   = 0;
     int n_consumed_last = 0;
@@ -270,7 +272,7 @@ public:
     chat(){}
     
     chat(bool useJson){
-        init(useJson);
+        init_default(useJson);
     }
 
     std::string get_state_descr() {
@@ -390,6 +392,10 @@ public:
     
     void switch_debug() {
         debug = !debug;
+    }
+
+    std::string getBOS() {
+        return (std::string) llama_token_get_text(model, llama_token_bos(model));
     }
 
     std::string getEOS() {
@@ -526,10 +532,7 @@ public:
             std::string name_penalty_freq = fullnames ? "penalty_freq" : "p_f";
             std::string name_penalty_present = fullnames ? "penalty_present" : "p_p";
             //DRY
-            std::string name_dry_multiplier = fullnames ? "dry_multiplier" : "d_m";
-            std::string name_dry_base = fullnames ? "dry_base" : "d_b";
-            std::string name_dry_allowed_length = fullnames ? "dry_allowed_length" : "d_l";
-            std::string name_dry_penalty_last_n = fullnames ? "dry_penalty_last_n" : "d_n";
+            std::string name_dry = fullnames ? "DRY" : "D";
 
             std::string name_temp = fullnames ? "temp" : "T";
             std::string name_dynatemp_range = fullnames ? "dynatemp_range" : "dT";
@@ -554,10 +557,9 @@ public:
             if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format("-> {}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
             if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format("-> {}={:.2f}", name_penalty_present, params.sparams.penalty_present);
             //DRY
-            if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) result += std::format("-> {}={:.2f}", name_dry_multiplier, params.sparams.dry_multiplier);
-            if (params.sparams.dry_base != paramsDefault.sparams.dry_base) result += std::format("-> {}={:.2f}", name_dry_base, params.sparams.dry_base); 
-            if (params.sparams.dry_allowed_length != paramsDefault.sparams.dry_allowed_length) result += std::format("-> {}={}", name_dry_allowed_length, params.sparams.dry_allowed_length);
-            if (params.sparams.dry_penalty_last_n != paramsDefault.sparams.dry_penalty_last_n) result += std::format("-> {}={}", name_dry_penalty_last_n, params.sparams.dry_penalty_last_n);
+            if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
+                result += std::format("-> {}={:.2f}*{:.2f}L{}N{}", name_dry, params.sparams.dry_base, params.sparams.dry_multiplier, params.sparams.dry_allowed_length, params.sparams.dry_penalty_last_n);
+            }
             // mirostat is special 
             if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
                 if (params.sparams.dynatemp_range > 0) {
@@ -582,7 +584,7 @@ public:
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
                         case 'o': result += std::format("{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
-                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}",params.sparams.min_p); result += std::format("({})", min_p_total); break;
+                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({})", min_p_total); break;
                         case 'l': result += std::format("{}:{}({} max)", name_k_shift, params.sparams.confidence_shift, params.sparams.k_shift); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
                         case 't': {
@@ -616,30 +618,30 @@ public:
         return result;
     }
 
+    int load_and_process(bool streamed = true, bool soft = false) {
+        int result = load(soft);
+
+        process_prompt(streamed);
+        return result;
+    }
+
     int init(int argc, char ** argv){
         // this is unsafe to run in threads;
         getArgs(argc, argv);
         
         printf("\n LOADING \n");
         
-        return init();
-    } 
-
-    int init(bool useJson = true, bool headless = false){
-
-        if (useJson) readParamsFromFile("config.json", params, headless);
-        
-        return load();
+        return init_default();
     }
 
-    int init(nlohmann::json configJson){
+    int init_default(bool useJson = true, bool headless = false){
 
-        readParamsFromJson(configJson, params);
-        
-        return load();
-    }   
+        if (useJson) readParamsFromFile("config.json", params, headless);
 
-    int init(std::string modelName, std::string prompt = "NULL", std::string antiprompt = "NULL"){
+        return load_and_process();
+    }
+
+    int init_custom(std::string modelName, std::string prompt = "NULL", std::string antiprompt = "NULL"){
 
         if (modelName != "NULL") readParamsFromFile("config.json", modelName, params);
         else readParamsFromFile("config.json", params);
@@ -651,28 +653,15 @@ public:
             else
                 params.antiprompt[0] = antiprompt;
         }
-        
-        return load();
+
+        return load_and_process();
     }
 
-    int initialize(nlohmann::json configJson, bool streamed = true, bool soft = false){
+    int initialize(nlohmann::json configJson, bool streamed = true, bool soft = false) {
 
-        //int result = init(configJson);
         readParamsFromJson(configJson, params);
-        // if (configJson.contains("temp_first")) {
-            // tempFirst = configJson["temp_first"];
-            // printf("Temperature sampling first = %d\n", tempFirst);
-        // }
 
-
-        //chatFormat.sequence = params.format;
-        //printf("Format = %s\n", params.format.c_str());
-        //formatRepresentation = "\nLast input formatted:\n";
-
-        int result = load(soft);
-
-        process_prompt(streamed);
-        return result;
+        return load_and_process(streamed, soft);
     }
 
     void formatInput(std::string format, std::string& buffer) {
@@ -692,6 +681,9 @@ public:
                         formatRepresentation += params.bos;
                         const auto line_bos_format = common_tokenize(ctx, params.bos, false, true);
                         embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
+                    } else {
+                        formatRepresentation += llama_token_get_text(model, llama_token_bos(model));
+                        embd_inp.emplace_back(llama_token_bos(model));
                     }
                     break;
                 }
@@ -700,6 +692,9 @@ public:
                         formatRepresentation += params.eos;
                         const auto line_eos_format = common_tokenize(ctx, params.eos, false, true);
                         embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
+                    } else {
+                        formatRepresentation += llama_token_get_text(model, llama_token_eos(model));
+                        embd_inp.emplace_back(llama_token_eos(model));
                     }
                     break;
                 }
@@ -732,8 +727,7 @@ public:
             }
             
         }
-        
-        
+
     }
     
     int checkPreLoad(){
@@ -1054,7 +1048,8 @@ public:
         //if (params.prompt.empty()) params.prompt = params.antiprompt.back();
         // instruct mode was removed since its format is not universal enough
 
-        const bool add_bos = llama_add_bos_token(model);
+        add_bos = llama_add_bos_token(model);
+        add_eos = llama_add_eos_token(model);
         if (!llama_model_has_encoder(model)) {
             GGML_ASSERT(!llama_add_eos_token(model));
         }
@@ -1485,11 +1480,11 @@ public:
             if (params.interactive) {
                 if (std::size(params.antiprompt) != 0) {
                     // tokenize and inject first reverse prompt
-                    const auto first_antiprompt = common_tokenize(ctx, params.antiprompt.front(), false, true);
+                    end_string = params.antiprompt.front();
+                    const auto first_antiprompt = common_tokenize(ctx, end_string, false, true);
                     embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
 
-                    end_string = params.antiprompt.front();
-                    has_antiprompt = std::format("{}: antiprompt inserted: '''{}'''", __func__, end_string);
+                    has_antiprompt = std::format("{}: TRUE, + antiprompt: '''{}'''", __func__, end_string);
 
                     is_antiprompt = true;
                 }

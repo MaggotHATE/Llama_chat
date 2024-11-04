@@ -242,8 +242,8 @@ struct common_params {
     std::string logits_file          = ""; // file for saving *all* logits                                  // NOLINT
     std::string rpc_servers          = ""; // comma separated list of RPC servers                           // NOLINT
 
-    std::string format_instruct   = "bie";                              // format for the first prompt
-    std::string format_dialog     = "bpiedbs";                              // format for interacive
+    std::string format_instruct   = "bi";  // format for the first prompt
+    std::string format_dialog     = "pis"; // format for interacive
     std::string bos               = "";
     std::string eos               = "";
 

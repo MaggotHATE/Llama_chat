@@ -232,10 +232,14 @@ struct modelThread{
                     break;
                 }
                 case 'b':{
-                    result += newChat.params.bos; break;
+                    if (!newChat.params.bos.empty()) result += newChat.params.bos;
+                    else result += newChat.getBOS();
+                    break;
                 }
                 case 'e':{
-                    result += newChat.params.eos; break;
+                    if (!newChat.params.eos.empty()) result += newChat.params.bos;
+                    else result += newChat.getEOS();
+                    break;
                 }
                 case 'p':{
                     result += newChat.params.input_prefix; break;
@@ -340,10 +344,14 @@ struct modelThread{
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
         //text +=  std::format("\n-Last candidates: {}", last_candidates);
+        text +=  std::format("\n-add_bos: {}", newChat.add_bos);
+        text +=  std::format("\n-add_eos: {}", newChat.add_eos);
+        text +=  std::format("\n-BOS: {}", newChat.getBOS());
         text +=  std::format("\n-EOS: {}", newChat.getEOS());
-        text +=  std::format("\n-bos: {}", newChat.params.bos);
-        text +=  std::format("\n-eos: {}", newChat.params.eos);
+        // text +=  std::format("\n-bos: {}", newChat.params.bos);
+        // text +=  std::format("\n-eos: {}", newChat.params.eos);
         text +=  std::format("\n-seamless: {}", seamless);
+        text +=  std::format("\n-format_instruct: {}", newChat.params.format_instruct);
         text +=  std::format("\n-format_dialog: {}", newChat.params.format_dialog);
         text +=  std::format("\n-has_antiprompt: {}", newChat.has_antiprompt);
         text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);

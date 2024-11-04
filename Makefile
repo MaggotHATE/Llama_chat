@@ -387,6 +387,7 @@ PREFIX = t$(PREFIX_BASE)
 
 OBJS_GGUF = \
     $(TMP)$(PREFIX)_ggml.o \
+    $(TMP)$(PREFIX)_ggml-cpu.o \
     $(TMP)$(PREFIX)_ggml-alloc.o \
     $(TMP)$(PREFIX)_ggml-backend.o \
     $(TMP)$(PREFIX)_ggml-quants.o \
@@ -450,6 +451,12 @@ endif
 $(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 	
+$(TMP)$(PREFIX)_ggml-cpu.o: \
+	$(ggmlsrc_f)/ggml-cpu.c \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CC) $(CFLAGS)   -c $< -o $@
+	
 $(TMP)$(PREFIX)_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
@@ -458,7 +465,7 @@ $(TMP)$(PREFIX)_ggml-quants.o: \
 	$(ggmlsrc_f)/ggml.h \
 	$(ggmlsrc_f)/ggml-quants.h \
 	$(ggmlsrc_f)/ggml-common.h
-	$(CC) $(CFLAGS)    -c $< -o $@
+	$(CC) $(CFLAGS)   -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-aarch64.c \
