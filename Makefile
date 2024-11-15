@@ -110,6 +110,9 @@ base = base
 endif
 
 ggmlsrc_f = $(base)/ggml
+ggmlsrc_cpu_f = $(ggmlsrc_f)/ggml-cpu
+ggmlsrc_blas_f = $(ggmlsrc_f)/ggml-blas
+ggmlsrc_vulkan_f = $(ggmlsrc_f)/ggml-vulkan
 llamacpp_f = $(base)/llama
 uibackend_f = $(base)/UI
 include_f = $(base)/include
@@ -161,7 +164,7 @@ OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
 
 FILE_D = -Itinyfiledialogs
-I_GGUF = -I$(common_f) -I$(ggmlsrc_f) -I$(llamacpp_f) -I$(uibackend_f) -I$(include_f)
+I_GGUF = -I$(common_f) -I$(ggmlsrc_f) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f) -I$(uibackend_f) -I$(include_f)
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -387,11 +390,16 @@ PREFIX = t$(PREFIX_BASE)
 
 OBJS_GGUF = \
     $(TMP)$(PREFIX)_ggml.o \
-    $(TMP)$(PREFIX)_ggml-cpu.o \
+    $(TMP)$(PREFIX)_ggml-aarch64.o \
     $(TMP)$(PREFIX)_ggml-alloc.o \
     $(TMP)$(PREFIX)_ggml-backend.o \
+    $(TMP)$(PREFIX)_ggml-backend-reg.o \
     $(TMP)$(PREFIX)_ggml-quants.o \
-    $(TMP)$(PREFIX)_ggml-aarch64.o \
+    $(TMP)$(PREFIX)_ggml-threading.o \
+    $(TMP)$(PREFIX)_ggml-cpu.o \
+    $(TMP)$(PREFIX)_ggml-cpu-cpp.o \
+    $(TMP)$(PREFIX)_ggml-cpu-aarch64.o \
+    $(TMP)$(PREFIX)_ggml-cpu-quants.o \
     $(TMP)$(PREFIX)_llama.o \
     $(TMP)$(PREFIX)_llama-vocab.o \
     $(TMP)$(PREFIX)_llama-grammar.o \
@@ -451,14 +459,35 @@ endif
 $(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 	
+$(TMP)$(PREFIX)_ggml-threading.o: \
+	$(ggmlsrc_f)/ggml-threading.cpp \
+	$(ggmlsrc_f)/ggml.h
+	$(CXX) $(CXXFLAGS)   -c $< -o $@
+
 $(TMP)$(PREFIX)_ggml-cpu.o: \
-	$(ggmlsrc_f)/ggml-cpu.c \
+	$(ggmlsrc_f)/ggml-cpu/ggml-cpu.c \
 	$(ggmlsrc_f)/ggml.h \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS)   -c $< -o $@
 	
+$(TMP)$(PREFIX)_ggml-cpu-cpp.o: \
+	$(ggmlsrc_f)/ggml-cpu/ggml-cpu.cpp \
+	$(ggmlsrc_f)/ggml.h \
+	$(ggmlsrc_f)/ggml-common.h
+	$(CXX) $(CXXFLAGS)   -c $< -o $@
+	
+$(TMP)$(PREFIX)_ggml-cpu-aarch64.o: \
+	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-aarch64.c \
+	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-aarch64.h
+	$(CC) $(CFLAGS)   -c $< -o $@
+	
+$(TMP)$(PREFIX)_ggml-cpu-quants.o: \
+	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-quants.c \
+	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-quants.h
+	$(CC) $(CFLAGS)   -c $< -o $@
+	
 $(TMP)$(PREFIX)_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
+	$(CC)  $(CXXFLAGS)   -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-quants.o: \
 	$(ggmlsrc_f)/ggml-quants.c \
@@ -474,17 +503,25 @@ $(TMP)$(PREFIX)_ggml-aarch64.o: \
 	$(ggmlsrc_f)/ggml-common.h
 	$(CC) $(CFLAGS)    -c $< -o $@
 
-$(TMP)$(PREFIX)_ggml-backend.o: $(ggmlsrc_f)/ggml-backend.cpp \
+$(TMP)$(PREFIX)_ggml-backend.o: \
+	$(ggmlsrc_f)/ggml-backend.cpp \
 	$(ggmlsrc_f)/ggml-backend-impl.h \
 	$(ggmlsrc_f)/ggml.h \
 	$(ggmlsrc_f)/ggml-backend.h
 	$(CC)  $(CXXFLAGS)   -c $< -o $@
 
-$(TMP)$(PREFIX)_sgemm.o: $(ggmlsrc_f)/llamafile/sgemm.cpp $(ggmlsrc_f)/llamafile/sgemm.h $(ggmlsrc_f)/ggml.h
+$(TMP)$(PREFIX)_ggml-backend-reg.o: \
+	$(ggmlsrc_f)/ggml-backend-reg.cpp
+	$(CC)  $(CXXFLAGS)   -c $< -o $@
+
+$(TMP)$(PREFIX)_sgemm.o: \
+	$(ggmlsrc_f)/ggml-cpu/llamafile/sgemm.cpp \
+	$(ggmlsrc_f)/ggml-cpu/llamafile/sgemm.h \
+	$(ggmlsrc_f)/ggml.h 
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_amx.o: \
-	$(ggmlsrc_f)/ggml-amx.cpp \
+	$(ggmlsrc_f)/ggml-amx/ggml-amx.cpp \
 	$(ggmlsrc_f)/ggml-amx.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -552,7 +589,7 @@ $(TMP)$(PREFIX)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/gra
 
 # openblas
 $(TMP)$(PREFIX)_ggml-blas.o: \
-	$(ggmlsrc_f)/ggml-blas.cpp \
+	$(ggmlsrc_f)/ggml-blas/ggml-blas.cpp \
 	$(ggmlsrc_f)/ggml-blas.h
 	$(CXX) $(CXXFLAGS)    -c $< -o $@
 
@@ -565,10 +602,14 @@ GLSLC_CMD  = glslc
 _ggml_vk_genshaders_cmd = $(shell pwd)/vkt-shaders-gen
 _ggml_vk_header = $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
 _ggml_vk_source = $(ggmlsrc_f)/ggml-vulkan-shaders.cpp
-_ggml_vk_input_dir = $(ggmlsrc_f)/vulkan-shaders
+_ggml_vk_input_dir = $(ggmlsrc_f)/ggml-vulkan/vulkan-shaders
 _ggml_vk_shader_deps = $(echo $(_ggml_vk_input_dir)/*.comp)
 
-$(TMP)$(PREFIX)_ggml-vulkan.o: $(ggmlsrc_f)/ggml-vulkan.cpp $(ggmlsrc_f)/ggml-vulkan.h $(_ggml_vk_header) $(_ggml_vk_source)
+$(TMP)$(PREFIX)_ggml-vulkan.o: \
+	$(ggmlsrc_f)/ggml-vulkan/ggml-vulkan.cpp \
+	$(ggmlsrc_f)/ggml-vulkan.h \
+	$(_ggml_vk_header) \
+	$(_ggml_vk_source)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(_ggml_vk_header): $(_ggml_vk_source)
@@ -604,8 +645,8 @@ $(_ggml_vk_source): $(_ggml_vk_shader_deps) $(vkt-compiler)
 
 endif
 
-vkt-shaders-gen: $(ggmlsrc_f)/vulkan-shaders/vulkan-shaders-gen.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_f)/vulkan-shaders/vulkan-shaders-gen.cpp
+vkt-shaders-gen: $(ggmlsrc_f)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_f)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
 
 $(TMP)$(PREFIX)_ggml-vulkan-shaders.o: $(_ggml_vk_source) $(_ggml_vk_header)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
