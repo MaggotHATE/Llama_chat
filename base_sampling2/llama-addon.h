@@ -24,6 +24,7 @@ void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sam
     LLAMA_API struct llama_sampler * llama_sampler_init_temp_ext_addon (float t, float delta, float exponent, float smoothing_factor, float smoothing_curve, bool temp_adaptive);
 
     LLAMA_API struct llama_sampler * llama_sampler_init_post_addon (uint32_t seed, float probability, float threshold);
+    LLAMA_API struct llama_sampler * llama_sampler_init_dist_plus  (uint32_t seed, float confidence_top, float confidence_bottom);
 
     LLAMA_API struct llama_sampler * llama_sampler_init_penalties_addon(
                              int32_t   n_vocab,           // llama_n_vocab()

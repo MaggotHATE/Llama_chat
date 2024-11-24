@@ -3385,3 +3385,176 @@ void ggml_gemm_q4_0_8x8_q8_0(int n, float * restrict s, size_t bs, const void * 
         }
     }
 }
+
+// FIXME: this code is duplicated from ggml-aarch64.c
+static block_q4_0x4 make_block_q4_0x4(block_q4_0 * in, unsigned int blck_size_interleave) {
+    block_q4_0x4 out;
+
+    for (int i = 0; i < 4; i++) {
+        out.d[i] = in[i].d;
+    }
+
+    const int end = QK4_0 * 2 / blck_size_interleave;
+
+    if (blck_size_interleave == 8) {
+        const uint64_t xor_mask = 0x8888888888888888ULL;
+        for (int i = 0; i < end; ++i) {
+            int src_id = i % 4;
+            int src_offset = (i / 4) * blck_size_interleave;
+            int dst_offset = i * blck_size_interleave;
+
+            uint64_t elems;
+            // Using memcpy to avoid unaligned memory accesses
+            memcpy(&elems, &in[src_id].qs[src_offset], sizeof(uint64_t));
+            elems ^= xor_mask;
+            memcpy(&out.qs[dst_offset], &elems, sizeof(uint64_t));
+        }
+    } else if (blck_size_interleave == 4) {
+        const uint32_t xor_mask = 0x88888888;
+        for (int i = 0; i < end; ++i) {
+            int src_id = i % 4;
+            int src_offset = (i / 4) * blck_size_interleave;
+            int dst_offset = i * blck_size_interleave;
+
+            uint32_t elems;
+            memcpy(&elems, &in[src_id].qs[src_offset], sizeof(uint32_t));
+            elems ^= xor_mask;
+            memcpy(&out.qs[dst_offset], &elems, sizeof(uint32_t));
+        }
+    } else {
+        GGML_ASSERT(false);
+    }
+
+    return out;
+}
+
+// interleave 8 block_q4_0s in blocks of blck_size_interleave
+// returns an interleaved block_q4_0x8
+// in the interleaved block_q4_0x8, place deltas for 8 block_q4_0 blocks
+// first, then interleave quants from 8 block_q4_0s in blocks of blck_size_interleave
+static block_q4_0x8 make_block_q4_0x8(block_q4_0 * in, unsigned int blck_size_interleave) {
+    block_q4_0x8 out;
+
+    for (int i = 0; i < 8; i++) {
+        out.d[i] = in[i].d;
+    }
+
+    const int end = QK4_0 * 4 / blck_size_interleave;
+    const uint64_t xor_mask = 0x8888888888888888ULL;
+
+    for (int i = 0; i < end; ++i) {
+        int src_id = i % 8;
+        int src_offset = (i / 8) * blck_size_interleave;
+        int dst_offset = i * blck_size_interleave;
+
+        uint64_t elems;
+        memcpy(&elems, &in[src_id].qs[src_offset], sizeof(uint64_t));
+        elems ^= xor_mask;
+        memcpy(&out.qs[dst_offset], &elems, sizeof(uint64_t));
+    }
+
+    return out;
+}
+
+static int repack_q4_0_to_q4_0_4_bl(struct ggml_tensor * t, int interleave_block, const void * restrict data, size_t data_size) {
+    GGML_ASSERT(t->type == GGML_TYPE_Q4_0);
+    GGML_ASSERT(interleave_block == 4 || interleave_block == 8);
+
+    block_q4_0x4 * dst = (block_q4_0x4 *)t->data;
+    const block_q4_0 * src = (const block_q4_0 *)data;
+    block_q4_0 dst_tmp[4];
+    int nrow = t->ne[1]; // Number of rows
+    int nrows_interleaved = 4;
+    int nblocks = t->ne[0] / QK4_0;
+
+    GGML_ASSERT(data_size == nrow * nblocks * sizeof(block_q4_0));
+
+    if (nrow % nrows_interleaved != 0 || t->ne[0] % 8 != 0) {
+        return -1;
+    }
+
+    for (int b = 0; b < nrow; b += nrows_interleaved) {
+        for (int64_t x = 0; x < nblocks; x++) {
+            for (int i = 0; i < nrows_interleaved; i++) {
+                dst_tmp[i] = src[x + i * nblocks];
+            }
+            *dst++ = make_block_q4_0x4(dst_tmp, interleave_block);
+        }
+        src += nrows_interleaved * nblocks;
+    }
+    return 0;
+
+    GGML_UNUSED(data_size);
+}
+
+static int repack_q4_0_to_q4_0_8_bl(struct ggml_tensor *t, int interleave_block, const void * restrict data, size_t data_size) {
+    GGML_ASSERT(t->type == GGML_TYPE_Q4_0);
+    GGML_ASSERT(interleave_block == 8);
+
+    block_q4_0x8 * dst = (block_q4_0x8*)t->data;
+    const block_q4_0 * src = (const block_q4_0*) data;
+    block_q4_0 dst_tmp[8];
+    int nrow = t->ne[1]; // Number of rows
+    int nrows_interleaved = 8;
+    int nblocks = t->ne[0] / QK4_0;
+
+    GGML_ASSERT(data_size == nrow * nblocks * sizeof(block_q4_0));
+
+    if (nrow % nrows_interleaved != 0 || t->ne[0] % 8 != 0) {
+        return -1;
+    }
+
+    for (int b = 0; b < nrow; b += nrows_interleaved) {
+        for (int64_t x = 0; x < nblocks; x++) {
+            for (int i  = 0; i < nrows_interleaved; i++ ) {
+                dst_tmp[i] = src[x + i * nblocks];
+            }
+            *dst++ = make_block_q4_0x8(dst_tmp, interleave_block);
+        }
+        src += nrows_interleaved * nblocks;
+    }
+    return 0;
+
+    GGML_UNUSED(data_size);
+}
+
+// Prepare for optimized kernels if applicable
+void ggml_aarch64_repack_tensor(struct ggml_tensor * cur, enum ggml_type repack_type, const void * restrict data, size_t data_size) {
+    if (cur->type == repack_type) {
+        memcpy(cur->data, data, data_size);
+        return;
+    }
+
+    GGML_ASSERT(cur->type == GGML_TYPE_Q4_0);
+
+    switch (repack_type) {
+        case GGML_TYPE_Q4_0_8_8:
+            repack_q4_0_to_q4_0_8_bl(cur, 8, data, data_size);
+            break;
+        case GGML_TYPE_Q4_0_4_8:
+            repack_q4_0_to_q4_0_4_bl(cur, 8, data, data_size);
+            break;
+        case GGML_TYPE_Q4_0_4_4:
+            repack_q4_0_to_q4_0_4_bl(cur, 4, data, data_size);
+            break;
+        default:
+            GGML_ABORT("Unsupported type");
+    }
+}
+
+enum ggml_type ggml_aarch64_get_optimal_repack_type(const struct ggml_tensor * cur) {
+    if (cur->type == GGML_TYPE_Q4_0) {
+        // TODO: enable for AVX2 - currently disabled due to bad gemv performance
+        if (/* ggml_cpu_has_avx2() || */ (ggml_cpu_has_sve() && ggml_cpu_has_matmul_int8() && ggml_cpu_get_sve_cnt() == QK8_0)) {
+            return GGML_TYPE_Q4_0_8_8;
+        }
+        if (ggml_cpu_has_neon() && ggml_cpu_has_matmul_int8()) {
+            return GGML_TYPE_Q4_0_4_8;
+        }
+        if (ggml_cpu_has_neon()) {
+            return GGML_TYPE_Q4_0_4_4;
+        }
+    }
+
+    return cur->type;
+}

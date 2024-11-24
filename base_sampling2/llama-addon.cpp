@@ -59,6 +59,10 @@ bool k_set = false;
 int num_probs_tops = 0;
 int num_probs_bottoms = 0;
 
+int confidence_num = 0;
+float confidence_acc = 0.0f;
+float confidence_total = 1.0f;
+
 static bool writeToFile(std::string path, std::string text){
     std::ofstream file(path, std::ios::app);
     if (file.is_open()) {
@@ -465,7 +469,7 @@ cur_p_disp += "\nCutting out " + std::to_string(k) + " tokens before " + std::to
 writeToFile("k_addon.txt", cur_p_disp);
 }
 
-// dist
+// post
 
 struct llama_sampler_post_addon {
     const uint32_t seed;
@@ -1609,3 +1613,233 @@ struct llama_sampler * llama_sampler_init_tail_free(float z, size_t min_keep) {
         },
     };
 }
+
+// dist+
+
+struct llama_sampler_dist_plus {
+    const uint32_t seed;
+          uint32_t seed_cur;
+          float    confidence_top;
+          float    confidence_bottom;
+
+    std::mt19937 rng;
+};
+
+static const char * llama_sampler_dist_plus_name(const struct llama_sampler * /*smpl*/) {
+    return "dist";
+}
+
+// confidence
+static void llama_sampler_dist_plus_impl_glob(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    if (confidence_total > ctx->confidence_top && cur_p->selected < (cur_p->size - 1)) {
+        cur_p->selected += 1;
+    } else if (confidence_total < ctx->confidence_top && cur_p->selected > 0) {
+        cur_p->selected -= 1;
+    }
+}
+
+// single point
+static void llama_sampler_dist_plus_impl_0(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    if (cur_p->data[cur_p->selected].p > ctx->confidence_top &&
+        cur_p->selected < (cur_p->size - 1)) {
+
+        cur_p->selected += 1;
+    }
+
+    if (cur_p->data[cur_p->selected].p < ctx->confidence_top &&
+        cur_p->selected > 0) {
+
+        cur_p->selected -= 1;
+    }
+}
+
+// single point, roll and choose the closest
+static void llama_sampler_dist_plus_impl_0_1(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    int chosen = cur_p->selected;
+
+    if (cur_p->data[chosen].p > ctx->confidence_top) {
+        while (cur_p->data[chosen].p > ctx->confidence_top &&
+               chosen < (cur_p->size - 1)) {
+            chosen += 1;
+        }
+
+        if (chosen != cur_p->selected) {
+
+// std::string log_plus;
+// log_plus = "\nReplacing #" + std::to_string(cur_p->selected) + "[" + std::to_string(cur_p->data[cur_p->selected].p) + "] with #";
+
+            cur_p->selected = chosen;
+
+// log_plus += std::to_string(cur_p->selected) + "[" + std::to_string(cur_p->data[cur_p->selected].p) + "]";
+// writeToFile("plus_apply.txt", log_plus);
+
+        }
+    } else if (cur_p->data[chosen].p < ctx->confidence_top) {
+        while (cur_p->data[chosen].p < ctx->confidence_top &&
+               chosen > 0) {
+            chosen -= 1;
+        }
+
+        if (chosen != cur_p->selected) {
+
+// std::string log_plus;
+// log_plus = "\nReplacing #" + std::to_string(cur_p->selected) + "[" + std::to_string(cur_p->data[cur_p->selected].p) + "] with #";
+
+            cur_p->selected = chosen + 1;
+
+// log_plus += std::to_string(cur_p->selected) + "[" + std::to_string(cur_p->data[cur_p->selected].p) + "]";
+// writeToFile("plus_apply.txt", log_plus);
+
+        }
+    }
+}
+
+// range, noise shuffle
+static void llama_sampler_dist_plus_impl(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    while (cur_p->data[cur_p->selected].p > ctx->confidence_top || 
+           cur_p->data[cur_p->selected].p < ctx->confidence_bottom) {
+
+        llama_sampler_noise_impl(cur_p, cur_p->size, 0.0f, 1.0f);
+        llama_sampler_softmax_impl(cur_p);
+        cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
+    }
+}
+
+// range, shift once each direction
+static void llama_sampler_dist_plus_impl_1(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    if (cur_p->data[cur_p->selected].p > ctx->confidence_top ||
+        cur_p->data[cur_p->selected].p < ctx->confidence_bottom) {
+
+        if (cur_p->data[cur_p->selected].p > ctx->confidence_top &&
+            cur_p->selected < (cur_p->size - 1)) {
+
+            cur_p->selected += 1;
+        }
+
+        if (cur_p->data[cur_p->selected].p < ctx->confidence_bottom &&
+                   cur_p->selected > 0) {
+
+            cur_p->selected -= 1;
+        }
+
+    }
+}
+
+// range, shift until within
+static void llama_sampler_dist_plus_impl_2(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    if (cur_p->data[cur_p->selected].p > ctx->confidence_top ||
+        cur_p->data[cur_p->selected].p < ctx->confidence_bottom) {
+
+        while (cur_p->data[cur_p->selected].p > ctx->confidence_top &&
+               cur_p->selected < (cur_p->size - 1)) {
+            cur_p->selected += 1;
+        }
+
+        while (cur_p->data[cur_p->selected].p < ctx->confidence_bottom &&
+               cur_p->selected > 0) {
+            cur_p->selected -= 1;
+        }
+
+    }
+}
+
+// range, shift until within, might get locked
+static void llama_sampler_dist_plus_impl_3(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    while (cur_p->data[cur_p->selected].p > ctx->confidence_top || 
+           cur_p->data[cur_p->selected].p < ctx->confidence_bottom) {
+
+        if (cur_p->data[cur_p->selected].p > ctx->confidence_top &&
+            cur_p->selected < (cur_p->size - 1)) {
+
+            cur_p->selected += 1;
+
+        } else if (cur_p->data[cur_p->selected].p < ctx->confidence_bottom &&
+                   cur_p->selected > 0) {
+
+            cur_p->selected -= 1;
+
+        }
+
+    }
+}
+
+static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_dist_plus *) smpl->ctx;
+
+    llama_sampler_softmax_impl(cur_p);
+
+    cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
+
+std::string log_plus;
+
+    if (ctx->confidence_top > ctx->confidence_bottom &&
+        ctx->confidence_top > 0.0f &&
+        cur_p->size > 2) {
+        // llama_sampler_dist_plus_impl(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_1(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_2(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_0(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_0_1(cur_p, ctx);
+        llama_sampler_dist_plus_impl_glob(cur_p, ctx);
+    }
+
+    float prob_selected = cur_p->data[cur_p->selected].p;
+    if (prob_selected >= 0.5f) ++num_probs_tops;
+    else ++num_probs_bottoms;
+
+    confidence_num += 1;
+    confidence_acc += prob_selected;
+    confidence_total = confidence_acc / confidence_num;
+}
+
+static struct llama_sampler * llama_sampler_dist_plus_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_dist_plus *) smpl->ctx;
+    auto * result = llama_sampler_init_dist_plus(ctx->seed, ctx->confidence_top, ctx->confidence_bottom);
+
+    // copy the state
+    {
+        auto * result_ctx = (llama_sampler_dist_plus *) result->ctx;
+
+        result_ctx->rng = ctx->rng;
+    }
+
+    return result;
+}
+
+static void llama_sampler_dist_plus_reset(struct llama_sampler * smpl) {
+    auto * ctx = (llama_sampler_dist_plus *) smpl->ctx;
+    ctx->seed_cur = get_rng_seed(ctx->seed);
+    ctx->rng.seed(ctx->seed_cur);
+
+    confidence_num = 0;
+    confidence_acc = 0.0f;
+    confidence_total = 1.0f;
+}
+
+static void llama_sampler_dist_plus_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_dist_plus *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_dist_plus_i = {
+    /* .name   = */ llama_sampler_dist_plus_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_dist_plus_apply,
+    /* .reset  = */ llama_sampler_dist_plus_reset,
+    /* .clone  = */ llama_sampler_dist_plus_clone,
+    /* .free   = */ llama_sampler_dist_plus_free,
+};
+
+struct llama_sampler * llama_sampler_init_dist_plus(uint32_t seed, float confidence_top, float confidence_bottom) {
+    auto seed_cur = get_rng_seed(seed);
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_dist_plus_i,
+        /* .ctx   = */ new llama_sampler_dist_plus {
+            /* .seed              = */ seed,
+            /* .seed_cur          = */ seed_cur,
+            /* .confidence_top    = */ confidence_top,
+            /* .confidence_bottom = */ confidence_bottom,
+            /* .rng               = */ std::mt19937(seed_cur),
+        },
+    };
+}
+

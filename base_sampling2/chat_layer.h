@@ -69,6 +69,8 @@ extern int num_probs_tops;
 
 extern int num_probs_bottoms;
 
+extern float confidence_total;
+
 #define SESSIONS_FOLDER "sessions/"
 
 static common_params paramsDefault;
@@ -614,7 +616,8 @@ public:
                 }
             }
         //}
-        result += std::format("({}vs{})", num_probs_tops, num_probs_bottoms);
+        result += std::format("({}vs{}={:.2f})", num_probs_tops, num_probs_bottoms, confidence_total);
+        result += std::format(" Cnf[{:.2f}-{:.2f}]", params.sparams.confidence_top, params.sparams.confidence_bottom);
         return result;
     }
 
@@ -1359,7 +1362,7 @@ public:
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.emplace_back(id);
         common_sampler_accept(smpl, id, /* apply_grammar= */ true);
-        common_sampler_set_shift(params.sparams);
+        // common_sampler_set_shift(params.sparams);
         // add it to the context
         //embd.emplace_back(id);
         embd.emplace_back(id);

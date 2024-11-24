@@ -162,10 +162,13 @@ struct common_sampler_params {
     int32_t  k_shift               = 0; // token shift for the first greedy sampling
     float    confidence_shift      = 14.0f; // difference between neighbouring logits
 
+    float    confidence_top            = 0.0f; // desired maximum confidence of the chosen logit
+    float    confidence_bottom         = 0.0f; // desired minimum confidence of the chosen logit
+
     bool    penalize_nl       = false; // consider newlines as a repeatable token
     bool    ignore_eos        = false;
     bool    no_perf           = false; // disable performance metrics
-    bool    shifted           = false;
+
     std::string samplers_sequence     = "kfypmts"; // top_k, tail_free, typical_p, top_p, min_p, temp, p_step
 
     std::vector<std::string> dry_sequence_breakers = {"\n", ":", "\"", "*"};     // default sequence breakers for DRY

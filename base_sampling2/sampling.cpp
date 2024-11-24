@@ -135,7 +135,8 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 }
             }
             //llama_sampler_chain_add(result->chain, llama_sampler_init_post_addon(params.seed, params.xtc_probability, params.xtc_threshold));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_dist(params.seed));
+            // llama_sampler_chain_add(result->chain, llama_sampler_init_dist(params.seed));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus(params.seed, params.confidence_top, params.confidence_bottom));
         } else if (params.mirostat == 1) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_mirostat(llama_n_vocab(model), params.seed, params.mirostat_tau, params.mirostat_eta, 100));
@@ -286,13 +287,13 @@ std::string common_sampler_print(const struct common_sampler * gsmpl) {
     return result;
 }
 
-void common_sampler_set_shift(struct common_sampler_params & params) {
-    if (params.shifted == false) params.shifted = true;
-}
+// void common_sampler_set_shift(struct common_sampler_params & params) {
+    // if (params.shifted == false) params.shifted = true;
+// }
 
-void common_sampler_reset_shift(struct common_sampler_params & params) {
-    if (params.shifted == true) params.shifted = false;
-}
+// void common_sampler_reset_shift(struct common_sampler_params & params) {
+    // if (params.shifted == true) params.shifted = false;
+// }
 
 std::string common_sampler_prev_str(common_sampler * gsmpl, llama_context * ctx_main, int n) {
     n = std::min(n, (int) gsmpl->prev.size());

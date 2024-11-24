@@ -160,11 +160,12 @@ struct modelThread{
 
         if (std::size(newChat.params.antiprompt)) {
             int cutAntiPos = input.rfind(newChat.params.antiprompt[0]);
-            if (cutAntiPos != std::string::npos){
-                input.erase(cutAntiPos);
+            int cutAntiLength = newChat.params.antiprompt[0].length();
+            if (cutAntiPos != std::string::npos) {
+                input = input.substr(0, cutAntiPos) + input.substr(cutAntiPos + cutAntiLength);
             }
         }
-        
+
         resultsStringPairs.emplace_back(std::pair("AI",input));
     }
     
@@ -642,7 +643,7 @@ struct modelThread{
     void rewind() {
         resultsStringPairs.pop_back();
         newChat.rewind();
-        if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
+        // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
     
     void unload(){
@@ -1272,6 +1273,8 @@ struct configurableChat{
         aChat.params.sparams.range_min = params.sparams.range_min;
         aChat.params.sparams.range_max = params.sparams.range_max;
         aChat.params.sparams.k_shift = params.sparams.k_shift;
+        aChat.params.sparams.confidence_top = params.sparams.confidence_top;
+        aChat.params.sparams.confidence_bottom = params.sparams.confidence_bottom;
         aChat.params.sparams.confidence_shift = params.sparams.confidence_shift;
         aChat.params.sparams.tfs_z = params.sparams.tfs_z;
         aChat.params.sparams.typical_p = params.sparams.typical_p;
@@ -1430,6 +1433,8 @@ struct configurableChat{
         if (params.sparams.range_min != paramsDefault.sparams.range_min) modelConfig[model]["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) modelConfig[model]["range_max"] = params.sparams.range_max;
         if (params.sparams.k_shift != paramsDefault.sparams.k_shift) modelConfig[model]["k_shift"] = params.sparams.k_shift;
+        if (params.sparams.confidence_top != paramsDefault.sparams.confidence_top) modelConfig[model]["confidence_top"] = params.sparams.confidence_top;
+        if (params.sparams.confidence_bottom != paramsDefault.sparams.confidence_bottom) modelConfig[model]["confidence_bottom"] = params.sparams.confidence_bottom;
         if (params.sparams.confidence_shift != paramsDefault.sparams.confidence_shift) modelConfig[model]["confidence_shift"] = params.sparams.confidence_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
         
@@ -1556,6 +1561,8 @@ struct configurableChat{
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) newCard["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) newCard["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) newCard["range_max"] = params.sparams.range_max;
+        if (params.sparams.confidence_top != paramsDefault.sparams.confidence_top) newCard["confidence_top"] = params.sparams.confidence_top;
+        if (params.sparams.confidence_bottom != paramsDefault.sparams.confidence_bottom) newCard["confidence_bottom"] = params.sparams.confidence_bottom;
         if (params.sparams.confidence_shift != paramsDefault.sparams.confidence_shift) newCard["confidence_shift"] = params.sparams.confidence_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;

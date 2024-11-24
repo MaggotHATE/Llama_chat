@@ -425,6 +425,11 @@ static std::string get_last_formatted(std::vector<std::pair<std::string, std::st
 }
 
 static void getSamplingParamsFromJson(nlohmann::json& config, common_params& params) {
+// general sampling
+    if (checkJNum(config, "confidence_shift")) params.sparams.confidence_shift = config["confidence_shift"];
+    if (checkJNum(config, "confidence_top")) params.sparams.confidence_top = config["confidence_top"];
+    if (checkJNum(config, "confidence_bottom")) params.sparams.confidence_bottom = config["confidence_bottom"];
+
 // samplers
     load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
     load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
@@ -442,7 +447,7 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
     if (checkJNum(config, "range_min")) params.sparams.range_min = config["range_min"];
     if (checkJNum(config, "range_max")) params.sparams.range_max = config["range_max"];
     if (checkJNum(config, "k_shift")) params.sparams.k_shift = config["k_shift"];
-    if (checkJNum(config, "confidence_shift")) params.sparams.confidence_shift = config["confidence_shift"];
+
     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
