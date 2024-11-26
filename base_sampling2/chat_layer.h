@@ -936,7 +936,7 @@ public:
         
         auto & sparams = params.sparams;
         // this function is only needed if backends are compiled as dynamic libraries
-        // it's not a feature in Makefile yet, but might become one
+        // there might be buffer problems for now
         ggml_backend_load_all();
         printf("..............Loaded dynamic backends.(%s)................\n", __func__);
         
@@ -954,22 +954,15 @@ public:
             status += checkPreLoad(); // 1
             printf("checkPreLoad = %d\n", status);
             if (status == 0) return 0;
-            
-            //loading the model itself; uses llama_backend, ctx, ctx_guidance
-            // LET'S TRY THIS
-            //llama_init_backend(params.numa);
 
-//#define GGML_OPENCL_DEFAULT_PLATFORM_ID params.clblast_platform_id
 #ifdef GGML_USE_CLBLAST
-// #undef GGML_OPENCL_DEFAULT_PLATFORM_ID
-// #define GGML_OPENCL_DEFAULT_PLATFORM_ID params.clblast_platform_id
             GGML_OPENCL_DEFAULT_PLATFORM_ID = params.clblast_platform_id;
             printf("..GGML_OPENCL_DEFAULT_PLATFORM_ID = %d..\n", GGML_OPENCL_DEFAULT_PLATFORM_ID);
 #endif
 
             llama_backend_init();
 #ifdef GGML_USE_CLBLAST
-            printf("..............Backend initialized common: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
+            printf("..............CLBLAST initialized common: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
 #else
             printf("..............Backend initialized common (%s)................\n", __func__);
 #endif
@@ -980,6 +973,7 @@ public:
             model = llama_init.model;
             ctx = llama_init.context;
             printf("..............Model initialized (%s)................\n", __func__);
+
             assignThreads();
             printf("..............Threads assigned (%s)................\n", __func__);
 

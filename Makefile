@@ -388,7 +388,7 @@ $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyf
 
 PREFIX = t$(PREFIX_BASE)
 
-OBJS_GGUF = \
+OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_ggml.o \
     $(TMP)$(PREFIX)_ggml-aarch64.o \
     $(TMP)$(PREFIX)_ggml-alloc.o \
@@ -399,11 +399,17 @@ OBJS_GGUF = \
     $(TMP)$(PREFIX)_ggml-cpu.o \
     $(TMP)$(PREFIX)_ggml-cpu-cpp.o \
     $(TMP)$(PREFIX)_ggml-cpu-aarch64.o \
-    $(TMP)$(PREFIX)_ggml-cpu-quants.o \
+    $(TMP)$(PREFIX)_ggml-cpu-quants.o
+
+OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama.o \
     $(TMP)$(PREFIX)_llama-vocab.o \
     $(TMP)$(PREFIX)_llama-grammar.o \
-    $(TMP)$(PREFIX)_llama-sampling.o \
+    $(TMP)$(PREFIX)_llama-sampling.o
+
+OBJS_GGUF = \
+    $(OBJS_GGUF_BASE) \
+    $(OBJS_GGUF_LLAMA) \
     $(TMP)$(PREFIX)_llama-addon.o \
     $(TMP)$(PREFIX)_sampling.o \
     $(TMP)$(PREFIX)_common.o \
@@ -413,11 +419,11 @@ OBJS_GGUF = \
 # SGEMM and others
 
 ifndef SGEMM_OFF
-	OBJS_GGUF += $(TMP)$(PREFIX)_sgemm.o
+	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_sgemm.o
 endif # SGEMM_OFF
 
 ifndef AMX_OFF
-	OBJS_GGUF += $(TMP)$(PREFIX)_amx.o $(TMP)$(PREFIX)_mmq.o
+	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_amx.o $(TMP)$(PREFIX)_mmq.o
 endif # AMX
 
 ifdef SAMPLING1
@@ -426,34 +432,40 @@ endif
 
 # backends
 
+ob64_f = -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
+ob64_l = $(shell pkg-config --libs openblas64)
+
+ob_f = -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
+ob_l = $(shell pkg-config --libs openblas)
+
 ifdef OPENBLAS64
 	override PREFIX = ob64_$(PREFIX_BASE)
-	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
-	CXXFLAGS_UI += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas64)
-	CFLAGS   += $(shell pkg-config --cflags-only-other openblas64)
-	LDFLAGS  += $(shell pkg-config --libs openblas64) --static
-	OBJS_GGUF += $(TMP)$(PREFIX)_ggml-blas.o
+	CXXFLAGS += $(ob64_f)
+	CXXFLAGS_UI += $(ob64_f)
+	CFLAGS   += $(ob64_f)
+	LDFLAGS  += $(ob64_l) --static
+	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_ggml-blas.o
 else ifdef OPENBLAS
 	override PREFIX = ob_$(PREFIX_BASE)
-	CXXFLAGS += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
-	CXXFLAGS_UI += -DGGML_USE_BLAS $(shell pkg-config --cflags-only-I openblas)
-	CFLAGS   += $(shell pkg-config --cflags-only-other openblas)
-	LDFLAGS  += $(shell pkg-config --libs openblas) --static
-	OBJS_GGUF += $(TMP)$(PREFIX)_ggml-blas.o
+	CXXFLAGS += $(ob_f)
+	CXXFLAGS_UI += $(ob_f)
+	CFLAGS   += $(ob_f)
+	LDFLAGS  += $(ob_l) --static
+	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_ggml-blas.o
 else ifdef CLBLAST
 	override PREFIX = cl_$(PREFIX_BASE)
 	CXXFLAGS += -DGGML_USE_CLBLAST -lclblast -lOpenCL
 	CXXFLAGS_UI += -DGGML_USE_CLBLAST -lclblast -lOpenCL
 	CFLAGS   += -DGGML_USE_CLBLAST -lclblast -lOpenCL
 	LDFLAGS  += -Llib/OpenCL.lib -Llib/clblast.lib
-	OBJS_GGUF += $(TMP)$(PREFIX)_ggml-opencl-gguf.o
+	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_ggml-opencl-gguf.o
 else ifdef VULKAN
 	override PREFIX = vk_$(PREFIX_BASE)
 	CXXFLAGS += -DGGML_USE_VULKAN
 	CXXFLAGS_UI += -DGGML_USE_VULKAN
 	CFLAGS   += -DGGML_USE_VULKAN
 	LDFLAGS  += $(shell pkg-config --libs vulkan)
-	OBJS_GGUF += $(TMP)$(PREFIX)_ggml-vulkan.o $(TMP)$(PREFIX)_ggml-vulkan-shaders.o
+	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_ggml-vulkan.o $(TMP)$(PREFIX)_ggml-vulkan-shaders.o
 endif
 
 $(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
@@ -592,6 +604,13 @@ $(TMP)$(PREFIX)_ggml-blas.o: \
 	$(ggmlsrc_f)/ggml-blas/ggml-blas.cpp \
 	$(ggmlsrc_f)/ggml-blas.h
 	$(CXX) $(CXXFLAGS)    -c $< -o $@
+
+# openblas dynamic
+ggml-blas$(DSO_EXT): \
+	$(ggmlsrc_f)/ggml-blas/ggml-blas.cpp \
+	$(ggmlsrc_f)/ggml-blas.h \
+    $(OBJS_GGUF_BASE)
+	$(CXX) $(CXXFLAGS) $(ob64_f) -shared -o $@ $^ $(ob64_l) --static -DGGML_BACKEND_DL -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED
 
 # clblast
 $(TMP)$(PREFIX)_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/ggml-opencl.h
@@ -817,6 +836,9 @@ all_vk: chat_vk chat_vk_sdl chatTest_vk
     
 all_cpu: chat chat_sdl chatTest
 
+# dynamic backends
+
+blas_dll: ggml-blas$(DSO_EXT)
 
 #    
 # MAIN EXE's

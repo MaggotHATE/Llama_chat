@@ -1646,6 +1646,7 @@ static void llama_sampler_dist_plus_impl_glob(llama_token_data_array * cur_p, ll
 
 static void llama_sampler_dist_plus_impl_glob_1(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
     float conf = calc_confidence_impl(confidence_num, confidence_acc, cur_p->data[cur_p->selected].p);
+
     while (conf < ctx->confidence_top && cur_p->selected > 0) {
         cur_p->selected -= 1;
     }
@@ -1787,11 +1788,9 @@ static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_tok
 
     cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
 
-std::string log_plus;
-
     if (ctx->confidence_top > ctx->confidence_bottom &&
         ctx->confidence_top > 0.0f &&
-        cur_p->size > 2) {
+        cur_p->size > 1) {
         // llama_sampler_dist_plus_impl(cur_p, ctx);
         // llama_sampler_dist_plus_impl_1(cur_p, ctx);
         // llama_sampler_dist_plus_impl_2(cur_p, ctx);
@@ -1802,7 +1801,7 @@ std::string log_plus;
     }
 
     float prob_selected = cur_p->data[cur_p->selected].p;
-    if (prob_selected >= 0.5f) ++num_probs_tops;
+    if (prob_selected > ctx->confidence_top) ++num_probs_tops;
     else ++num_probs_bottoms;
 
     confidence_num += 1;
