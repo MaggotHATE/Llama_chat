@@ -820,6 +820,11 @@ public:
             __func__,
             (int) params.cpuparams.n_threads
         );
+
+        auto * reg = ggml_backend_dev_backend_reg(ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU));
+        auto * ggml_threadpool_new_fn = (decltype(ggml_threadpool_new) *) ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_new");
+        auto * ggml_threadpool_free_fn = (decltype(ggml_threadpool_free) *) ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_free");
+
         struct ggml_threadpool_params tpp_batch =
             ggml_threadpool_params_from_cpu_params(params.cpuparams_batch);
         struct ggml_threadpool_params tpp =
@@ -828,7 +833,7 @@ public:
         set_process_priority(params.cpuparams.priority);
 
         if (!ggml_threadpool_params_match(&tpp, &tpp_batch)) {
-            threadpool_batch = ggml_threadpool_new(&tpp_batch);
+            threadpool_batch = ggml_threadpool_new_fn(&tpp_batch);
             if (!threadpool_batch) {
                 printf("%s: batch threadpool create failed : n_threads %d\n", __func__, tpp_batch.n_threads);
                 exit(1);
@@ -838,7 +843,7 @@ public:
             tpp.paused = true;
         }
 
-        threadpool = ggml_threadpool_new(&tpp);
+        threadpool = ggml_threadpool_new_fn(&tpp);
         if (!threadpool) {
             printf("%s: threadpool create failed : n_threads %d\n", __func__, tpp.n_threads);
             exit(1);
@@ -851,20 +856,22 @@ public:
 
     int loadModel(){
 
+        ggml_backend_load_all();
+        printf("..............Loaded dynamic backends.(%s)................\n", __func__);
         //llama_init_backend(params.numa);
         llama_backend_init();
-        printf("..............Backend initialized simple................\n");
+        printf("..............Backend initialized simple.(%s)................\n", __func__);
 
         // load the model and apply lora adapter, if any
         //ctx = llama_init_from_gpt_params(params);
         common_init_result llama_init = common_init_from_params(params);
-        printf("..............common_init_from_params (%s)................\n", __func__);
+        printf("..............common_init_from_params.(%s)................\n", __func__);
 
         model = llama_init.model;
         ctx = llama_init.context;
-        printf("..............Model initialized (%s)................\n", __func__);
+        printf("..............Model initialized.(%s)................\n", __func__);
         assignThreads();
-        printf("..............Threads assigned................\n");
+        printf("..............Threads assigned.(%s)................\n", __func__);
         
         
         if (model == NULL) {
@@ -878,7 +885,8 @@ public:
     // this part is necessary for proper functioning
     int strictLoad(){
         int status = 0;
-        
+        ggml_backend_load_all();
+        printf("..............Loaded dynamic backends.(%s)................\n", __func__);
         //checking values 
         status += checkPreLoad(); // 1
         printf("checkPreLoad = %d\n", status);
@@ -927,9 +935,10 @@ public:
         printf("Load start \n");
         
         auto & sparams = params.sparams;
-        
-        
-        
+        // this function is only needed if backends are compiled as dynamic libraries
+        // it's not a feature in Makefile yet, but might become one
+        ggml_backend_load_all();
+        printf("..............Loaded dynamic backends.(%s)................\n", __func__);
         
         // if (!soft){
             // int status = 0;
@@ -962,7 +971,7 @@ public:
 #ifdef GGML_USE_CLBLAST
             printf("..............Backend initialized common: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
 #else
-            printf("..............Backend initialized common................\n");
+            printf("..............Backend initialized common (%s)................\n", __func__);
 #endif
             // load the model and apply lora adapter, if any
             common_init_result llama_init = common_init_from_params(params);

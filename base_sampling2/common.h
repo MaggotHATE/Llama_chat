@@ -32,6 +32,8 @@ struct common_lora_adapter_container : common_lora_adapter_info {
     struct llama_lora_adapter * adapter;
 };
 
+using llama_tokens = std::vector<llama_token>;
+
 // build info
 extern int LLAMA_BUILD_NUMBER;
 extern char const * LLAMA_COMMIT;
@@ -116,7 +118,7 @@ typedef struct llama_sampling_param_func {
 } llama_sampling_param_func;
 
 // sampling parameters
-struct common_sampler_params {
+struct common_params_sampling {
     uint32_t seed = LLAMA_DEFAULT_SEED; // the seed used to initialize llama_sampler
 
     int32_t n_prev            = 64;    // number of previous tokens to remember
@@ -181,6 +183,18 @@ struct common_sampler_params {
     std::string print() const;
 };
 
+struct common_params_speculative {
+    int32_t n_ctx        =     0; // draft context size
+    int32_t n_max        =    16; // maximum number of tokens to draft during speculative decoding
+    int32_t n_min        =     5; // minimum number of draft tokens to use for speculative decoding
+    int32_t n_gpu_layers =    -1; // number of layers to store in VRAM for the draft model (-1 - use default)
+    float   p_split      =  0.1f; // speculative decoding split probability
+    float   p_min        =  0.9f; // minimum speculative decoding probability (greedy)
+    struct cpu_params cpuparams;
+    struct cpu_params cpuparams_batch;
+    std::string model = ""; // draft model for speculative decoding                          // NOLINT
+};
+
 struct common_params {
     int32_t n_predict             =    -1; // new tokens to predict
     int32_t n_ctx                 =     0; // context size
@@ -192,10 +206,6 @@ struct common_params {
     int32_t n_parallel            =     1; // number of parallel sequences to decode
     int32_t n_sequences           =     1; // number of sequences to decode
     float   p_split               =  0.1f; // speculative decoding split probability
-    int32_t n_gpu_layers          =    -1; // number of layers to store in VRAM (-1 - use default)
-    int32_t n_gpu_layers_draft    =    -1; // number of layers to store in VRAM for the draft model (-1 - use default)
-    int32_t main_gpu              =     0; // the GPU that is used for scratch and small tensors
-    float   tensor_split[128]     =   {0}; // how split tensors should be distributed across GPUs
     int32_t grp_attn_n            =     1; // group-attention factor
     int32_t grp_attn_w            =   512; // group-attention width
     int32_t n_print               =    -1; // print token count every n tokens (-1 = disabled)
@@ -210,6 +220,13 @@ struct common_params {
 
     int32_t clblast_platform_id = -1;
 
+    // offload params
+    std::vector<ggml_backend_dev_t> devices;         // devices to use for offloading
+    int32_t n_gpu_layers                    =    -1; // number of layers to store in VRAM (-1 - use default)
+    int32_t main_gpu                        =     0; // the GPU that is used for scratch and small tensors
+    float   tensor_split[128]               =   {0}; // how split tensors should be distributed across GPUs
+    enum llama_split_mode        split_mode = LLAMA_SPLIT_MODE_LAYER; // how to split the model across GPUs
+
     struct cpu_params cpuparams;
     struct cpu_params cpuparams_batch;
     struct cpu_params draft_cpuparams;
@@ -220,12 +237,12 @@ struct common_params {
 
     ggml_numa_strategy numa = GGML_NUMA_STRATEGY_DISABLED;
 
-    enum llama_split_mode        split_mode        = LLAMA_SPLIT_MODE_LAYER; // how to split the model across GPUs
     enum llama_rope_scaling_type rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED;
     enum llama_pooling_type      pooling_type      = LLAMA_POOLING_TYPE_UNSPECIFIED; // pooling type for embeddings
     enum llama_attention_type    attention_type    = LLAMA_ATTENTION_TYPE_UNSPECIFIED; // attention type for embeddings
 
-    struct common_sampler_params sparams;
+    struct common_params_sampling sparams;
+    struct common_params_speculative speculative;
 
     std::string model                = ""; // model path                                                    // NOLINT
     std::string model_draft          = ""; // draft model for speculative decoding                          // NOLINT
@@ -437,7 +454,7 @@ struct common_init_result {
 
 struct common_init_result     common_init_from_params(common_params & params);
 
-struct llama_model_params     common_model_params_to_llama    (const common_params & params);
+struct llama_model_params     common_model_params_to_llama    (common_params & params);
 struct llama_context_params   common_context_params_to_llama  (const common_params & params);
 struct ggml_threadpool_params ggml_threadpool_params_from_cpu_params(const cpu_params & params);
 
@@ -457,6 +474,14 @@ void common_batch_add(
                           llama_pos   pos,
     const std::vector<llama_seq_id> & seq_ids,
                                bool   logits);
+
+//
+// Token utils
+//
+// longest common prefix
+size_t common_lcp(const llama_tokens & a, const llama_tokens & b);
+// longet common subsequence
+size_t common_lcs(const llama_tokens & a, const llama_tokens & b);
 
 //
 // Vocab utils

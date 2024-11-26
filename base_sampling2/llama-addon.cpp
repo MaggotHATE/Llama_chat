@@ -1616,6 +1616,12 @@ struct llama_sampler * llama_sampler_init_tail_free(float z, size_t min_keep) {
 
 // dist+
 
+float calc_confidence_impl(const int confidence_n, const float confidence_a, const float prob_selected) {
+    int confidence_number = confidence_n + 1;
+    int confidence_accumulated = confidence_a + prob_selected;
+    return confidence_accumulated / confidence_number;
+}
+
 struct llama_sampler_dist_plus {
     const uint32_t seed;
           uint32_t seed_cur;
@@ -1635,6 +1641,17 @@ static void llama_sampler_dist_plus_impl_glob(llama_token_data_array * cur_p, ll
         cur_p->selected += 1;
     } else if (confidence_total < ctx->confidence_top && cur_p->selected > 0) {
         cur_p->selected -= 1;
+    }
+}
+
+static void llama_sampler_dist_plus_impl_glob_1(llama_token_data_array * cur_p, llama_sampler_dist_plus * ctx) {
+    float conf = calc_confidence_impl(confidence_num, confidence_acc, cur_p->data[cur_p->selected].p);
+    while (conf < ctx->confidence_top && cur_p->selected > 0) {
+        cur_p->selected -= 1;
+    }
+
+    while (conf > ctx->confidence_top && cur_p->selected < (cur_p->size - 1)) {
+        cur_p->selected += 1;
     }
 }
 
@@ -1780,7 +1797,8 @@ std::string log_plus;
         // llama_sampler_dist_plus_impl_2(cur_p, ctx);
         // llama_sampler_dist_plus_impl_0(cur_p, ctx);
         // llama_sampler_dist_plus_impl_0_1(cur_p, ctx);
-        llama_sampler_dist_plus_impl_glob(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_glob(cur_p, ctx);
+        llama_sampler_dist_plus_impl_glob_1(cur_p, ctx);
     }
 
     float prob_selected = cur_p->data[cur_p->selected].p;
