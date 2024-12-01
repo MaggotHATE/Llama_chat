@@ -1455,7 +1455,7 @@ public:
         // to stabilize
         const auto id = common_tokenize(ctx, params.input_suffix, false, true);
         embd.insert(embd.end(), id.begin(), id.end());
-
+        n_consumed += id.size();
         // prepareEmb();
     }
 

@@ -21,12 +21,13 @@ static std::string extract_string(std::string& text, std::string open, std::stri
     return "NULL";
 }
 
-static std::string extract_string_mod(std::string text, std::string open, std::string close) {
+static std::string extract_string_mod(std::string& text, std::string open, std::string close) {
     size_t open_pos = text.rfind(open);
     size_t close_pos = text.rfind(close);
     if (open_pos != text.npos && close_pos != text.npos) {
         size_t diff = close_pos - open_pos - open.length();
         std::string extract = text.substr(open_pos + open.length(), diff);
+        std::cout << "Extracting: " << extract << std::endl;
         text.replace(open_pos,diff + open.length() + close.length(),"");
         return extract;
     }
@@ -101,46 +102,47 @@ int main(int argc, char ** argv) {
     //SetConsoleCP(1251);
 
     std::cout << argv[0] << std::endl;
-    
+
     auto configName = getFileWithSameName(argv[0], ".json");
-    
+
     if (std::filesystem::exists(configName)){
         std::cout << "Loading " << configName << std::endl;
     } else {
         std::cout << "Can't find " << configName << ", loading default config.json" << std::endl;
         configName = "config.json";
     }
-    
+
     if (argc > 1){
         filename = argv[1];
     }
-    
+
     //std::setlocale(LC_ALL, "en_US.utf8");
-    
+
     //chat newChat;
     //std::vector<std::string> results;
     //task_lambda();
-    
-    
+
+
     configurableChat settings;
     SetConsoleTitle("Loading json...");
     settings.localConfig = getJson(configName);
-    
+
     if (filename.rfind(".gguf") != filename.npos) {
         std::cout << "Opening a model " << filename << std::endl;
         SetConsoleTitle("Opening a model...");
         settings.localConfig["model"] = filename;
     }
-    
+
     SetConsoleTitle("Getting settings for the model...");
     settings.getSettingsFull();
     settings.fillLocalJson(settings.params.model);
     modelThread threadedChat;
     //threadedChat.switch_debug();
-    
+
     std::string window_title = "ChatTest";
-   
-    
+
+    std::string suffix_addon = "";
+
     if (filename.rfind(".json") != filename.npos){
         SetConsoleTitle("Loading a json file...");
         auto instantJson = getJson(filename);
@@ -174,16 +176,21 @@ int main(int argc, char ** argv) {
             //queue["choices"].push_back("input1");
             //threadedChat.externalData = "Cycles left: " + std::to_string(regens);
         }
+        std::string extract = extract_string_mod(inputPrompt, "{{","}}");
+        if (extract != "NULL") suffix_addon = extract;
     }
-    
+
+    std::string suffix = settings.modelConfig[settings.modelName]["input_suffix"];
+    suffix += suffix_addon;
+    settings.modelConfig[settings.modelName]["input_suffix"] = suffix;
     std::cout << settings.modelConfig.dump(3) << std::endl; 
-    
-    
+
+
     SetConsoleTitle("Loading...");
     threadedChat.jsonConfig = settings.modelConfig;
     threadedChat.load();
-    
-    
+
+
     int latency = 30;
     if (settings.localConfig.contains("latency")) latency = settings.localConfig["latency"];
 
@@ -193,16 +200,16 @@ int main(int argc, char ** argv) {
     // cycle for automated generation with wildcards
     std::string input1;
     bool cycling = 0;
-    
+
     // if (threadedChat.isContinue != 'i') {
         // SetConsoleTitle("Ready...");
         // std::cout << "Loading finished!" << filename << std::endl;
     // }
-    
+
     // std::getline(std::cin, input1);
-    
+
     SetConsoleTitle(window_title.c_str());
-    
+
     bool running = true;
       while (running) {
         //std::cout << "Loaded " << std::to_string(loaded) << std::endl;
