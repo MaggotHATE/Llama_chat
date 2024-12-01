@@ -49,10 +49,6 @@
 #include "ggml-rpc.h"
 #endif
 
-#ifdef GGML_USE_AMX
-#  include "ggml-amx.h"
-#endif
-
 #ifdef GGML_USE_CANN
 #include "ggml-cann.h"
 #endif
@@ -91,9 +87,6 @@ struct ggml_backend_registry {
 #endif
 #ifdef GGML_USE_RPC
         register_backend(ggml_backend_rpc_reg());
-#endif
-#ifdef GGML_USE_AMX
-        register_backend(ggml_backend_amx_reg());
 #endif
 #ifdef GGML_USE_KOMPUTE
         register_backend(ggml_backend_kompute_reg());
@@ -142,7 +135,7 @@ struct ggml_backend_registry {
 
         if (!handle) {
             if (!silent) {
-                printf("%s: failed to load %s: %lu\n", __func__, path, GetLastError());
+                GGML_LOG_ERROR("%s: failed to load %s: %lu\n", __func__, path, GetLastError());
             }
             SetErrorMode(old_mode);
             return nullptr;
@@ -154,7 +147,7 @@ struct ggml_backend_registry {
 
         if (!backend_init) {
             if (!silent) {
-                printf("%s: failed to find ggml_backend_init in %s: %lu\n", __func__, path, GetLastError());
+                GGML_LOG_ERROR("%s: failed to find ggml_backend_init in %s: %lu\n", __func__, path, GetLastError());
             }
             FreeLibrary(handle);
             return nullptr;
@@ -164,7 +157,7 @@ struct ggml_backend_registry {
 
         if (!handle) {
             if (!silent) {
-                printf("%s: failed to load %s: %s\n", __func__, path, dlerror());
+                GGML_LOG_ERROR("%s: failed to load %s: %s\n", __func__, path, dlerror());
             }
             return nullptr;
         }
@@ -173,7 +166,7 @@ struct ggml_backend_registry {
 
         if (!backend_init) {
             if (!silent) {
-                printf("%s: failed to find ggml_backend_init in %s: %s\n", __func__, path, dlerror());
+                GGML_LOG_ERROR("%s: failed to find ggml_backend_init in %s: %s\n", __func__, path, dlerror());
             }
             dlclose(handle);
             return nullptr;
@@ -184,9 +177,9 @@ struct ggml_backend_registry {
         if (!reg || reg->api_version != GGML_BACKEND_API_VERSION) {
             if (!silent) {
                 if (!reg) {
-                    printf("%s: failed to initialize backend from %s: ggml_backend_init returned NULL\n", __func__, path);
+                    GGML_LOG_ERROR("%s: failed to initialize backend from %s: ggml_backend_init returned NULL\n", __func__, path);
                 } else {
-                    printf("%s: failed to initialize backend from %s: incompatible API version (backend: %d, current: %d)\n",
+                    GGML_LOG_ERROR("%s: failed to initialize backend from %s: incompatible API version (backend: %d, current: %d)\n",
                                    __func__, path, reg->api_version, GGML_BACKEND_API_VERSION);
                 }
             }
@@ -198,7 +191,7 @@ struct ggml_backend_registry {
             return nullptr;
         }
 
-        printf("%s: loaded %s backend from %s\n", __func__, ggml_backend_reg_name(reg), path);
+        GGML_LOG_INFO("%s: loaded %s backend from %s\n", __func__, ggml_backend_reg_name(reg), path);
         register_backend(reg, handle);
         return reg;
     }
@@ -405,14 +398,11 @@ void ggml_backend_load_all() {
 #else
         os_name = "libggml-" + name + ".so";
 #endif
-        printf("%s: searching for %s backend\n", __func__, os_name.c_str());
-        if (reg.load_backend(os_name.c_str(), false)) {
-            printf("%s: loaded %s backend\n", __func__, os_name.c_str());
+        if (reg.load_backend(os_name.c_str(), true)) {
             return;
         }
         for (const auto & prefix : search_prefix) {
-            printf("%s: searching for %s backend in \n", __func__, os_name.c_str(), prefix.c_str());
-            if (reg.load_backend((prefix + os_name).c_str(), false)) {
+            if (reg.load_backend((prefix + os_name).c_str(), true)) {
                 return;
             }
         }

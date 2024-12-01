@@ -138,13 +138,18 @@ typedef struct format{
  */
  
 typedef struct chat_state {
-    int kv_cache_pos   = 0;
+    int kv_cache_pos    = 0;
+    std::vector<llama_token> embd;
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
 
     void capture_kv_cache(int value) {
         kv_cache_pos = value;
+    }
+
+    void capture_embd(std::vector<llama_token> embd_curr) {
+        embd = embd_curr;
     }
 
     void capture_embd_inp(int value) {
@@ -179,7 +184,7 @@ private:
 
 
     int n_ctx;
-    std::vector<llama_token> session_tokens;
+
     size_t n_matching_session_tokens = 0;
     std::vector<llama_token> embd_inp;
     std::string path_session = "";
@@ -209,7 +214,7 @@ private:
     int n_past                = 0;
     int n_remain              = 0;
     int n_consumed            = 0;
-    int n_session_consumed    = 0;
+
     int original_prompt_len   = 0;
     int t_eval_ms             = 0;
     int n_eval                = 0;
@@ -239,15 +244,17 @@ private:
 
 public:
     common_params params;
-    bool is_antiprompt  = false;
-    bool tempFirst      = true;
-    bool finished       = true;
-    bool add_bos        = false;
-    bool add_eos        = false;
-    int n_past_last     = 0;
-    int n_remain_last   = 0;
-    int n_consumed_last = 0;
-    int n_embd_inp_last = 0;
+    std::vector<llama_token> session_tokens;
+    bool is_antiprompt     = false;
+    bool tempFirst         = true;
+    bool finished          = true;
+    bool add_bos           = false;
+    bool add_eos           = false;
+    int n_session_consumed = 0;
+    int n_past_last        = 0;
+    int n_remain_last      = 0;
+    int n_consumed_last    = 0;
+    int n_embd_inp_last    = 0;
 
     // experimenting with simple dynamic paramenters
     float d_temp_min = 1.8;
@@ -260,6 +267,7 @@ public:
     std::string has_antiprompt = "";
 
     std::string formatRepresentation = "";
+    std::string state = "off";
 
     struct llama_perf_context_data ctx_performance_data;
 
@@ -617,7 +625,7 @@ public:
             }
         //}
         result += std::format("({}vs{}={:.2f})", num_probs_tops, num_probs_bottoms, confidence_total);
-        result += std::format(" Cnf[{:.2f}-{:.2f}]", params.sparams.confidence_top, params.sparams.confidence_bottom);
+        if (params.sparams.confidence_top > 0) result += std::format(" Cnf[{:.2f}-{:.2f}]", params.sparams.confidence_top, params.sparams.confidence_bottom);
         return result;
     }
 
@@ -1158,6 +1166,7 @@ public:
         int max_embd_size = n_ctx - 4;
         // Ensure the input doesn't exceed the context size by truncating embd if necessary.
         if ((int)std::size(embd) > max_embd_size) {
+            state += std::format("->{}",__func__);
             const int skipped_tokens = (int) std::size(embd) - max_embd_size;
             embd.resize(max_embd_size);
             printf("<<input too long: skipped %d token%s>>", skipped_tokens, skipped_tokens != 1 ? "s" : "");
@@ -1165,7 +1174,7 @@ public:
             
         }
     }
-    
+
     void resetContext() {
         // infinite text generation via context swapping
         // if we run out of context:
@@ -1192,9 +1201,10 @@ public:
 
         }
     }
-    
+
     void extendContext() {
         if (ga_n == 1) {
+            state += std::format("->{}",__func__);
             // infinite text generation via context shifting
             // if we run out of context:
             // - take the n_keep first tokens from the original prompt (via n_past)
@@ -1222,6 +1232,7 @@ public:
                 path_session.clear();
             }
         } else {
+            state += std::format("->{}",__func__);
             // context extension via Self-Extend
             while (n_past >= ga_i + ga_w) {
                 const int ib = (ga_n*ga_i)/ga_w;
@@ -1242,6 +1253,7 @@ public:
     int reuse() {
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (n_session_consumed < (int) std::size(session_tokens)) {
+            state += std::format("->{}",__func__);
             size_t i = 0;
             for ( ; i < std::size(embd); i++) {
                 if (embd[i] != session_tokens[n_session_consumed]) {
@@ -1258,6 +1270,7 @@ public:
                     return 0;
                 }
             }
+
             if (i > 0) {
                 embd.erase(embd.begin(), embd.begin() + i);
             }
@@ -1265,36 +1278,44 @@ public:
             // remove any "future" tokens that we might have inherited from the session from the KV cache
             //llama_kv_cache_tokens_rm(ctx, n_past, -1);
         }
-        
+
         return 1;
     }
 
     int evaluate_main() {
-        for (int i = 0; i < (int) std::size(embd); i += params.n_batch) {
-            int n_eval = (int) std::size(embd) - i;
-            if (n_eval > params.n_batch) {
-                n_eval = params.n_batch;
+        int embd_size = (int) std::size(embd);
+
+        if (embd_size > 0) {
+            for (int i = 0; i < embd_size; i += params.n_batch) {
+                int n_eval = embd_size - i;
+                if (n_eval > params.n_batch) {
+                    n_eval = params.n_batch;
+                }
+
+                if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
+                    fprintf(stderr, "%s : failed to eval\n", __func__);
+                    std::string report = std::format("evaluate_main(): failed to eval: {}\n{}\n Failed: {}", params.model, params.prompt,embd[i]);
+                    writeTextFile(std::to_string(getRand()) + ".txt", report);
+                    return 0;
+                }
+
+                n_past += n_eval;
+                //n_past_last = n_past;
             }
-            if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
-                fprintf(stderr, "%s : failed to eval\n", __func__);
-                std::string report = std::format("evaluate_main(): failed to eval: {}\n{}\n Failed: {}", params.model, params.prompt,embd[i]);
-                writeTextFile(std::to_string(getRand()) + ".txt", report);
-                return 1;
-            }
-            n_past += n_eval;
-            //n_past_last = n_past;
+            state += std::format("->{}={}",__func__,n_eval);
         }
-        
+
         return 1;
     }
-    
+
     void evaluate_session() {
         if (std::size(embd) > 0 && !path_session.empty()) {
+            state += std::format("->{}",__func__);
             session_tokens.insert(session_tokens.end(), embd.begin(), embd.end());
             n_session_consumed = std::size(session_tokens);
         }
     }
-    
+
     void check_antiprompt_tkns() {
         // check for reverse prompt using special tokens
         llama_token last_token = common_sampler_last(smpl);
@@ -1305,6 +1326,7 @@ public:
                     has_antiprompt = std::format("{}: already has antiprompt", __func__);
                 }
                 is_antiprompt = true;
+                state += std::format("->{}",__func__);
                 break;
             }
         }
@@ -1313,6 +1335,7 @@ public:
     //checking already existing contex
     int checkEmb(){
         if (debug) printf("-ce");
+        state += std::format("->{}",__func__);
         //log_down("checkEmb\n", params.seed);
         //fprintf(stderr, "1");
         // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
@@ -1331,18 +1354,12 @@ public:
 
         // evaluate tokens in batches
         // embd is typically prepared beforehand to fit within a batch, but not always
-
+        // this is where the input is actually processed
         if (evaluate_main() == 0) return 0;
 
         evaluate_session();
 
-        if (rewind_state.kv_cache_pos == 0) {
-            capture_smpl();
-            rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
-            rewind_state.capture_embd_inp(embd_inp.size());
-            rewind_state.capture_n_past(n_past);
-            rewind_state.capture_n_consumed(n_consumed);
-        }
+        capture_states_once();
 
         return 1;
     }
@@ -1350,6 +1367,7 @@ public:
     // main generation, includes adding antiprompt at the end
     int applyEmb(bool fastStop = false) {
         if (debug) printf("-ae");
+        state += std::format("->{}",__func__);
         //log_down("applyEmb\n", params.seed);
         //fprintf(stderr, "2");
 
@@ -1379,7 +1397,11 @@ public:
         
         return 1;
     }
-    
+
+    void adjustEmbd() {
+        embd.clear();
+    }
+
 // main generation end////////////////////////////////////////////////////////////////
 
 // additional functions
@@ -1392,10 +1414,28 @@ public:
 
     }
 
+    void capture_states4() {
+        state += std::format("->{}",__func__);
+
+        capture_smpl();
+        rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
+        rewind_state.capture_embd(embd);
+        rewind_state.capture_embd_inp(embd_inp.size());
+        rewind_state.capture_n_past(n_past);
+        rewind_state.capture_n_consumed(n_consumed);
+    }
+
+    void capture_states_once() {
+        if (rewind_state.kv_cache_pos == 0) {
+            capture_states4();
+        }
+    }
+
     int get_kv_cache_seq_pos_max() {
         return llama_kv_cache_seq_pos_max(ctx, 0);
     }
 
+    // this should called manually every time we append a new input
     void clear_states2() {
         rewind_state.kv_cache_pos = 0;
         rewind_state.embd_inp_size = 0;
@@ -1404,13 +1444,19 @@ public:
     }
 
     void rewind() {
+        state += std::format("\n{}",__func__);
         restore_smpl();
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
+        // embd = rewind_state.embd;
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
         common_sampler_reset(smpl);
+        // to stabilize
+        const auto id = common_tokenize(ctx, params.input_suffix, false, true);
+        embd.insert(embd.end(), id.begin(), id.end());
 
+        // prepareEmb();
     }
 
     int resetGrammar(){
@@ -1446,6 +1492,7 @@ public:
     int checkAntiprompt() {
         // check for reverse prompt in the last n_prev tokens
         if (std::size(params.antiprompt)) {
+            state += std::format("->{}",__func__);
             const int n_prev = 32;
             const std::string last_output = common_sampler_prev_str(smpl, ctx, n_prev);
 
@@ -1483,6 +1530,7 @@ public:
 
         // deal with end of text token in interactive mode
         if (llama_token_is_eog(model, common_sampler_last(smpl))) {
+            state += std::format("->{}",__func__);
             if (params.interactive) {
                 if (std::size(params.antiprompt) != 0) {
                     // tokenize and inject first reverse prompt
@@ -1525,7 +1573,8 @@ public:
             checkEmb(); // 1
         }
 
-        embd.clear();
+        // clear
+        adjustEmbd();
 
         if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
             applyEmb(); // 2
@@ -1541,12 +1590,11 @@ public:
                 //last_n_tokens.emplace_back(embd_inp[n_consumed]);
                 //last_tokens.erase(last_tokens.begin());
                 //last_tokens.emplace_back(embd_inp[n_consumed]);
-                
+
                 // push the prompt in the sampling context in order to apply repetition penalties later
                 // for the prompt, we don't apply grammar rules
                 common_sampler_accept(smpl, embd_inp[n_consumed], /* apply_grammar= */ false);
-                
-                
+
                 ++n_consumed;
                 if ((int) std::size(embd) >= params.n_batch) {
                     break;
@@ -1722,7 +1770,8 @@ public:
 
     const std::string getToken(){
         if (debug) printf("-gp");
-        
+        state += std::format("->{}",__func__);
+
         for (auto id : embd) { 
             //return llama_token_to_string(ctx, id); 
             return common_token_to_piece(ctx, id); 
@@ -1731,7 +1780,8 @@ public:
     
     const std::string getToken(std::vector<llama_token>& embd_msg){
         if (debug) printf("-gp");
-        
+        state += std::format("->{}",__func__);
+
         for (auto id : embd_msg) { 
             //return llama_token_to_string(ctx, id); 
             return common_token_to_piece(ctx, id); 
@@ -1861,8 +1911,6 @@ public:
         //formatRepresentation += "{output}";
 
         //checkInfinite();
-        //clear_states2();
-
 
         return 1;
     }
@@ -1873,6 +1921,11 @@ public:
     std::string getBit() { // 1 2 3 4
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
+        state += std::format("->{}",__func__);
+
+        // if (rewind_state.kv_cache_pos == 0) {
+            // capture_states4();
+        // }
 
         if (std::size(embd) > 0) {
             checkEmb(); // 1
@@ -1880,8 +1933,15 @@ public:
 
         embd.clear();
 
-        if (!is_interacting) applyEmb(); // 2
+        if (!is_interacting) {
+            applyEmb(); // 2
+        }
 
+        // std::string bit = getToken();
+
+        // state += std::format("={}",bit);
+
+        // return bit;
         return getToken();
     }
 
@@ -1889,9 +1949,18 @@ public:
     std::string cycleStringsOnly(bool stream = false) {
         //std::cout << " * " << input << std::endl;
         //log_down("cycleStringsOnly\n", params.seed);
+        state += std::format("\n{}",__func__);
         std::string result;
 
         //bool fastStop = false;
+
+        // if (rewind_state.kv_cache_pos == 0) {
+            // capture_smpl();
+            // rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
+            // rewind_state.capture_embd_inp(embd_inp.size());
+            // rewind_state.capture_n_past(n_past);
+            // rewind_state.capture_n_consumed(n_consumed);
+        // }
 
         dynamic_params(params.sparams.temp, params.sparams.temp_func);
         dynamic_params(params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
@@ -1927,7 +1996,7 @@ public:
 
         }
 
-
+        // capture_states_once();
 
         return result;
     }
@@ -1936,7 +2005,7 @@ public:
         if (saveToFile){
             writeTextFile(SESSIONS_FOLDER + fileName, results);
         }
-        
+
         return 1;
     }
 

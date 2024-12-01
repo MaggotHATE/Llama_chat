@@ -533,13 +533,13 @@ $(TMP)$(PREFIX)_sgemm.o: \
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_amx.o: \
-	$(ggmlsrc_f)/ggml-amx/ggml-amx.cpp \
-	$(ggmlsrc_f)/ggml-amx.h
+	$(ggmlsrc_f)/ggml-cpu/amx/amx.cpp \
+	$(ggmlsrc_f)/ggml-cpu/amx/amx.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_mmq.o: \
-	$(ggmlsrc_f)/ggml-amx/mmq.cpp \
-	$(ggmlsrc_f)/ggml-amx/mmq.h \
+	$(ggmlsrc_f)/ggml-cpu/amx/mmq.cpp \
+	$(ggmlsrc_f)/ggml-cpu/amx/mmq.h \
 	$(ggmlsrc_f)/ggml.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
