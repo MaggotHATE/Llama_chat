@@ -644,8 +644,8 @@ struct modelThread{
     // }
     
     void rewind() {
-        resultsStringPairs.pop_back();
-        newChat.rewind();
+        resultsStringPairs.pop_back(); 
+        lastResult += newChat.rewind();
         // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
     

@@ -143,6 +143,7 @@ typedef struct chat_state {
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
+    std::string bit     = "";
 
     void capture_kv_cache(int value) {
         kv_cache_pos = value;
@@ -169,6 +170,7 @@ typedef struct chat_state {
         embd_inp_size = 0;
         n_past_size = 0;
         n_consumed_size = 0;
+        bit = "";
     }
 };
 
@@ -250,6 +252,7 @@ public:
     bool finished          = true;
     bool add_bos           = false;
     bool add_eos           = false;
+    bool embd_processed    = false;
     int n_session_consumed = 0;
     int n_past_last        = 0;
     int n_remain_last      = 0;
@@ -286,7 +289,7 @@ public:
     }
 
     std::string get_state_descr() {
-        return std::format("SMPL = {}; kv_cache_pos = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", get_buffer_data(), rewind_state.kv_cache_pos, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
+        return std::format("SMPL = {}; kv_cache_pos = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}, bit: {}", get_buffer_data(), rewind_state.kv_cache_pos, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size, rewind_state.bit);
     }
 
     void capture_smpl() {
@@ -1284,10 +1287,12 @@ public:
 
     int evaluate_main() {
         int embd_size = (int) std::size(embd);
+        int eval_max = 0;
 
         if (embd_size > 0) {
             for (int i = 0; i < embd_size; i += params.n_batch) {
                 int n_eval = embd_size - i;
+
                 if (n_eval > params.n_batch) {
                     n_eval = params.n_batch;
                 }
@@ -1300,9 +1305,11 @@ public:
                 }
 
                 n_past += n_eval;
+                if (eval_max < n_eval) eval_max = n_eval;
                 //n_past_last = n_past;
             }
-            state += std::format("->{}={}",__func__,n_eval);
+            state += std::format("->{}={}",__func__,eval_max);
+            // if (embd_size > 1) capture_states_once();
         }
 
         return 1;
@@ -1332,12 +1339,11 @@ public:
         }
     }
     
-    //checking already existing contex
+    //checking already existing contex and generating a token into embd
     int checkEmb(){
         if (debug) printf("-ce");
         state += std::format("->{}",__func__);
-        //log_down("checkEmb\n", params.seed);
-        //fprintf(stderr, "1");
+
         // Note: n_ctx - 4 here is to match the logic for commandline prompt handling via
         // --prompt or --file which uses the same value.
         checkSize();
@@ -1359,7 +1365,7 @@ public:
 
         evaluate_session();
 
-        capture_states_once();
+        // capture_states_once();
 
         return 1;
     }
@@ -1414,7 +1420,7 @@ public:
 
     }
 
-    void capture_states4() {
+    void capture_states4(std::string bit = "") {
         state += std::format("->{}",__func__);
 
         capture_smpl();
@@ -1423,12 +1429,14 @@ public:
         rewind_state.capture_embd_inp(embd_inp.size());
         rewind_state.capture_n_past(n_past);
         rewind_state.capture_n_consumed(n_consumed);
+        rewind_state.bit = bit;
     }
 
-    void capture_states_once() {
+    void capture_states_once(std::string bit = "") {
         if (rewind_state.kv_cache_pos == 0) {
-            capture_states4();
+            capture_states4(bit);
         }
+
     }
 
     int get_kv_cache_seq_pos_max() {
@@ -1443,20 +1451,22 @@ public:
         rewind_state.n_consumed_size = 0;
     }
 
-    void rewind() {
+    std::string rewind() {
         state += std::format("\n{}",__func__);
         restore_smpl();
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
-        // embd = rewind_state.embd;
+
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
         common_sampler_reset(smpl);
         // to stabilize
-        const auto id = common_tokenize(ctx, params.input_suffix, false, true);
-        embd.insert(embd.end(), id.begin(), id.end());
-        n_consumed += id.size();
+        embd = rewind_state.embd;
+        // const auto id = common_tokenize(ctx, params.input_suffix, false, true);
+        // embd.insert(embd.end(), id.begin(), id.end());
+        // n_consumed += id.size();
         // prepareEmb();
+        return rewind_state.bit;
     }
 
     int resetGrammar(){
@@ -1637,38 +1647,7 @@ public:
             //embd_inp.push_back(llama_token_bos(model));
         }
     }
-    
-    
-    void classicProcessing(std::string& buffer) {
-         //auto line_inp = ::llama_tokenize(ctx, buffer, false);
-        //const auto line_inp = ::llama_tokenize(ctx, buffer, false);
-        // const auto line_pfx = ::llama_tokenize(ctx, params.input_prefix, false, true);
-        // const auto line_inp = ::llama_tokenize(ctx, buffer, false, false);
-        // const auto line_sfx = ::llama_tokenize(ctx, params.input_suffix, false, true);
-        //embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-        // embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
-        
-        // if (chatFormat.eos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
-        // if (chatFormat.bos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
-        
-        // embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-        
-        // if (chatFormat.eos.first == "prompt") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
-        // if (chatFormat.bos.first == "answer") embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_bos_format.end());
-        
-       // embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
-           
-        const auto line_pfx = common_tokenize(ctx, params.input_prefix, false, true);
-        const auto line_inp = common_tokenize(ctx, buffer, false, false);
-        const auto line_sfx = common_tokenize(ctx, params.input_suffix, false, true);
-        
-        embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
-        embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-        embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
-        
-        if (n_remain > 0) n_remain -= std::size(line_inp);
-    }
-    
+
     int subInputNew(std::string& line){
         //rewind_state.capture_embd_inp(embd_inp.size());
         //std::string buffer = line + DELIMINER;
@@ -1892,7 +1871,6 @@ public:
         has_antiprompt = "";
 
         embd_msg.clear();
-        
 
         if (n_past > 0 && is_interacting) {
             subInputNew(input);
@@ -1950,7 +1928,7 @@ public:
         //std::cout << " * " << input << std::endl;
         //log_down("cycleStringsOnly\n", params.seed);
         state += std::format("\n{}",__func__);
-        std::string result;
+        // std::string result;
 
         //bool fastStop = false;
 
@@ -1972,7 +1950,7 @@ public:
 
         //if (stream || streaming) std::cout << bit;
 
-        result += bit;
+        // result += bit;
 
         if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");
@@ -1990,15 +1968,13 @@ public:
                 //log_down("cycleStringsOnly FINISHED\n", params.seed);
                 //checkAntiprompt();
                 //setEOS();
-
-                return result;
+                return bit;
             }
 
         }
 
-        // capture_states_once();
-
-        return result;
+        capture_states_once(bit);
+        return bit;
     }
 
     int save(std::string fileName, std::vector<char*>& results){
