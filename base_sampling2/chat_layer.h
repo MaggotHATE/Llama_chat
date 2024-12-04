@@ -252,7 +252,7 @@ public:
     bool finished          = true;
     bool add_bos           = false;
     bool add_eos           = false;
-    bool embd_processed    = false;
+    bool process_embd      = true;
     int n_session_consumed = 0;
     int n_past_last        = 0;
     int n_remain_last      = 0;
@@ -395,10 +395,10 @@ public:
             llama_backend_free();
             ggml_threadpool_free(threadpool);
             ggml_threadpool_free(threadpool_batch);
-            
-            
+            state = "";
+
             clearSoft();
-            
+
         }
         
     }
@@ -1285,7 +1285,7 @@ public:
         return 1;
     }
 
-    int evaluate_main() {
+    int evaluate_embd() {
         int embd_size = (int) std::size(embd);
         int eval_max = 0;
 
@@ -1299,7 +1299,7 @@ public:
 
                 if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
-                    std::string report = std::format("evaluate_main(): failed to eval: {}\n{}\n Failed: {}", params.model, params.prompt,embd[i]);
+                    std::string report = std::format("{}: failed to eval: {}\n{}\n Failed: {}", __func__, params.model, params.prompt,embd[i]);
                     writeTextFile(std::to_string(getRand()) + ".txt", report);
                     return 0;
                 }
@@ -1340,7 +1340,7 @@ public:
     }
     
     //checking already existing contex and generating a token into embd
-    int checkEmb(){
+    int checkEmbd(){
         if (debug) printf("-ce");
         state += std::format("->{}",__func__);
 
@@ -1361,7 +1361,7 @@ public:
         // evaluate tokens in batches
         // embd is typically prepared beforehand to fit within a batch, but not always
         // this is where the input is actually processed
-        if (evaluate_main() == 0) return 0;
+        if (evaluate_embd() == 0) return 0;
 
         evaluate_session();
 
@@ -1371,11 +1371,9 @@ public:
     }
     
     // main generation, includes adding antiprompt at the end
-    int applyEmb(bool fastStop = false) {
+    int genTknIntoEmbd(bool fastStop = false) {
         if (debug) printf("-ae");
         state += std::format("->{}",__func__);
-        //log_down("applyEmb\n", params.seed);
-        //fprintf(stderr, "2");
 
         // optionally save the session on first sample (for faster prompt loading next time)
         if (!path_session.empty() && need_to_save_session && !params.prompt_cache_ro) {
@@ -1389,9 +1387,8 @@ public:
         //last_tokens.erase(last_tokens.begin());
         //last_tokens.emplace_back(id);
         common_sampler_accept(smpl, id, /* apply_grammar= */ true);
-        // common_sampler_set_shift(params.sparams);
+
         // add it to the context
-        //embd.emplace_back(id);
         embd.emplace_back(id);
         //embd.push_back(id);
 
@@ -1402,10 +1399,6 @@ public:
         if (n_remain > 0) --n_remain;
         
         return 1;
-    }
-
-    void adjustEmbd() {
-        embd.clear();
     }
 
 // main generation end////////////////////////////////////////////////////////////////
@@ -1465,7 +1458,7 @@ public:
         // const auto id = common_tokenize(ctx, params.input_suffix, false, true);
         // embd.insert(embd.end(), id.begin(), id.end());
         // n_consumed += id.size();
-        // prepareEmb();
+        // fromInpToEmbd();
         return rewind_state.bit;
     }
 
@@ -1573,21 +1566,25 @@ public:
             printf("%s", buffer.c_str());
         }
     }
-    
-    
-// assembled work on context with writing into a "result"////////////////////    
-    int preEmb(std::string& result, bool& fastStop, bool streaming = false){ // 1 2 3 4
-        //std::cout << " ** " << std::endl;
-        
+
+    void embdCheckAndClear() {
+        // first, check what embd contains
         if (std::size(embd) > 0) {
-            checkEmb(); // 1
+            checkEmbd(); // 1
         }
 
-        // clear
-        adjustEmbd();
+        // clear before sampling a new token
+        embd.clear();
+    }
+
+// assembled work on context with writing into a "result"////////////////////    
+    int InitEmbdProcessing(std::string& result, bool& fastStop, bool streaming = false){ // 1 2 3 4
+        //std::cout << " ** " << std::endl;
+
+        embdCheckAndClear();
 
         if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
-            applyEmb(); // 2
+            genTknIntoEmbd(); // 2
         } else {
             if (debug) printf("-pes");
             fastStop = true;
@@ -1712,13 +1709,13 @@ public:
         //ctx_sampling = llama_sampling_init(params.sparams);
 
         tokenize_antiprompt();
-        
+
         check_encoder();
 
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
 
-            if (consoleOutput) preEmb(result, fastStop, streaming); // includes checking, generation and adding prompt leftovers
-            else preEmb(result, fastStop, consoleOutput);
+            if (consoleOutput) InitEmbdProcessing(result, fastStop, streaming); // includes checking, generation and adding prompt leftovers
+            else InitEmbdProcessing(result, fastStop, consoleOutput);
 
             if ((int) std::size(embd_inp) <= n_consumed) {
                 if (debug) printf("-g");
@@ -1747,7 +1744,7 @@ public:
         return "cycle broken!";
     }
 
-    const std::string getToken(){
+    const std::string getTokenFromEmbd(){
         if (debug) printf("-gp");
         state += std::format("->{}",__func__);
 
@@ -1804,23 +1801,19 @@ public:
     std::string getBitOld(){ // 1 2 3 4
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
-        if (std::size(embd) > 0) {
-            checkEmb(); // 1
-        }
-
-        embd.clear();
+        embdCheckAndClear();
 
         if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
-            applyEmb(); // 2
+            genTknIntoEmbd(); // 2
         } else {
-            prepareEmb();
+            fromInpToEmbd();
             // n_consumed_last = n_consumed;
             // n_embd_inp_last = embd_inp.size();
         }
 
         // output text
         if (input_echo) {
-            return getToken();
+            return getTokenFromEmbd();
         }
 
         // if ((int) embd_inp.size() <= n_consumed) {
@@ -1830,7 +1823,7 @@ public:
         return "";
     }
 
-    void prepareEmb() {
+    void fromInpToEmbd() {
         if (debug) printf("-pen");
         //log_down("preEmbSeparate \n", params.seed);
         //fastStop = true;
@@ -1857,11 +1850,12 @@ public:
     }
 
     void prepareBeforeAnswer() {
-        prepareEmb();
+        fromInpToEmbd();
     }
 
     void skipInput() {
         is_interacting = false;
+        process_embd = false;
     }
 
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
@@ -1882,7 +1876,7 @@ public:
             is_interacting = false;
         }
 
-        // prepareEmb();
+        // fromInpToEmbd();
         // capture_states();
         prepareBeforeAnswer();
 
@@ -1895,7 +1889,7 @@ public:
 
 // this is an attempt to strictly separate all input-based preparations
 // however, it assumes conditions (see in getBitOld())
-// prepareEmb() and capture_states() should be done elsewhere
+// fromInpToEmbd() and capture_states() should be done elsewhere
     std::string getBit() { // 1 2 3 4
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
@@ -1905,14 +1899,16 @@ public:
             // capture_states4();
         // }
 
-        if (std::size(embd) > 0) {
-            checkEmb(); // 1
-        }
+        if (process_embd == true) {
+            embdCheckAndClear();
 
-        embd.clear();
+            if (!is_interacting) {
+                genTknIntoEmbd(); // 2
+            }
 
-        if (!is_interacting) {
-            applyEmb(); // 2
+            capture_states_once();
+        } else {
+            process_embd = true;
         }
 
         // std::string bit = getToken();
@@ -1920,7 +1916,13 @@ public:
         // state += std::format("={}",bit);
 
         // return bit;
-        return getToken();
+        return getTokenFromEmbd();
+    }
+
+    void dynamicParamsPrepare() {
+        dynamic_params(params.sparams.temp, params.sparams.temp_func);
+        dynamic_params(params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
+        dynamic_params(params.sparams.p_step, params.sparams.p_step_func);
     }
 
     // token by token generation and pushing
@@ -1928,52 +1930,34 @@ public:
         //std::cout << " * " << input << std::endl;
         //log_down("cycleStringsOnly\n", params.seed);
         state += std::format("\n{}",__func__);
-        // std::string result;
 
         //bool fastStop = false;
 
-        // if (rewind_state.kv_cache_pos == 0) {
-            // capture_smpl();
-            // rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
-            // rewind_state.capture_embd_inp(embd_inp.size());
-            // rewind_state.capture_n_past(n_past);
-            // rewind_state.capture_n_consumed(n_consumed);
-        // }
+        dynamicParamsPrepare();
 
-        dynamic_params(params.sparams.temp, params.sparams.temp_func);
-        dynamic_params(params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
-        dynamic_params(params.sparams.p_step, params.sparams.p_step_func);
         //process_prompt(false);  // do not forget to include it elsewhere after loading the model  
         //inputOnly(input); // MOVED
 
         std::string bit = getBit();
 
-        //if (stream || streaming) std::cout << bit;
-
-        // result += bit;
-
         if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");
-            //fprintf(stderr, "5");
 
             checkAntiprompt();
 
             if (!is_antiprompt) checkEOS();
 
             if (n_past > 0 && is_interacting) {
-                //fprintf(stderr, "6");
 
                 //eraseAntiprompt(result);
                 finished = true;
-                //log_down("cycleStringsOnly FINISHED\n", params.seed);
-                //checkAntiprompt();
-                //setEOS();
+
                 return bit;
             }
 
         }
 
-        capture_states_once(bit);
+        // capture_states_once(bit);
         return bit;
     }
 
