@@ -1227,7 +1227,7 @@ public:
                 const int n_left    = n_past - params.n_keep;
                 const int n_discard = n_left/2;
 
-                llama_kv_cache_seq_rm   (ctx, 0, params.n_keep            , params.n_keep + n_discard);
+                llama_kv_cache_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
                 llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
 
                 n_past -= n_discard;
@@ -1309,7 +1309,10 @@ public:
                 //n_past_last = n_past;
             }
             state += std::format("->{}={}",__func__,eval_max);
-            // if (embd_size > 1) capture_states_once();
+            // if (embd_size > 1) {
+                // std::string pause;
+                // std::getline(std::cin, pause);
+            // }
         }
 
         return 1;
@@ -1371,7 +1374,7 @@ public:
     }
     
     // main generation, includes adding antiprompt at the end
-    int genTknIntoEmbd(bool fastStop = false) {
+    int sampleTknIntoEmbd() {
         if (debug) printf("-ae");
         state += std::format("->{}",__func__);
 
@@ -1452,7 +1455,7 @@ public:
 
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
-        common_sampler_reset(smpl);
+        // common_sampler_reset(smpl);
         // to stabilize
         embd = rewind_state.embd;
         // const auto id = common_tokenize(ctx, params.input_suffix, false, true);
@@ -1584,7 +1587,7 @@ public:
         embdCheckAndClear();
 
         if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
-            genTknIntoEmbd(); // 2
+            sampleTknIntoEmbd(); // 2
         } else {
             if (debug) printf("-pes");
             fastStop = true;
@@ -1633,15 +1636,10 @@ public:
     }
 
 // NEW //////////////////////////////////////////////////////////////////////////////////////////
-    
-    void resetCTX(){
-        common_sampler_reset(smpl);
-    }
-    
+
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
             embd_inp.emplace_back(llama_token_bos(model));
-            //embd_inp.push_back(llama_token_bos(model));
         }
     }
 
@@ -1744,7 +1742,7 @@ public:
         return "cycle broken!";
     }
 
-    const std::string getTokenFromEmbd(){
+    const std::string getTknFromEmbd(){
         if (debug) printf("-gp");
         state += std::format("->{}",__func__);
 
@@ -1804,7 +1802,7 @@ public:
         embdCheckAndClear();
 
         if ((int) std::size(embd_inp) <= n_consumed && !is_interacting) {
-            genTknIntoEmbd(); // 2
+            sampleTknIntoEmbd(); // 2
         } else {
             fromInpToEmbd();
             // n_consumed_last = n_consumed;
@@ -1813,7 +1811,7 @@ public:
 
         // output text
         if (input_echo) {
-            return getTokenFromEmbd();
+            return getTknFromEmbd();
         }
 
         // if ((int) embd_inp.size() <= n_consumed) {
@@ -1903,7 +1901,7 @@ public:
             embdCheckAndClear();
 
             if (!is_interacting) {
-                genTknIntoEmbd(); // 2
+                sampleTknIntoEmbd(); // 2
             }
 
             capture_states_once();
@@ -1911,12 +1909,8 @@ public:
             process_embd = true;
         }
 
-        // std::string bit = getToken();
-
-        // state += std::format("={}",bit);
-
-        // return bit;
-        return getTokenFromEmbd();
+        // return a token;
+        return getTknFromEmbd();
     }
 
     void dynamicParamsPrepare() {
