@@ -109,11 +109,24 @@ ifdef SAMPLING1
 base = base
 endif
 
-ggmlsrc_f = $(base)/ggml
-ggmlsrc_cpu_f = $(ggmlsrc_f)/ggml-cpu
-ggmlsrc_blas_f = $(ggmlsrc_f)/ggml-blas
-ggmlsrc_vulkan_f = $(ggmlsrc_f)/ggml-vulkan
-llamacpp_f = $(base)/llama
+PREFIX_A = master
+
+# folders for portability
+# ggml
+# ggmlsrc_f_h = $(base)/ggml
+# ggmlsrc_f_s = $(base)/ggml
+ggmlsrc_f_h = $(base)/$(PREFIX_A)/ggml/include
+ggmlsrc_f_s = $(base)/$(PREFIX_A)/ggml/src
+# backends
+ggmlsrc_cpu_f = $(ggmlsrc_f_s)/ggml-cpu
+ggmlsrc_blas_f = $(ggmlsrc_f_s)/ggml-blas
+ggmlsrc_vulkan_f = $(ggmlsrc_f_s)/ggml-vulkan
+# llama
+# llamacpp_f_h = $(base)/llama
+# llamacpp_f_s = $(base)/llama
+llamacpp_f_h = $(base)/$(PREFIX_A)/include
+llamacpp_f_s = $(base)/$(PREFIX_A)/src
+# other
 uibackend_f = $(base)/UI
 include_f = $(base)/include
 common_f = $(base)
@@ -161,10 +174,10 @@ OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 
 # OBJS_UI_VK = $(subst main_vk2.cpp,VULKAN/main_vk.cpp,$(OBJS))
 
-vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
+# vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
 
 FILE_D = -Itinyfiledialogs
-I_GGUF = -I$(common_f) -I$(ggmlsrc_f) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f) -I$(uibackend_f) -I$(include_f)
+I_GGUF = -I$(common_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(uibackend_f) -I$(include_f)
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -251,7 +264,7 @@ endif
 CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 
 #for all chatTest
-CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -DGGML_USE_CPU -w -pipe
+CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
@@ -267,13 +280,12 @@ LDFLAGS  =
 
 PREFIX_S =
 PREFIX_O =
-PREFIX_A =
 
 ifndef SGEMM_OFF
 	CXXFLAGS += -DGGML_USE_LLAMAFILE
 	CXXFLAGS_UI += -DGGML_USE_LLAMAFILE
 	CFLAGS += -DGGML_USE_LLAMAFILE
-	override PREFIX_S = _SG
+	override PREFIX_S = SG_
 endif # SGEMM_OFF
 
 ifndef OPENMP_OFF
@@ -283,18 +295,21 @@ ifndef OPENMP_OFF
 	override PREFIX_O = _OMP
 endif # OPENMP
 
-ifndef AMX_OFF
-	CXXFLAGS += -DGGML_USE_AMX
-	CXXFLAGS_UI += -DGGML_USE_AMX
-	CFLAGS += -DGGML_USE_AMX
-	override PREFIX_A = _AMX
-endif # AMX
+# ifndef AMX_OFF
+	# CXXFLAGS += -DGGML_USE_AMX
+	# CXXFLAGS_UI += -DGGML_USE_AMX
+	# CFLAGS += -DGGML_USE_AMX
+	# override PREFIX_A = _AMX
+# endif # AMX
 
-PREFIX_BASE = s2$(PREFIX_S)$(PREFIX_A)$(PREFIX_O)
+PREFIX_BASE = s2_$(PREFIX_S)$(PREFIX_A)$(PREFIX_O)
 
 ifdef SAMPLING1
-PREFIX_BASE = s1$(PREFIX_S)$(PREFIX_A)$(PREFIX_O)
+PREFIX_BASE = s1_$(PREFIX_S)$(PREFIX_A)$(PREFIX_O)
 endif
+
+PREFIX = t_$(PREFIX_BASE)
+bcknd_dyn = -DGGML_BACKEND_DL -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED
 
 # Windows Sockets 2 (Winsock) for network-capable apps
 ifeq ($(_WIN32),1)
@@ -386,8 +401,6 @@ $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyf
 #####################################
 ################################ GGUF
 
-PREFIX = t$(PREFIX_BASE)
-
 OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_ggml.o \
     $(TMP)$(PREFIX)_ggml-aarch64.o \
@@ -395,11 +408,26 @@ OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_ggml-backend.o \
     $(TMP)$(PREFIX)_ggml-backend-reg.o \
     $(TMP)$(PREFIX)_ggml-quants.o \
-    $(TMP)$(PREFIX)_ggml-threading.o \
+    $(TMP)$(PREFIX)_ggml-threading.o
+
+OBJS_GGUF_CPU = \
+    $(OBJS_GGUF_BASE) \
     $(TMP)$(PREFIX)_ggml-cpu.o \
     $(TMP)$(PREFIX)_ggml-cpu-cpp.o \
     $(TMP)$(PREFIX)_ggml-cpu-aarch64.o \
+    $(TMP)$(PREFIX)_amx.o \
+    $(TMP)$(PREFIX)_mmq.o \
     $(TMP)$(PREFIX)_ggml-cpu-quants.o
+
+ifdef DYNAMIC
+	CXXFLAGS += $(bcknd_dyn)
+	PREFIX = dyn_$(PREFIX_BASE)
+	OBJS_GGUF = $(OBJS_GGUF_BASE)
+else
+	CXXFLAGS += -DGGML_USE_CPU
+	PREFIX = stt_$(PREFIX_BASE)
+	OBJS_GGUF = $(OBJS_GGUF_CPU)
+endif
 
 OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama.o \
@@ -407,8 +435,7 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-grammar.o \
     $(TMP)$(PREFIX)_llama-sampling.o
 
-OBJS_GGUF = \
-    $(OBJS_GGUF_BASE) \
+OBJS_GGUF += \
     $(OBJS_GGUF_LLAMA) \
     $(TMP)$(PREFIX)_llama-addon.o \
     $(TMP)$(PREFIX)_sampling.o \
@@ -422,9 +449,9 @@ ifndef SGEMM_OFF
 	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_sgemm.o
 endif # SGEMM_OFF
 
-ifndef AMX_OFF
-	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_amx.o $(TMP)$(PREFIX)_mmq.o
-endif # AMX
+# ifndef AMX_OFF
+	# OBJS_GGUF_BASE += $(TMP)$(PREFIX)_amx.o $(TMP)$(PREFIX)_mmq.o
+# endif # AMX
 
 ifdef SAMPLING1
 	OBJS_GGUF += $(TMP)$(PREFIX)_grammar-parser.o
@@ -468,149 +495,171 @@ else ifdef VULKAN
 	OBJS_GGUF_BASE += $(TMP)$(PREFIX)_ggml-vulkan.o $(TMP)$(PREFIX)_ggml-vulkan-shaders.o
 endif
 
-$(TMP)$(PREFIX)_ggml.o: $(ggmlsrc_f)/ggml.c $(ggmlsrc_f)/ggml.h
-	$(CC)  $(CFLAGS)   -c $< -o $@
+$(TMP)$(PREFIX)_ggml.o: \
+	$(ggmlsrc_f_s)/ggml.c \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_h)/ggml-cpp.h
+	$(CC)  $(CFLAGS) $(LDFLAGS) -c $< -o $@
 	
 $(TMP)$(PREFIX)_ggml-threading.o: \
-	$(ggmlsrc_f)/ggml-threading.cpp \
-	$(ggmlsrc_f)/ggml.h
-	$(CXX) $(CXXFLAGS)   -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-threading.cpp \
+	$(ggmlsrc_f_h)/ggml.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+
+$(TMP)$(PREFIX)_ggml-cpp.o: \
+	$(ggmlsrc_f_s)/ggml-cpu/ggml-cpu.c \
+	$(ggmlsrc_f_h)/ggml-cpp.h \
+	$(ggmlsrc_f_h)/ggml.h
+	$(CC) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-cpu.o: \
-	$(ggmlsrc_f)/ggml-cpu/ggml-cpu.c \
-	$(ggmlsrc_f)/ggml.h \
-	$(ggmlsrc_f)/ggml-common.h
-	$(CC) $(CFLAGS)   -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-cpu/ggml-cpu.c \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_s)/ggml-common.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 	
 $(TMP)$(PREFIX)_ggml-cpu-cpp.o: \
-	$(ggmlsrc_f)/ggml-cpu/ggml-cpu.cpp \
-	$(ggmlsrc_f)/ggml.h \
-	$(ggmlsrc_f)/ggml-common.h
-	$(CXX) $(CXXFLAGS)   -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-cpu/ggml-cpu.cpp \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_s)/ggml-common.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	
 $(TMP)$(PREFIX)_ggml-cpu-aarch64.o: \
-	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-aarch64.c \
-	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-aarch64.h
-	$(CC) $(CFLAGS)   -c $< -o $@
+    $(ggmlsrc_f_s)/ggml-cpu/ggml-cpu-aarch64.c \
+	$(ggmlsrc_f_s)/ggml-cpu/ggml-cpu-aarch64.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 	
 $(TMP)$(PREFIX)_ggml-cpu-quants.o: \
-	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-quants.c \
-	$(ggmlsrc_f)/ggml-cpu/ggml-cpu-quants.h
-	$(CC) $(CFLAGS)   -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-cpu/ggml-cpu-quants.c \
+	$(ggmlsrc_f_s)/ggml-cpu/ggml-cpu-quants.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 	
-$(TMP)$(PREFIX)_ggml-alloc.o: $(ggmlsrc_f)/ggml-alloc.c $(ggmlsrc_f)/ggml.h $(ggmlsrc_f)/ggml-alloc.h
-	$(CC)  $(CXXFLAGS)   -c $< -o $@
+$(TMP)$(PREFIX)_ggml-alloc.o: \
+	$(ggmlsrc_f_s)/ggml-alloc.c \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_h)/ggml-alloc.h
+	$(CC)  $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-quants.o: \
-	$(ggmlsrc_f)/ggml-quants.c \
-	$(ggmlsrc_f)/ggml.h \
-	$(ggmlsrc_f)/ggml-quants.h \
-	$(ggmlsrc_f)/ggml-common.h
-	$(CC) $(CFLAGS)   -c $< -o $@
+    $(ggmlsrc_f_s)/ggml-quants.c \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_s)/ggml-quants.h \
+	$(ggmlsrc_f_s)/ggml-common.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-aarch64.o: \
-	$(ggmlsrc_f)/ggml-aarch64.c \
-	$(ggmlsrc_f)/ggml.h \
-	$(ggmlsrc_f)/ggml-aarch64.h \
-	$(ggmlsrc_f)/ggml-common.h
-	$(CC) $(CFLAGS)    -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-aarch64.c \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_s)/ggml-aarch64.h \
+	$(ggmlsrc_f_s)/ggml-common.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-backend.o: \
-	$(ggmlsrc_f)/ggml-backend.cpp \
-	$(ggmlsrc_f)/ggml-backend-impl.h \
-	$(ggmlsrc_f)/ggml.h \
-	$(ggmlsrc_f)/ggml-backend.h
-	$(CC)  $(CXXFLAGS)   -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-backend.cpp \
+	$(ggmlsrc_f_s)/ggml-backend-impl.h \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_h)/ggml-backend.h
+	$(CC)  $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_ggml-backend-reg.o: \
-	$(ggmlsrc_f)/ggml-backend-reg.cpp
-	$(CC)  $(CXXFLAGS)   -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-backend-reg.cpp
+	$(CC)  $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_sgemm.o: \
-	$(ggmlsrc_f)/ggml-cpu/llamafile/sgemm.cpp \
-	$(ggmlsrc_f)/ggml-cpu/llamafile/sgemm.h \
-	$(ggmlsrc_f)/ggml.h 
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-cpu/llamafile/sgemm.cpp \
+	$(ggmlsrc_f_s)/ggml-cpu/llamafile/sgemm.h \
+	$(ggmlsrc_f_h)/ggml.h 
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_amx.o: \
-	$(ggmlsrc_f)/ggml-cpu/amx/amx.cpp \
-	$(ggmlsrc_f)/ggml-cpu/amx/amx.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-cpu/amx/amx.cpp \
+	$(ggmlsrc_f_s)/ggml-cpu/amx/amx.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_mmq.o: \
-	$(ggmlsrc_f)/ggml-cpu/amx/mmq.cpp \
-	$(ggmlsrc_f)/ggml-cpu/amx/mmq.h \
-	$(ggmlsrc_f)/ggml.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(ggmlsrc_f_s)/ggml-cpu/amx/mmq.cpp \
+	$(ggmlsrc_f_s)/ggml-cpu/amx/mmq.h \
+	$(ggmlsrc_f_h)/ggml.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
-$(TMP)$(PREFIX)_unicode.o: $(llamacpp_f)/unicode.cpp $(llamacpp_f)/unicode.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TMP)$(PREFIX)_unicode.o: \
+	$(llamacpp_f_s)/unicode.cpp \
+	$(llamacpp_f_s)/unicode.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
-$(TMP)$(PREFIX)_unicode-data.o: $(llamacpp_f)/unicode-data.cpp $(llamacpp_f)/unicode-data.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TMP)$(PREFIX)_unicode-data.o: \
+	$(llamacpp_f_s)/unicode-data.cpp \
+	$(llamacpp_f_s)/unicode-data.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	
-$(TMP)$(PREFIX)_llama.o: $(llamacpp_f)/llama.cpp \
-	$(llamacpp_f)/llama-impl.h \
-	$(llamacpp_f)/llama-vocab.h \
-	$(llamacpp_f)/llama-grammar.h \
-	$(llamacpp_f)/llama-sampling.h \
-	$(llamacpp_f)/unicode.h \
-	$(llamacpp_f)/llama.h \
-	$(ggmlsrc_f)/ggml.h \
-	$(ggmlsrc_f)/ggml-alloc.h \
-	$(ggmlsrc_f)/ggml-backend.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TMP)$(PREFIX)_llama.o: \
+	$(llamacpp_f_s)/llama.cpp \
+	$(llamacpp_f_s)/llama-impl.h \
+	$(llamacpp_f_s)/llama-vocab.h \
+	$(llamacpp_f_s)/llama-grammar.h \
+	$(llamacpp_f_s)/llama-sampling.h \
+	$(llamacpp_f_s)/unicode.h \
+	$(llamacpp_f_h)/llama.h \
+	$(ggmlsrc_f_h)/ggml.h \
+	$(ggmlsrc_f_h)/ggml-alloc.h \
+	$(ggmlsrc_f_h)/ggml-backend.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_llama-vocab.o: \
-	$(llamacpp_f)/llama-vocab.cpp \
-	$(llamacpp_f)/llama-vocab.h \
-	$(llamacpp_f)/llama-impl.h \
-	$(llamacpp_f)/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(llamacpp_f_s)/llama-vocab.cpp \
+	$(llamacpp_f_s)/llama-vocab.h \
+	$(llamacpp_f_s)/llama-impl.h \
+	$(llamacpp_f_h)/llama.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_llama-grammar.o: \
-	$(llamacpp_f)/llama-grammar.cpp \
-	$(llamacpp_f)/llama-grammar.h \
-	$(llamacpp_f)/llama-impl.h \
-	$(llamacpp_f)/llama-vocab.h \
-	$(llamacpp_f)/llama-sampling.h \
-	$(llamacpp_f)/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(llamacpp_f_s)/llama-grammar.cpp \
+	$(llamacpp_f_s)/llama-grammar.h \
+	$(llamacpp_f_s)/llama-impl.h \
+	$(llamacpp_f_s)/llama-vocab.h \
+	$(llamacpp_f_s)/llama-sampling.h \
+	$(llamacpp_f_h)/llama.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_llama-sampling.o: \
-	$(llamacpp_f)/llama-sampling.cpp \
-	$(llamacpp_f)/llama-sampling.h \
-	$(llamacpp_f)/llama-impl.h \
-	$(llamacpp_f)/llama.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(llamacpp_f_s)/llama-sampling.cpp \
+	$(llamacpp_f_s)/llama-sampling.h \
+	$(llamacpp_f_s)/llama-impl.h \
+	$(llamacpp_f_h)/llama.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
-COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f)/llama.h
+COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f_h)/llama.h
 COMMON_DEPS   = $(TMP)$(PREFIX)_common.o $(TMP)$(PREFIX)_sampling.o
 
 $(TMP)$(PREFIX)_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(TMP)$(PREFIX)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 # openblas
 $(TMP)$(PREFIX)_ggml-blas.o: \
-	$(ggmlsrc_f)/ggml-blas/ggml-blas.cpp \
-	$(ggmlsrc_f)/ggml-blas.h
+	$(ggmlsrc_f_s)/ggml-blas/ggml-blas.cpp \
+	$(ggmlsrc_f_h)/ggml-blas.h
 	$(CXX) $(CXXFLAGS)    -c $< -o $@
+
+# cpu dynamic
+ggml-cpu$(DSO_EXT): \
+    $(OBJS_GGUF_BASE)
+	$(CXX) $(CXXFLAGS) -o $@ $^ --static -shared $(bcknd_dyn)
 
 # openblas dynamic
 ggml-blas$(DSO_EXT): \
-	$(ggmlsrc_f)/ggml-blas/ggml-blas.cpp \
-	$(ggmlsrc_f)/ggml-blas.h \
+	$(ggmlsrc_f_s)/ggml-blas/ggml-blas.cpp \
+	$(ggmlsrc_f_h)/ggml-blas.h \
     $(OBJS_GGUF_BASE)
-	$(CXX) $(CXXFLAGS) $(ob64_f) -shared -o $@ $^ $(ob64_l) --static -DGGML_BACKEND_DL -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED
+	$(CXX) $(CXXFLAGS) $(ob64_f) -o $@ $^ $(ob64_l) --static -shared
 
 # clblast
 $(TMP)$(PREFIX)_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/ggml-opencl.h
@@ -739,16 +788,16 @@ endif
 
 # Final parts
 $(TMP)$(PREFIX)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo $(TMP)$(PREFIX)_class_chat.o compiled
 
 $(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(chat_layer) $(settings_layer)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo $(TMP)$(PREFIX)_dual_chat.o compiled
 
 # Final parts UI
 $(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(chat_layer) $(settings_layer) $(ui_simple)
-	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) -DUI_SIMPLE -c $< -o $@
+	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) $(LDFLAGS) -DUI_SIMPLE -c $< -o $@
 
 # Naming
 chatTest_cpu = chatTest_$(PREFIX)
@@ -837,6 +886,8 @@ all_vk: chat_vk chat_vk_sdl chatTest_vk
 all_cpu: chat chat_sdl chatTest
 
 # dynamic backends
+
+cpu_dll: ggml-cpu$(DSO_EXT)
 
 blas_dll: ggml-blas$(DSO_EXT)
 

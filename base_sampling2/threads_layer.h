@@ -358,6 +358,7 @@ struct modelThread{
         text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
+        text +=  std::format("\n-isEOG: {}\n", newChat.isEOG());
         // text +=  std::format("\n-STATE            : {}", newChat.state);
         //text +=  newChat.formatRepresentation + "\n\n";
         text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
@@ -645,7 +646,8 @@ struct modelThread{
     
     void rewind() {
         resultsStringPairs.pop_back(); 
-        lastResult += newChat.rewind();
+        // lastResult += newChat.rewind();
+        newChat.rewind();
         // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
     
@@ -763,7 +765,7 @@ struct modelThread{
                     isPregen = 'w';
 
                     std::string input = resultsStringPairs.back().second;
-                    newChat.inputOnlyNew(input);
+                    newChat.inputProcessing(input);
 
                     isPregen = 'i';
                 } else newChat.skipInput();

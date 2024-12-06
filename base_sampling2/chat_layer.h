@@ -139,11 +139,10 @@ typedef struct format{
  
 typedef struct chat_state {
     int kv_cache_pos    = 0;
-    std::vector<llama_token> embd;
+    std::vector<llama_token> embd; // typically this will contain 1 token
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
-    std::string bit     = "";
 
     void capture_kv_cache(int value) {
         kv_cache_pos = value;
@@ -170,7 +169,6 @@ typedef struct chat_state {
         embd_inp_size = 0;
         n_past_size = 0;
         n_consumed_size = 0;
-        bit = "";
     }
 };
 
@@ -289,7 +287,7 @@ public:
     }
 
     std::string get_state_descr() {
-        return std::format("SMPL = {}; kv_cache_pos = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}, bit: {}", get_buffer_data(), rewind_state.kv_cache_pos, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size, rewind_state.bit);
+        return std::format("SMPL = {}; kv_cache_pos = {}; embd_inp_size = {}; n_past_size = {}; n_consumed_size = {}", get_buffer_data(), rewind_state.kv_cache_pos, rewind_state.embd_inp_size, rewind_state.n_past_size, rewind_state.n_consumed_size);
     }
 
     void capture_smpl() {
@@ -679,7 +677,6 @@ public:
     }
 
     void formatInput(std::string format, std::string& buffer) {
-        
         for (auto s : format){
             switch (s){
                 case 'a':{
@@ -948,9 +945,10 @@ public:
         auto & sparams = params.sparams;
         // this function is only needed if backends are compiled as dynamic libraries
         // there might be buffer problems for now
+// #ifdef GGML_BACKEND_DL
         ggml_backend_load_all();
         printf("..............Loaded dynamic backends.(%s)................\n", __func__);
-        
+// #endif
         // if (!soft){
             // int status = 0;
             
@@ -1011,7 +1009,7 @@ public:
         n_keep = params.n_keep;
 
         n_ctx = llama_n_ctx(ctx);
-        printf("%s: llama_n_ctx \n", __func__);
+        printf("%s: llama_n_ctx = %d\n", __func__, n_ctx);
 
         smpl = common_sampler_init(model, sparams);
         printf("%s: common_sampler_init\n", __func__);
@@ -1326,22 +1324,6 @@ public:
         }
     }
 
-    void check_antiprompt_tkns() {
-        // check for reverse prompt using special tokens
-        llama_token last_token = common_sampler_last(smpl);
-        for (std::vector<llama_token> ids : antiprompt_ids) {
-            if (std::size(ids) == 1 && last_token == ids[0]) {
-                if (params.interactive) {
-                    is_interacting = true;
-                    has_antiprompt = std::format("{}: already has antiprompt", __func__);
-                }
-                is_antiprompt = true;
-                state += std::format("->{}",__func__);
-                break;
-            }
-        }
-    }
-    
     //checking already existing contex and generating a token into embd
     int checkEmbd(){
         if (debug) printf("-ce");
@@ -1416,7 +1398,7 @@ public:
 
     }
 
-    void capture_states4(std::string bit = "") {
+    void capture_states4() {
         state += std::format("->{}",__func__);
 
         capture_smpl();
@@ -1425,12 +1407,12 @@ public:
         rewind_state.capture_embd_inp(embd_inp.size());
         rewind_state.capture_n_past(n_past);
         rewind_state.capture_n_consumed(n_consumed);
-        rewind_state.bit = bit;
+        // rewind_state.bit = bit;
     }
 
-    void capture_states_once(std::string bit = "") {
+    void capture_states_once() {
         if (rewind_state.kv_cache_pos == 0) {
-            capture_states4(bit);
+            capture_states4();
         }
 
     }
@@ -1447,7 +1429,7 @@ public:
         rewind_state.n_consumed_size = 0;
     }
 
-    std::string rewind() {
+    void rewind() {
         state += std::format("\n{}",__func__);
         restore_smpl();
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
@@ -1455,14 +1437,14 @@ public:
 
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
-        // common_sampler_reset(smpl);
+        common_sampler_reset(smpl);
         // to stabilize
         embd = rewind_state.embd;
         // const auto id = common_tokenize(ctx, params.input_suffix, false, true);
         // embd.insert(embd.end(), id.begin(), id.end());
         // n_consumed += id.size();
         // fromInpToEmbd();
-        return rewind_state.bit;
+        // return rewind_state.bit;
     }
 
     int resetGrammar(){
@@ -1530,12 +1512,33 @@ public:
 
         return 1;
     }
+
+    void check_antiprompt_tkns() {
+        // check for reverse prompt using special tokens
+        llama_token last_token = common_sampler_last(smpl);
+        for (std::vector<llama_token> ids : antiprompt_ids) {
+            if (std::size(ids) == 1 && last_token == ids[0]) {
+                if (params.interactive) {
+                    is_interacting = true;
+                    has_antiprompt = std::format("{}: already has antiprompt", __func__);
+                }
+                is_antiprompt = true;
+                state += std::format("->{}",__func__);
+                break;
+            }
+        }
+    }
+
+    bool isEOG() {
+        return llama_token_is_eog(model, common_sampler_last(smpl));
+    }
+
     // inserts antiprompt after EOS/EOG
     std::string checkEOS() {
         std::string end_string = "";
 
         // deal with end of text token in interactive mode
-        if (llama_token_is_eog(model, common_sampler_last(smpl))) {
+        if (isEOG()) {
             state += std::format("->{}",__func__);
             if (params.interactive) {
                 if (std::size(params.antiprompt) != 0) {
@@ -1580,9 +1583,8 @@ public:
         embd.clear();
     }
 
-// assembled work on context with writing into a "result"////////////////////    
+// assembled work on context
     int InitEmbdProcessing(std::string& result, bool& fastStop, bool streaming = false){ // 1 2 3 4
-        //std::cout << " ** " << std::endl;
 
         embdCheckAndClear();
 
@@ -1613,8 +1615,6 @@ public:
         }
 
         // display and return text
-        
-        
         if (input_echo) {
             //printf("-pei");
             for (auto id : embd) { 
@@ -1643,7 +1643,7 @@ public:
         }
     }
 
-    int subInputNew(std::string& line){
+    int getFormattedInput(std::string& line){
         //rewind_state.capture_embd_inp(embd_inp.size());
         //std::string buffer = line + DELIMINER;
         
@@ -1742,27 +1742,20 @@ public:
         return "cycle broken!";
     }
 
-    const std::string getTknFromEmbd(){
+    const std::string getTknFromEmbd() {
         if (debug) printf("-gp");
         state += std::format("->{}",__func__);
+        std::string result; // technically this is not required because generation happens token by token
 
         for (auto id : embd) { 
             //return llama_token_to_string(ctx, id); 
-            return common_token_to_piece(ctx, id); 
+            result += common_token_to_piece(ctx, id); 
         }
-    }
-    
-    const std::string getToken(std::vector<llama_token>& embd_msg){
-        if (debug) printf("-gp");
-        state += std::format("->{}",__func__);
 
-        for (auto id : embd_msg) { 
-            //return llama_token_to_string(ctx, id); 
-            return common_token_to_piece(ctx, id); 
-        }
+        return result;
     }
-    
-    int hasAntiprompt(std::string& result){
+
+    int hasAntiprompt(std::string& result) {
         if (std::size(params.antiprompt)) {
             int cutAntiPos = result.rfind(params.antiprompt[0]);
             if (cutAntiPos != std::string::npos){
@@ -1857,7 +1850,7 @@ public:
     }
 
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
-    int inputOnlyNew(std::string& input){
+    int inputProcessing(std::string& input){
         //std::cout << " ***** " << input << std::endl;
         formatRepresentation = "";
         has_antiprompt = "";
@@ -1865,7 +1858,7 @@ public:
         embd_msg.clear();
 
         if (n_past > 0 && is_interacting) {
-            subInputNew(input);
+            getFormattedInput(input);
             input_echo = false; // do not echo this again
         }
 
