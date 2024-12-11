@@ -239,11 +239,13 @@ private:
 
 public:
     common_params params;
-    bool is_antiprompt  = false;
-    bool tempFirst      = true;
-    bool finished       = true;
-    bool add_bos        = false;
-    bool add_eos        = false;
+    bool is_antiprompt   = false;
+    bool need_antiprompt = false;
+    bool tempFirst       = true;
+    bool finished        = true;
+    bool add_bos         = false;
+    bool add_eos         = false;
+
     int n_past_last     = 0;
     int n_remain_last   = 0;
     int n_consumed_last = 0;
@@ -1336,17 +1338,12 @@ public:
 
         // evaluate tokens in batches
         // embd is typically prepared beforehand to fit within a batch, but not always
+        // the first call processes the prompt
         if (evaluate_embd() == 0) return 0;
 
         evaluate_session();
 
-        if (rewind_state.kv_cache_pos == 0) {
-            capture_smpl();
-            rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
-            rewind_state.capture_embd_inp(embd_inp.size());
-            rewind_state.capture_n_past(n_past);
-            rewind_state.capture_n_consumed(n_consumed);
-        }
+        capture_state_once();
 
         return 1;
     }
@@ -1364,17 +1361,15 @@ public:
         // new generation function, moved to common 
         const llama_token id = common_sampler_sample(smpl, ctx, -1);
 
-        //last_tokens.erase(last_tokens.begin());
-        //last_tokens.emplace_back(id);
+        // accept the result
         common_sampler_accept(smpl, id, /* apply_grammar= */ true);
-        // common_sampler_set_shift(params.sparams);
-        // add it to the context
-        //embd.emplace_back(id);
+
+        // add it to the contexts
         embd.emplace_back(id);
-        //embd.push_back(id);
 
         // echo this to console
-        input_echo = true;
+        // no longer used
+        // input_echo = true;
 
         // decrement remaining sampling budget
         if (n_remain > 0) --n_remain;
@@ -1394,6 +1389,16 @@ public:
 
     }
 
+    void capture_state_once() {
+        if (rewind_state.kv_cache_pos == 0) {
+            capture_smpl();
+            rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
+            rewind_state.capture_embd_inp(embd_inp.size());
+            rewind_state.capture_n_past(n_past);
+            rewind_state.capture_n_consumed(n_consumed);
+        }
+    }
+
     int get_kv_cache_seq_pos_max() {
         return llama_kv_cache_seq_pos_max(ctx, 0);
     }
@@ -1411,8 +1416,7 @@ public:
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
-        common_sampler_reset(smpl);
-
+        // common_sampler_reset(smpl);
     }
 
     int resetGrammar(){
@@ -1480,30 +1484,29 @@ public:
         return 1;
     }
 
-    // inserts antiprompt after EOS/EOG
-    std::string checkEOS() {
-        std::string end_string = "";
+    void tokenizeAntiprompt() {
+        if (std::size(params.antiprompt) != 0) {
+            // tokenize and inject first reverse prompt
+            std::string end_string = params.antiprompt.front();
+            const auto first_antiprompt = common_tokenize(ctx, end_string, false, true);
+            embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
 
+            has_antiprompt = std::format("{}: TRUE, + antiprompt: '''{}'''", __func__, end_string);
+
+            is_antiprompt = true;
+        }
+    }
+
+    // inserts antiprompt after EOS/EOG
+    void checkEOS() {
         // deal with end of text token in interactive mode
         if (llama_token_is_eog(model, common_sampler_last(smpl))) {
             if (params.interactive) {
-                if (std::size(params.antiprompt) != 0) {
-                    // tokenize and inject first reverse prompt
-                    end_string = params.antiprompt.front();
-                    const auto first_antiprompt = common_tokenize(ctx, end_string, false, true);
-                    embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
-
-                    has_antiprompt = std::format("{}: TRUE, + antiprompt: '''{}'''", __func__, end_string);
-
-                    is_antiprompt = true;
-                }
+                tokenizeAntiprompt();
 
                 is_interacting = true;
-                //printf("\n");
             }
         }
-        
-        return end_string;
     }
 
     void appendSuffix(std::string& buffer){
@@ -1733,7 +1736,7 @@ public:
         }
     }
 
-    std::string getBitOld(){ // 1 2 3 4
+    std::string getTokenOld(){ // 1 2 3 4
         if (std::size(embd) > 0) {
             checkEmbd(); // 1
         }
@@ -1784,6 +1787,14 @@ public:
         is_interacting = false;
     }
 
+    void checkAndClearEmbd() {
+        if (std::size(embd) > 0) {
+            checkEmbd(); // 1
+        }
+
+        embd.clear();
+    }
+
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
     int inputProcessing(std::string& input){
         //std::cout << " ***** " << input << std::endl;
@@ -1805,21 +1816,19 @@ public:
 
         fromInpToEmbd();
 
+        checkAndClearEmbd();
+
         return 1;
     }
 
 // this is an attempt to strictly separate all input-based preparations
-// however, it assumes conditions (see in getBitOld())
+// however, it assumes conditions (see in getTokenOld())
 // fromInpToEmbd() and capture_states() should be done elsewhere
     std::string getBit() { // 1 2 3 4
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
 
-        if (std::size(embd) > 0) {
-            checkEmbd(); // 1
-        }
-
-        embd.clear();
+        checkAndClearEmbd();
 
         if (!is_interacting) sampleTknIntoEmbd(); // 2
 

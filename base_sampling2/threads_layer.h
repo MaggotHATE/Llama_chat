@@ -760,7 +760,7 @@ struct modelThread{
                     isPregen = 'w';
 
                     std::string input = resultsStringPairs.back().second;
-                    newChat.inputOnlyNew(input);
+                    newChat.inputProcessing(input);
 
                     isPregen = 'i';
                 } else newChat.skipInput();
