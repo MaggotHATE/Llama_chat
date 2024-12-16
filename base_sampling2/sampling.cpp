@@ -66,18 +66,6 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 params.logit_bias.size(),
                 params.logit_bias.data()));
 
-    llama_sampler_chain_add(result->chain,
-            llama_sampler_init_penalties(
-                llama_n_vocab  (model),
-                llama_token_eos(model),
-                llama_token_nl (model),
-                params.penalty_last_n,
-                params.penalty_repeat,
-                params.penalty_freq,
-                params.penalty_present,
-                params.penalize_nl,
-                params.ignore_eos));
-
     if (params.dry_multiplier > 0) {
         std::vector<const char*> c_breakers;
         c_breakers.reserve(params.dry_sequence_breakers.size());
@@ -129,6 +117,9 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         break;
                     case 'i':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_infill   (model));
+                        break;
+                    case 'e':
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_penalties(params.penalty_last_n, params.penalty_repeat, params.penalty_freq, params.penalty_present));
                         break;
                     default:
                         break;

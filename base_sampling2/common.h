@@ -36,9 +36,9 @@ using llama_tokens = std::vector<llama_token>;
 
 // build info
 extern int LLAMA_BUILD_NUMBER;
-extern char const * LLAMA_COMMIT;
-extern char const * LLAMA_COMPILER;
-extern char const * LLAMA_BUILD_TARGET;
+extern const char * LLAMA_COMMIT;
+extern const char * LLAMA_COMPILER;
+extern const char * LLAMA_BUILD_TARGET;
 
 struct common_control_vector_load_info;
 
@@ -428,6 +428,11 @@ std::string string_strip(const std::string & str);
 std::string string_get_sortable_timestamp();
 
 void string_replace_all(std::string & s, const std::string & search, const std::string & replace);
+
+static bool string_starts_with(const std::string & str,
+                               const std::string & prefix) {  // While we wait for C++20's std::string::starts_with...
+    return str.rfind(prefix, 0) == 0;
+}
 
 bool string_parse_kv_override(const char * data, std::vector<llama_model_kv_override> & overrides);
 void string_process_escapes(std::string & input);

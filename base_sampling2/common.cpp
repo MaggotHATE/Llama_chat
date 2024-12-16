@@ -886,6 +886,23 @@ struct common_init_result common_init_from_params(common_params & params) {
         params.sparams.ignore_eos = false;
     }
 
+    if (params.sparams.ignore_eos) {
+        for (llama_token i = 0; i < llama_n_vocab(model); i++) {
+            if (llama_token_is_eog(model, i)) {
+                printf("%s: added %s logit bias = %f\n", __func__, common_token_to_piece(lctx, i).c_str(), -INFINITY);
+                params.sparams.logit_bias.push_back({i, -INFINITY});
+            }
+        }
+    }
+    if (params.sparams.penalty_last_n == -1) {
+        printf("%s: setting penalty_last_n to ctx_size = %d\n", __func__, llama_n_ctx(lctx));
+        params.sparams.penalty_last_n = llama_n_ctx(lctx);
+    }
+    if (params.sparams.dry_penalty_last_n == -1) {
+        printf("%s: setting dry_penalty_last_n to ctx_size = %d\n", __func__, llama_n_ctx(lctx));
+        params.sparams.dry_penalty_last_n = llama_n_ctx(lctx);
+    }
+
     if (params.warmup) {
         printf("%s: warming up the model with an empty run - please wait ... (--no-warmup to disable)\n", __func__);
 
@@ -1051,12 +1068,6 @@ struct ggml_threadpool_params ggml_threadpool_params_from_cpu_params(const cpu_p
 
 #define CURL_MAX_RETRY 3
 #define CURL_RETRY_DELAY_SECONDS 2
-
-
-static bool starts_with(const std::string & str, const std::string & prefix) {
-    // While we wait for C++20's std::string::starts_with...
-    return str.rfind(prefix, 0) == 0;
-}
 
 static bool curl_perform_with_retry(const std::string& url, CURL* curl, int max_attempts, int retry_delay_seconds) {
     int remaining_attempts = max_attempts;

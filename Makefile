@@ -549,7 +549,7 @@ ggml-cpu$(DSO_EXT): \
 ggml-blas$(DSO_EXT): \
 	$(ggmlsrc_f_s)/ggml-blas/ggml-blas.cpp \
 	$(ggmlsrc_f_h)/ggml-blas.h \
-    $(OBJS_GGUF_BASE)
+	$(OBJS_GGUF_BASE)
 	$(CXX) $(CXXFLAGS) $(ob64_f) -o $@ $^ $(ob64_l) --static -shared
 
 # clblast
