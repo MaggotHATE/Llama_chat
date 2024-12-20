@@ -21,6 +21,42 @@
 #define DELIMINER '\n'
 #endif
 
+static std::string extract_string(std::string& text, std::string open, std::string close) {
+    size_t open_pos = text.rfind(open);
+    size_t close_pos = text.rfind(close);
+    if (open_pos != text.npos && close_pos != text.npos) {
+        size_t diff = close_pos - open_pos - open.length();
+        return text.substr(open_pos + open.length(), diff);
+    }
+
+    return "NULL";
+}
+
+static std::string extract_string_mod(std::string& text, std::string open, std::string close) {
+    size_t open_pos = text.rfind(open);
+    size_t close_pos = text.rfind(close);
+    if (open_pos != text.npos && close_pos != text.npos) {
+        size_t diff = close_pos - open_pos - open.length();
+        std::string extract = text.substr(open_pos + open.length(), diff);
+        std::cout << "Extracting: " << extract << std::endl;
+        text.replace(open_pos,diff + open.length() + close.length(),"");
+        return extract;
+    }
+
+    return "NULL";
+}
+
+static bool replace_string_mod(std::string& text, std::string target, std::string replacement) {
+    size_t target_pos = text.rfind(target);
+
+    if (target_pos != text.npos) {
+        text.replace(target_pos,target.length(), replacement);
+        return true;
+    }
+
+    return false;
+}
+
 static void readGrammarFile(common_params& params, std::string fileName){
     std::ifstream file(fileName);
     if (!file) {

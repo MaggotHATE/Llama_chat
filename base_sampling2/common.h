@@ -117,6 +117,14 @@ typedef struct llama_sampling_param_func {
 
 } llama_sampling_param_func;
 
+// vocoder params
+struct common_params_vocoder {
+    std::string hf_repo = ""; // HF repo                                                     // NOLINT
+    std::string hf_file = ""; // HF file                                                     // NOLINT
+    std::string model     = ""; // model path                                                // NOLINT
+    std::string model_url = ""; // model url to download                                     // NOLINT
+};
+
 // sampling parameters
 struct common_params_sampling {
     uint32_t seed = LLAMA_DEFAULT_SEED; // the seed used to initialize llama_sampler
@@ -241,7 +249,8 @@ struct common_params {
     enum llama_pooling_type      pooling_type      = LLAMA_POOLING_TYPE_UNSPECIFIED; // pooling type for embeddings
     enum llama_attention_type    attention_type    = LLAMA_ATTENTION_TYPE_UNSPECIFIED; // attention type for embeddings
 
-    struct common_params_sampling sparams;
+    struct common_params_sampling    sparams;
+    struct common_params_vocoder     vocoder;
     struct common_params_speculative speculative;
 
     std::string model                = ""; // model path                                                    // NOLINT

@@ -121,12 +121,17 @@ struct modelThread{
 
     void eraseAntiprompt(std::string & prompt) {
         if (newChat.params.antiprompt.size()) {
-            if (prompt != newChat.params.antiprompt[0]) {
-                int cutAntiPos = prompt.rfind(newChat.params.antiprompt[0]);
-                if (cutAntiPos != std::string::npos) {
-                    prompt.erase(cutAntiPos);
-                }
+            // if (prompt != newChat.params.antiprompt[0]) {
+                // int cutAntiPos = prompt.rfind(newChat.params.antiprompt[0]);
+                // if (cutAntiPos != std::string::npos) {
+                    // prompt.erase(cutAntiPos);
+                // }
 
+            // }
+            std::string anti = newChat.params.antiprompt[0];
+            bool replaced = replace_string_mod(prompt, anti, "");
+            while (replaced == true) {
+                replaced = replace_string_mod(prompt, anti, "");
             }
         }
     }
@@ -159,10 +164,15 @@ struct modelThread{
         }
 
         if (std::size(newChat.params.antiprompt)) {
-            int cutAntiPos = input.rfind(newChat.params.antiprompt[0]);
-            int cutAntiLength = newChat.params.antiprompt[0].length();
-            if (cutAntiPos != std::string::npos) {
-                input = input.substr(0, cutAntiPos) + input.substr(cutAntiPos + cutAntiLength);
+            // int cutAntiPos = input.rfind(newChat.params.antiprompt[0]);
+            // int cutAntiLength = newChat.params.antiprompt[0].length();
+            // if (cutAntiPos != std::string::npos) {
+                // input = input.substr(0, cutAntiPos) + input.substr(cutAntiPos + cutAntiLength);
+            // }
+            std::string anti = newChat.params.antiprompt[0];
+            bool replaced = replace_string_mod(input, anti, "");
+            while (replaced == true) {
+                replaced = replace_string_mod(input, anti, "");
             }
         }
 

@@ -1722,9 +1722,14 @@ public:
 
     void eraseAntiprompt(std::string& result){
         if (std::size(params.antiprompt)) {
-            int cutAntiPos = result.rfind(params.antiprompt[0]);
-            if (cutAntiPos != std::string::npos){
-                result.erase(cutAntiPos);
+            // int cutAntiPos = result.rfind(params.antiprompt[0]);
+            // if (cutAntiPos != std::string::npos){
+                // result.erase(cutAntiPos);
+            // }
+            std::string anti = params.antiprompt[0];
+            bool replaced = replace_string_mod(result, anti, "");
+            while (replaced == true) {
+                replaced = replace_string_mod(result, anti, "");
             }
         }
     }

@@ -10,31 +10,6 @@ std::future<void> futureInput;
 std::future<int> totalResult;
 int loaded = 0;
 
-static std::string extract_string(std::string& text, std::string open, std::string close) {
-    size_t open_pos = text.rfind(open);
-    size_t close_pos = text.rfind(close);
-    if (open_pos != text.npos && close_pos != text.npos) {
-        size_t diff = close_pos - open_pos - open.length();
-        return text.substr(open_pos + open.length(), diff);
-    }
-
-    return "NULL";
-}
-
-static std::string extract_string_mod(std::string& text, std::string open, std::string close) {
-    size_t open_pos = text.rfind(open);
-    size_t close_pos = text.rfind(close);
-    if (open_pos != text.npos && close_pos != text.npos) {
-        size_t diff = close_pos - open_pos - open.length();
-        std::string extract = text.substr(open_pos + open.length(), diff);
-        std::cout << "Extracting: " << extract << std::endl;
-        text.replace(open_pos,diff + open.length() + close.length(),"");
-        return extract;
-    }
-
-    return "NULL";
-}
-
 struct Lineup {
     bool run = false;
     
