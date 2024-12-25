@@ -142,6 +142,7 @@ typedef struct chat_state {
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
+    std::vector<llama_token> embd;
 
     void capture_kv_cache(int value) {
         kv_cache_pos = value;
@@ -245,6 +246,7 @@ public:
     bool finished        = true;
     bool add_bos         = false;
     bool add_eos         = false;
+    bool is_rewind       = false;
 
     int n_past_last     = 0;
     int n_remain_last   = 0;
@@ -318,7 +320,12 @@ public:
         }
     }
 
-    
+    void dynamicParamsPrepare() {
+        dynamic_params(params.sparams.temp, params.sparams.temp_func);
+        dynamic_params(params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
+        dynamic_params(params.sparams.p_step, params.sparams.p_step_func);
+    }
+
 	// ~chat(){
         // if (params.model != "empty" ) {
             
@@ -1277,22 +1284,25 @@ public:
         return 1;
     }
 
+// evaluate the contents of embd (input or the last generated token)
     int evaluate_embd() {
         for (int i = 0; i < (int) std::size(embd); i += params.n_batch) {
             int n_eval = (int) std::size(embd) - i;
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
+
             if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 std::string report = std::format("{}(): failed to eval: {}\n{}\n Failed: {}", __func__, params.model, params.prompt,embd[i]);
                 writeTextFile(std::to_string(getRand()) + ".txt", report);
                 return 1;
             }
+
             n_past += n_eval;
             //n_past_last = n_past;
         }
-        
+
         return 1;
     }
 
@@ -1343,8 +1353,6 @@ public:
 
         evaluate_session();
 
-        capture_state_once();
-
         return 1;
     }
 
@@ -1373,7 +1381,7 @@ public:
 
         // decrement remaining sampling budget
         if (n_remain > 0) --n_remain;
-        
+
         return 1;
     }
 
@@ -1396,6 +1404,7 @@ public:
             rewind_state.capture_embd_inp(embd_inp.size());
             rewind_state.capture_n_past(n_past);
             rewind_state.capture_n_consumed(n_consumed);
+            rewind_state.embd = embd;
         }
     }
 
@@ -1410,13 +1419,15 @@ public:
         rewind_state.n_consumed_size = 0;
     }
 
-    void rewind() {
+    void rewind_back() {
         restore_smpl();
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
         // common_sampler_reset(smpl);
+        //embd.clear();
+        embd = rewind_state.embd;
     }
 
     int resetGrammar(){
@@ -1493,6 +1504,8 @@ public:
 
             has_antiprompt = std::format("{}: TRUE, + antiprompt: '''{}'''", __func__, end_string);
 
+            n_past += first_antiprompt.size();
+
             is_antiprompt = true;
         }
     }
@@ -1560,8 +1573,7 @@ public:
         }
 
         // display and return text
-        
-        
+
         if (input_echo) {
             //printf("-pei");
             for (auto id : embd) { 
@@ -1658,7 +1670,7 @@ public:
         //ctx_sampling = llama_sampling_init(params.sparams);
 
         tokenize_antiprompt();
-        
+
         check_encoder();
 
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
@@ -1790,6 +1802,8 @@ public:
 
     void skipInput() {
         is_interacting = false;
+        is_antiprompt = false;
+        is_rewind = true;
     }
 
     void checkAndClearEmbd() {
@@ -1807,7 +1821,6 @@ public:
         has_antiprompt = "";
 
         embd_msg.clear();
-        
 
         if (n_past > 0 && is_interacting) {
             getFormattedInput(input);
@@ -1833,17 +1846,18 @@ public:
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
 
-        checkAndClearEmbd();
+        if (is_rewind == true) {
+            is_rewind = false;
+        } else {
+            checkAndClearEmbd();
 
-        if (!is_interacting) sampleTknIntoEmbd(); // 2
+            if (!is_interacting) {
+                sampleTknIntoEmbd(); // 2
+                capture_state_once();
+            }
+        }
 
         return getTknFromEmbd();
-    }
-
-    void dynamicParamsPrepare() {
-        dynamic_params(params.sparams.temp, params.sparams.temp_func);
-        dynamic_params(params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
-        dynamic_params(params.sparams.p_step, params.sparams.p_step_func);
     }
 
     // token by token generation and pushing

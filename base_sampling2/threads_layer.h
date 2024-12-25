@@ -652,7 +652,7 @@ struct modelThread{
     
     void rewind() {
         resultsStringPairs.pop_back();
-        newChat.rewind();
+        newChat.rewind_back();
         // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
     
@@ -792,10 +792,6 @@ struct modelThread{
                         return (std::string) "stopped";
                     }
                     lastResult += output;
-
-                    //getTimigsGen();
-
-                    //getTimigsSimple();
 
                     //this is where is stops
                     checkFinished();
