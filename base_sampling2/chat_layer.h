@@ -142,7 +142,6 @@ typedef struct chat_state {
     int embd_inp_size   = 0;
     int n_past_size     = 0;
     int n_consumed_size = 0;
-    std::vector<llama_token> embd;
 
     void capture_kv_cache(int value) {
         kv_cache_pos = value;
@@ -246,7 +245,6 @@ public:
     bool finished        = true;
     bool add_bos         = false;
     bool add_eos         = false;
-    bool is_rewind       = false;
 
     int n_past_last     = 0;
     int n_remain_last   = 0;
@@ -563,10 +561,7 @@ public:
             std::string name_noise = fullnames ? "noise" : "O";
             std::string name_k_shift = fullnames ? "k_shift" : "k_s";
 
-            if (params.sparams.penalty_repeat != paramsDefault.sparams.penalty_repeat) result += std::format("-> {}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
-            if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format("-> {}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
-            if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format("-> {}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
-            if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format("-> {}={:.2f}", name_penalty_present, params.sparams.penalty_present);
+            
             //DRY
             if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
                 result += std::format("-> {}={:.2f}*{:.2f}L{}N{}", name_dry, params.sparams.dry_base, params.sparams.dry_multiplier, params.sparams.dry_allowed_length, params.sparams.dry_penalty_last_n);
@@ -588,6 +583,13 @@ public:
                 for (auto s : params.sparams.samplers_sequence){
                     result += "->";
                     switch (s) {
+                        case 'e': {
+                            result += std::format("{}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
+                            if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format(";{}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
+                            if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
+                            if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
+                        }
+                        break;
                         case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += std::format("={}",params.sparams.top_k); break;
                         case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.2f}",params.sparams.tfs_z); break;
                         case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.2f}",params.sparams.typical_p); break;
@@ -1284,29 +1286,26 @@ public:
         return 1;
     }
 
-// evaluate the contents of embd (input or the last generated token)
-    int evaluate_embd() {
+    int evaluateEmbd() {
         for (int i = 0; i < (int) std::size(embd); i += params.n_batch) {
             int n_eval = (int) std::size(embd) - i;
             if (n_eval > params.n_batch) {
                 n_eval = params.n_batch;
             }
-
             if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
                 std::string report = std::format("{}(): failed to eval: {}\n{}\n Failed: {}", __func__, params.model, params.prompt,embd[i]);
                 writeTextFile(std::to_string(getRand()) + ".txt", report);
                 return 1;
             }
-
             n_past += n_eval;
             //n_past_last = n_past;
         }
-
+        
         return 1;
     }
 
-    void evaluate_session() {
+    void evaluateSession() {
         if (std::size(embd) > 0 && !path_session.empty()) {
             session_tokens.insert(session_tokens.end(), embd.begin(), embd.end());
             n_session_consumed = std::size(session_tokens);
@@ -1349,9 +1348,11 @@ public:
         // evaluate tokens in batches
         // embd is typically prepared beforehand to fit within a batch, but not always
         // the first call processes the prompt
-        if (evaluate_embd() == 0) return 0;
+        if (evaluateEmbd() == 0) return 0;
 
-        evaluate_session();
+        if (!path_session.empty()) evaluateSession();
+
+        captureStateOnce();
 
         return 1;
     }
@@ -1381,30 +1382,20 @@ public:
 
         // decrement remaining sampling budget
         if (n_remain > 0) --n_remain;
-
+        
         return 1;
     }
 
 // main generation end////////////////////////////////////////////////////////////////
 
 // additional functions
-    void capture_states2() {
-        capture_smpl();
-        rewind_state.kv_cache_pos = llama_kv_cache_seq_pos_max(ctx, 0);
-        rewind_state.embd_inp_size = embd_inp.size();
-        rewind_state.n_past_size = n_past;
-        rewind_state.n_consumed_size = n_consumed;
-
-    }
-
-    void capture_state_once() {
+    void captureStateOnce() {
         if (rewind_state.kv_cache_pos == 0) {
             capture_smpl();
             rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
             rewind_state.capture_embd_inp(embd_inp.size());
             rewind_state.capture_n_past(n_past);
             rewind_state.capture_n_consumed(n_consumed);
-            rewind_state.embd = embd;
         }
     }
 
@@ -1412,22 +1403,24 @@ public:
         return llama_kv_cache_seq_pos_max(ctx, 0);
     }
 
-    void clear_states2() {
+    void clearStates2() {
         rewind_state.kv_cache_pos = 0;
         rewind_state.embd_inp_size = 0;
         rewind_state.n_past_size = 0;
         rewind_state.n_consumed_size = 0;
     }
 
-    void rewind_back() {
+    void rewindBack() {
+    // sampling
         restore_smpl();
+        // common_sampler_reset(smpl);
+    // context
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
+        // llama_kv_cache_update(ctx);
+    // chat parameters
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size;
         n_consumed = rewind_state.n_consumed_size;
-        // common_sampler_reset(smpl);
-        //embd.clear();
-        embd = rewind_state.embd;
     }
 
     int resetGrammar(){
@@ -1444,13 +1437,13 @@ public:
             // }
             common_sampler_reset(smpl);
         }
-        
+
         //is_interacting = false;
-        
+
         return 1;
     }
 
-    int checkInfinite(){
+    int checkInfinite() {
         // In interactive mode, respect the maximum number of tokens and drop back to user input when reached.
         // We skip this logic when n_predict == -1 (infinite) or -2 (stop at context size).
         if (n_remain <= 0 && params.n_predict >= 0) {
@@ -1503,8 +1496,6 @@ public:
             embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
 
             has_antiprompt = std::format("{}: TRUE, + antiprompt: '''{}'''", __func__, end_string);
-
-            n_past += first_antiprompt.size();
 
             is_antiprompt = true;
         }
@@ -1573,7 +1564,8 @@ public:
         }
 
         // display and return text
-
+        
+        
         if (input_echo) {
             //printf("-pei");
             for (auto id : embd) { 
@@ -1670,7 +1662,7 @@ public:
         //ctx_sampling = llama_sampling_init(params.sparams);
 
         tokenize_antiprompt();
-
+        
         check_encoder();
 
         while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
@@ -1802,8 +1794,6 @@ public:
 
     void skipInput() {
         is_interacting = false;
-        is_antiprompt = false;
-        is_rewind = true;
     }
 
     void checkAndClearEmbd() {
@@ -1846,16 +1836,9 @@ public:
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
 
-        if (is_rewind == true) {
-            is_rewind = false;
-        } else {
-            checkAndClearEmbd();
+        checkAndClearEmbd();
 
-            if (!is_interacting) {
-                sampleTknIntoEmbd(); // 2
-                capture_state_once();
-            }
-        }
+        if (!is_interacting) sampleTknIntoEmbd(); // 2
 
         return getTknFromEmbd();
     }

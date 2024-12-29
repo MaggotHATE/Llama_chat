@@ -212,7 +212,7 @@ struct modelThread{
         else
             resultsStringPairs.emplace_back(std::pair(newChat.params.antiprompt[0],input));
 
-        newChat.clear_states2();
+        newChat.clearStates2();
     }
 
     std::string getInputName() {
@@ -652,7 +652,7 @@ struct modelThread{
     
     void rewind() {
         resultsStringPairs.pop_back();
-        newChat.rewind_back();
+        newChat.rewindBack();
         // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
     
