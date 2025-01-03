@@ -415,7 +415,7 @@ struct modelThread{
             summary += getSummary();
 
             std::cout << separator << summary;
-        } else std::cout << username << std::endl;
+        } //else std::cout << username << std::endl;
 
         return summary;
     }

@@ -176,6 +176,7 @@ private:
     llama_context * ctx = nullptr;
     llama_model * model = nullptr;
     common_sampler * smpl = nullptr;
+    // common_init_result llama_init;
 
 
     int n_ctx;
@@ -385,6 +386,7 @@ public:
             llama_perf_context_reset(ctx);
             llama_free(ctx);
             llama_free_model(model);
+            // llama_init = {};
             //if (grammar != NULL) {
             //    llama_grammar_free(grammar);
             //}
@@ -679,10 +681,11 @@ public:
     }
 
     void formatInput(std::string format, std::string& buffer) {
-        
-        for (auto s : format){
+        // printf("%s: FORMAT = %s\n", __func__, format.c_str());
+        for (auto s : format) {
             switch (s){
                 case 'a':{
+                    // printf("%s: found antiprompt\n", __func__);
                     if (std::size(params.antiprompt)){
                         formatRepresentation += params.antiprompt[0];
                         const auto line_antiprompt_format = common_tokenize(ctx, params.antiprompt[0], false, true);
@@ -692,10 +695,12 @@ public:
                 }
                 case 'b':{
                     if (!params.bos.empty()) {
+                        // printf("%s: found custom bos \n", __func__);
                         formatRepresentation += params.bos;
                         const auto line_bos_format = common_tokenize(ctx, params.bos, false, true);
                         embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
                     } else {
+                        // printf("%s: found model bos \n", __func__);
                         formatRepresentation += llama_token_get_text(model, llama_token_bos(model));
                         embd_inp.emplace_back(llama_token_bos(model));
                     }
@@ -703,22 +708,26 @@ public:
                 }
                 case 'e':{
                     if (!params.eos.empty()) {
+                        // printf("%s: found custom eos \n", __func__);
                         formatRepresentation += params.eos;
                         const auto line_eos_format = common_tokenize(ctx, params.eos, false, true);
                         embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
                     } else {
+                        // printf("%s: found model eos \n", __func__);
                         formatRepresentation += llama_token_get_text(model, llama_token_eos(model));
                         embd_inp.emplace_back(llama_token_eos(model));
                     }
                     break;
                 }
                 case 'p':{
+                    // printf("%s: found prefix \n", __func__);
                     formatRepresentation += params.input_prefix;
                     const auto line_pfx = common_tokenize(ctx, params.input_prefix, false, true);
                     embd_inp.insert(embd_inp.end(), line_pfx.begin(), line_pfx.end());
                     break;
                 }
                 case 'i':{
+                    // printf("%s: found input \n", __func__);
                     /* if (format == params.format_instruct) */ formatRepresentation += buffer;
                     //else formatRepresentation += "{input}";
                     const auto line_inp = common_tokenize(ctx, buffer, false, false);
@@ -727,19 +736,21 @@ public:
                     break;
                 }
                 case 's':{
+                    // printf("%s: found suffix \n", __func__);
                     formatRepresentation += params.input_suffix;
                     const auto line_sfx = common_tokenize(ctx, params.input_suffix, false, true);
                     embd_inp.insert(embd_inp.end(), line_sfx.begin(), line_sfx.end());
                     break;
                 }
                 case 'd':{
+                    // printf("%s: found deliminer \n", __func__);
                     formatRepresentation += "\n";
                     const auto line_delim = common_tokenize(ctx, "\n", false, true);
                     embd_inp.insert(embd_inp.end(), line_delim.begin(), line_delim.end());
                     break;
                 }
             }
-            
+
         }
 
     }
@@ -865,82 +876,6 @@ public:
         return 1;
     }
 
-    int loadModel(){
-
-        ggml_backend_load_all();
-        printf("..............Loaded dynamic backends.(%s)................\n", __func__);
-        //llama_init_backend(params.numa);
-        llama_backend_init();
-        printf("..............Backend initialized simple.(%s)................\n", __func__);
-
-        // load the model and apply lora adapter, if any
-        //ctx = llama_init_from_gpt_params(params);
-        common_init_result llama_init = common_init_from_params(params);
-        printf("..............common_init_from_params.(%s)................\n", __func__);
-
-        model = llama_init.model;
-        ctx = llama_init.context;
-        printf("..............Model initialized.(%s)................\n", __func__);
-        assignThreads();
-        printf("..............Threads assigned.(%s)................\n", __func__);
-        
-        
-        if (model == NULL) {
-            fprintf(stderr, "%s: error: unable to load model\n", __func__);
-            return 0;
-        }
-        
-        return 3;
-    }
-    
-    // this part is necessary for proper functioning
-    int strictLoad(){
-        int status = 0;
-        ggml_backend_load_all();
-        printf("..............Loaded dynamic backends.(%s)................\n", __func__);
-        //checking values 
-        status += checkPreLoad(); // 1
-        printf("checkPreLoad = %d\n", status);
-        if (status == 0) return 0;
-        
-        //loading the model itself; uses llama_backend, ctx, ctx_guidance
-        //status += loadModel(); // +3
-        // LET'S TRY THIS
-        //llama_init_backend(params.numa);
-        llama_backend_init();
-        printf("..............Backend initialized strict (%s)................\n", __func__);
-
-        // load the model and apply lora adapter, if any
-        //ctx = llama_init_from_gpt_params(params);
-        common_init_result llama_init = common_init_from_params(params);
-        printf("..............common_init_from_params (%s)................\n", __func__);
-
-        model = llama_init.model;
-        ctx = llama_init.context;
-        printf("..............Model initialized (%s)................\n", __func__);
-        assignThreads();
-        printf("..............Threads assigned  (%s)................\n", __func__);
-        
-        
-        if (model == NULL) {
-            fprintf(stderr, "%s: error: unable to load model\n", __func__);
-            return 0;
-        }
-        
-        status += 3; // +3
-        
-        
-        printf("loadModel = %d\n", status);
-        if (status < 3) return 0;
-
-        // setting seed
-        status += setRandomSeed(); // 6
-        common_sampler_get_seed(smpl);
-        printf("%s: setRandomSeed = %d\n", __func__, status);
-        
-        return status;
-    }
-    
     int load(bool soft = false){
         
         printf("Load start \n");
@@ -984,13 +919,21 @@ public:
 #else
             printf("..............Backend initialized common (%s)................\n", __func__);
 #endif
+
             // load the model and apply lora adapter, if any
             common_init_result llama_init = common_init_from_params(params);
             printf("..............common_init_from_params (%s)................\n", __func__);
 
-            model = llama_init.model;
-            ctx = llama_init.context;
+            // model = llama_init.model.release();
+            // model = llama_init.model.get();
+            model = llama_init.model.release();
             printf("..............Model initialized (%s)................\n", __func__);
+
+            // ctx = llama_init.context.release();
+            // ctx = llama_init.context.get();
+            ctx = llama_init.context.release();
+            printf("..............Context initialized (%s)................\n", __func__);
+
             assignThreads();
             printf("..............Threads assigned (%s)................\n", __func__);
 
@@ -1071,18 +1014,25 @@ public:
         //if (params.prompt.empty()) params.prompt = params.antiprompt.back();
         // instruct mode was removed since its format is not universal enough
 
+        // std::string pause = "";
+        // std::getline(std::cin, pause);
+
         add_bos = llama_add_bos_token(model);
         add_eos = llama_add_eos_token(model);
+
         if (!llama_model_has_encoder(model)) {
             GGML_ASSERT(!llama_add_eos_token(model));
         }
-        printf("add_bos: %d\n", add_bos);
+
+        printf("%s: add_bos: %d\n", __func__, add_bos);
 
         if (params.interactive_first || !params.prompt.empty() || session_tokens.empty()) {
             //this is the first problem we have
             // there is no formatting for the initial prompt
             //embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos, true);
+            printf("%s: init formatting", __func__);
             formatInput(params.format_instruct, params.prompt);
+            printf("%s: init formatting finished", __func__);
         } else {
             embd_inp = session_tokens;
         }

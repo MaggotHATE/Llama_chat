@@ -733,7 +733,8 @@ static void readParamsFromJson(nlohmann::json& config, common_params& params, bo
     getParamsFromPreset(config, params);
     getParamsFromObject("group",config, params, false, headless);
     
-    if(config.contains(params.model) && config[params.model].is_object()){
+    // if(config.contains(params.model) && config[params.model].is_object()){
+    if(checkJObj(config, params.model)){
         std::cout << "Found settings for model " << params.model << std::endl;
         nlohmann::json modelConfig = config[params.model];
         bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
@@ -753,7 +754,7 @@ static void readParamsFromJson(nlohmann::json& config, std::string modelName, co
     params.model = modelName;
     
     if(config.contains("model")){
-        if(config["model"].is_string() && config[params.model].is_object()){
+        if(config["model"].is_string() && config.contains(params.model) && config[params.model].is_object()){
             std::cout << "Found settings for model " << params.model << std::endl;
             nlohmann::json modelConfig = config[params.model];
             bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();
@@ -776,7 +777,7 @@ static void readParamsFromFile(std::string fimeName, common_params& params, bool
         getParamsFromObject("group",config, params, false, headless);
         
         if(config.contains("model")){
-            if(config["model"].is_string() && config[params.model].is_object()){
+            if(config["model"].is_string() && config.contains(params.model) && config[params.model].is_object()){
                 std::cout << "Found settings for model " << params.model << std::endl;
                 nlohmann::json modelConfig = config[params.model];
                 bool hasFiles = modelConfig["file"].is_string() || config["file"].is_string();

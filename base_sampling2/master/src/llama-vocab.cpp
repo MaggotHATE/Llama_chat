@@ -1,5 +1,7 @@
 #include "llama-vocab.h"
 
+#include "llama-impl.h"
+
 #include "unicode.h"
 
 #include <algorithm>
@@ -15,22 +17,6 @@
 //
 // helpers
 //
-
-LLAMA_ATTRIBUTE_FORMAT(1, 2)
-static std::string format(const char * fmt, ...) {
-    va_list ap;
-    va_list ap2;
-    va_start(ap, fmt);
-    va_copy(ap2, ap);
-    int size = vsnprintf(NULL, 0, fmt, ap);
-    GGML_ASSERT(size >= 0 && size < INT_MAX); // NOLINT
-    std::vector<char> buf(size + 1);
-    int size2 = vsnprintf(buf.data(), size + 1, fmt, ap2);
-    GGML_ASSERT(size2 == size);
-    va_end(ap2);
-    va_end(ap);
-    return std::string(buf.data(), size);
-}
 
 struct naive_trie {
     naive_trie() : has_value(false), value(0) {
@@ -1603,6 +1589,7 @@ std::vector<llama_vocab::id> llama_tokenize_internal(
                 }
             } break;
         case LLAMA_VOCAB_TYPE_NONE:
+            fprintf(stderr, "%s: fatal error\n", __func__);
             GGML_ABORT("fatal error");
     }
 

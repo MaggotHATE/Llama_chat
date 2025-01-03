@@ -1,8 +1,6 @@
 #include "ggml.h"
 #include "ggml-alloc.h"
 #include "ggml-backend.h"
-#include "llama.h"
-#include "llama-impl.h"
 #include "llama-addon.h"
 
 #include <algorithm>

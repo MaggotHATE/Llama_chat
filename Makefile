@@ -432,17 +432,29 @@ endif
 
 OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama.o \
-    $(TMP)$(PREFIX)_llama-vocab.o \
+    $(TMP)$(PREFIX)_llama-adapter.o \
+    $(TMP)$(PREFIX)_llama-arch.o \
+    $(TMP)$(PREFIX)_llama-batch.o \
+    $(TMP)$(PREFIX)_llama-chat.o \
+    $(TMP)$(PREFIX)_llama-context.o \
     $(TMP)$(PREFIX)_llama-grammar.o \
-    $(TMP)$(PREFIX)_llama-sampling.o
+    $(TMP)$(PREFIX)_llama-hparams.o \
+    $(TMP)$(PREFIX)_llama-impl.o \
+    $(TMP)$(PREFIX)_llama-kv-cache.o \
+    $(TMP)$(PREFIX)_llama-mmap.o \
+    $(TMP)$(PREFIX)_llama-model-loader.o \
+    $(TMP)$(PREFIX)_llama-model.o \
+    $(TMP)$(PREFIX)_llama-quant.o \
+    $(TMP)$(PREFIX)_llama-sampling.o \
+    $(TMP)$(PREFIX)_llama-vocab.o \
+    $(TMP)$(PREFIX)_unicode.o \
+    $(TMP)$(PREFIX)_unicode-data.o
 
 OBJS_GGUF += \
     $(OBJS_GGUF_LLAMA) \
     $(TMP)$(PREFIX)_llama-addon.o \
     $(TMP)$(PREFIX)_sampling.o \
-    $(TMP)$(PREFIX)_common.o \
-    $(TMP)$(PREFIX)_unicode.o \
-    $(TMP)$(PREFIX)_unicode-data.o
+    $(TMP)$(PREFIX)_common.o
 
 # SGEMM and others
 
