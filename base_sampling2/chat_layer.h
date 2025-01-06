@@ -385,7 +385,7 @@ public:
             common_sampler_free(smpl);
             llama_perf_context_reset(ctx);
             llama_free(ctx);
-            llama_free_model(model);
+            llama_model_free(model);
             // llama_init = {};
             //if (grammar != NULL) {
             //    llama_grammar_free(grammar);
@@ -825,7 +825,7 @@ public:
             }
 
             llama_token decoder_start_token_id = llama_model_decoder_start_token(model);
-            if (decoder_start_token_id == -1) {
+            if (decoder_start_token_id == LLAMA_TOKEN_NULL) {
                 decoder_start_token_id = llama_token_bos(model);
             }
 

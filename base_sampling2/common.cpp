@@ -792,7 +792,7 @@ struct common_init_result common_init_from_params(common_params & params) {
     } else if (!params.model_url.empty()) {
         model = common_load_model_from_url(params.model_url.c_str(), params.model.c_str(), params.hf_token.c_str(), mparams);
     } else {
-        model = llama_load_model_from_file(params.model.c_str(), mparams);
+        model = llama_model_load_from_file(params.model.c_str(), mparams);
     }
 
     if (model == NULL) {
@@ -819,7 +819,7 @@ struct common_init_result common_init_from_params(common_params & params) {
         }
 
         if (!ok) {
-            llama_free_model(model);
+            llama_model_free(model);
 
             return iparams;
         }
@@ -830,13 +830,13 @@ struct common_init_result common_init_from_params(common_params & params) {
     llama_context * lctx = llama_new_context_with_model(model, cparams);
     if (lctx == NULL) {
         printf("%s: failed to create context with model '%s'\n", __func__, params.model.c_str());
-        llama_free_model(model);
+        llama_model_free(model);
         return iparams;
     }
 
     if (params.ctx_shift && !llama_kv_cache_can_shift(lctx)) {
         printf("%s: KV cache shifting is not supported for this model (--no-context-shift to disable)'\n", __func__);
-        llama_free_model(model);
+        llama_model_free(model);
         return iparams;
     }
 
@@ -847,7 +847,7 @@ struct common_init_result common_init_from_params(common_params & params) {
         const auto cvec = common_control_vector_load(params.control_vectors);
         if (cvec.n_embd == -1) {
             llama_free(lctx);
-            llama_free_model(model);
+            llama_model_free(model);
 
             return iparams;
         }
@@ -860,7 +860,7 @@ struct common_init_result common_init_from_params(common_params & params) {
                                              params.control_vector_layer_end);
         if (err) {
             llama_free(lctx);
-            llama_free_model(model);
+            llama_model_free(model);
 
             return iparams;
         } else printf("%s: vectors applied \n", __func__);
@@ -873,7 +873,7 @@ struct common_init_result common_init_from_params(common_params & params) {
         if (lora == nullptr) {
             printf("%s: failed to apply lora adapter '%s'\n", __func__, la.path.c_str());
             llama_free(lctx);
-            llama_free_model(model);
+            llama_model_free(model);
             return iparams;
         }
 
@@ -927,7 +927,7 @@ struct common_init_result common_init_from_params(common_params & params) {
         if (llama_model_has_encoder(model)) {
             llama_encode(lctx, llama_batch_get_one(tmp.data(), tmp.size()));
             llama_token decoder_start_token_id = llama_model_decoder_start_token(model);
-            if (decoder_start_token_id == -1) {
+            if (decoder_start_token_id == LLAMA_TOKEN_NULL) {
                 decoder_start_token_id = bos;
             }
             tmp.clear();
