@@ -404,6 +404,7 @@ $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyf
 
 OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_ggml.o \
+    $(TMP)$(PREFIX)_gguf.o \
     $(TMP)$(PREFIX)_ggml-alloc.o \
     $(TMP)$(PREFIX)_ggml-backend.o \
     $(TMP)$(PREFIX)_ggml-backend-reg.o \

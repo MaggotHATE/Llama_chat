@@ -1,3 +1,6 @@
+#include "ggml.h"
+#include "gguf.h"
+
 #include "common.h"
 
 #include <algorithm>
