@@ -462,6 +462,7 @@ static std::string get_last_formatted(std::vector<std::pair<std::string, std::st
 
 static void getSamplingParamsFromJson(nlohmann::json& config, common_params& params) {
 // general sampling
+    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
     if (checkJNum(config, "confidence_shift")) params.sparams.confidence_shift = config["confidence_shift"];
     if (checkJNum(config, "confidence_top")) params.sparams.confidence_top = config["confidence_top"];
     if (checkJNum(config, "confidence_bottom")) params.sparams.confidence_bottom = config["confidence_bottom"];
@@ -579,7 +580,6 @@ static void getPromptingParamsFromJson(nlohmann::json& config, common_params& pa
 
     if (checkJString(config, "format_instruct")) params.format_instruct = config["format_instruct"];
     if (checkJString(config, "format_dialog")) params.format_dialog = config["format_dialog"];
-    if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
     if (checkJString(config, "bos")) params.bos = config["bos"];
     if (checkJString(config, "eos")) params.eos = config["eos"];
     if (checkJNum(config, "seed")) params.sparams.seed = config["seed"];

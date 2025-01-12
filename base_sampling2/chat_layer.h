@@ -176,6 +176,7 @@ private:
     llama_context * ctx = nullptr;
     llama_model * model = nullptr;
     common_sampler * smpl = nullptr;
+    const llama_vocab * vocab = nullptr;
     // common_init_result llama_init;
 
 
@@ -263,6 +264,8 @@ public:
     std::string has_antiprompt = "";
 
     std::string formatRepresentation = "";
+    std::string txt_vocab_bos = "";
+    std::string txt_vocab_eos = "";
 
     struct llama_perf_context_data ctx_performance_data;
 
@@ -405,13 +408,13 @@ public:
         debug = !debug;
     }
 
-    std::string getBOS() {
-        return (std::string) llama_token_get_text(model, llama_token_bos(model));
-    }
+    // std::string getBOS() {
+        // return (std::string) llama_token_get_text(vocab, llama_vocab_bos(vocab));
+    // }
 
-    std::string getEOS() {
-        return (std::string) llama_token_get_text(model, llama_token_eos(model));
-    }
+    // std::string getEOS() {
+        // return (std::string) llama_token_get_text(vocab, llama_vocab_eos(vocab));
+    // }
 
     int getRemainTokens() {
         return n_remain;
@@ -701,8 +704,8 @@ public:
                         embd_inp.insert(embd_inp.end(), line_bos_format.begin(), line_bos_format.end());
                     } else {
                         // printf("%s: found model bos \n", __func__);
-                        formatRepresentation += llama_token_get_text(model, llama_token_bos(model));
-                        embd_inp.emplace_back(llama_token_bos(model));
+                        formatRepresentation += llama_token_get_text(vocab, llama_vocab_bos(vocab));
+                        embd_inp.emplace_back(llama_vocab_bos(vocab));
                     }
                     break;
                 }
@@ -714,8 +717,8 @@ public:
                         embd_inp.insert(embd_inp.end(), line_eos_format.begin(), line_eos_format.end());
                     } else {
                         // printf("%s: found model eos \n", __func__);
-                        formatRepresentation += llama_token_get_text(model, llama_token_eos(model));
-                        embd_inp.emplace_back(llama_token_eos(model));
+                        formatRepresentation += llama_token_get_text(vocab, llama_vocab_eos(vocab));
+                        embd_inp.emplace_back(llama_vocab_eos(vocab));
                     }
                     break;
                 }
@@ -826,7 +829,7 @@ public:
 
             llama_token decoder_start_token_id = llama_model_decoder_start_token(model);
             if (decoder_start_token_id == LLAMA_TOKEN_NULL) {
-                decoder_start_token_id = llama_token_bos(model);
+                decoder_start_token_id = llama_vocab_bos(vocab);
             }
 
             embd_inp.clear();
@@ -927,6 +930,7 @@ public:
             // model = llama_init.model.release();
             // model = llama_init.model.get();
             model = llama_init.model.release();
+            vocab = llama_model_get_vocab(model);
             printf("..............Model initialized (%s)................\n", __func__);
 
             // ctx = llama_init.context.release();
@@ -1017,28 +1021,31 @@ public:
         // std::string pause = "";
         // std::getline(std::cin, pause);
 
-        add_bos = llama_add_bos_token(model);
-        add_eos = llama_add_eos_token(model);
+        add_bos = llama_vocab_get_add_bos(vocab);
 
         if (!llama_model_has_encoder(model)) {
-            GGML_ASSERT(!llama_add_eos_token(model));
+            GGML_ASSERT(!llama_vocab_get_add_eos(vocab));
         }
 
+        add_eos = llama_vocab_get_add_eos(vocab);
+
+        txt_vocab_bos = llama_token_get_text(vocab, llama_vocab_bos(vocab));
+        txt_vocab_eos = llama_token_get_text(vocab, llama_vocab_eos(vocab));
+
         printf("%s: add_bos: %d\n", __func__, add_bos);
+        printf("%s: add_eos: %d\n", __func__, add_eos);
 
         if (params.interactive_first || !params.prompt.empty() || session_tokens.empty()) {
             //this is the first problem we have
             // there is no formatting for the initial prompt
-            //embd_inp = ::llama_tokenize(ctx, params.prompt, add_bos, true);
-            printf("%s: init formatting", __func__);
             formatInput(params.format_instruct, params.prompt);
-            printf("%s: init formatting finished", __func__);
+            printf("%s: init formatting finished\n", __func__);
         } else {
             embd_inp = session_tokens;
         }
 
         if (embd_inp.empty()) {
-            embd_inp.emplace_back(llama_token_bos(model));
+            embd_inp.emplace_back(llama_vocab_bos(vocab));
             //embd_inp.push_back(llama_token_bos(model));
         }
 
@@ -1454,7 +1461,7 @@ public:
     // inserts antiprompt after EOS/EOG
     void checkEOS() {
         // deal with end of text token in interactive mode
-        if (llama_token_is_eog(model, common_sampler_last(smpl))) {
+        if (llama_token_is_eog(vocab, common_sampler_last(smpl))) {
             if (params.interactive) {
                 tokenizeAntiprompt();
 
@@ -1543,7 +1550,7 @@ public:
 
     void appendPrefixBos(){
         if (params.input_prefix_bos) {
-            embd_inp.emplace_back(llama_token_bos(model));
+            embd_inp.emplace_back(llama_vocab_bos(vocab));
             //embd_inp.push_back(llama_token_bos(model));
         }
     }

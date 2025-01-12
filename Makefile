@@ -252,6 +252,10 @@ ifeq ($(UNAME_S),OpenBSD)
 	GNUPDATECXX += -D_BSD_SOURCE
 endif
 
+WARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function
+C_WARNS = -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration
+CPP_WARNS = -Wshadow -Wmissing-declarations -Wmissing-noreturn
+
 #for main ui
 CXXFLAGS_UI += $(OPT_UI) -std=$(CCPP) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
@@ -262,10 +266,10 @@ CXXFLAGS_UI += -DSDL2
 endif
 
 #for general ggml-gguf
-CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w $(WARNS) $(C_WARNS) -pipe
 
 #for all chatTest
-CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w -pipe
+CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w $(WARNS) $(CPP_WARNS) -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
@@ -674,6 +678,7 @@ $(TMP)imgui/%.o:$(IMGUI_DIR)/misc/cpp/%.cpp
 # EXE components
 ################
 
+json_layer = $(common_f)/include/jsonParams.h
 chat_layer = $(common_f)/chat_layer.h
 settings_layer = $(common_f)/threads_layer.h
 conapp = $(common_f)/class_chat.cpp
@@ -691,16 +696,16 @@ ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
 # Final parts
-$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(chat_layer) $(settings_layer)
+$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(json_layer) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo $(TMP)$(PREFIX)_class_chat.o compiled
 
-$(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(chat_layer) $(settings_layer)
+$(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(json_layer) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo $(TMP)$(PREFIX)_dual_chat.o compiled
 
 # Final parts UI
-$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(chat_layer) $(settings_layer) $(ui_simple)
+$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) $(LDFLAGS) -DUI_SIMPLE -c $< -o $@
 
 # Naming

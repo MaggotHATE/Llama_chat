@@ -1796,8 +1796,8 @@ static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_tok
         // llama_sampler_dist_plus_impl_2(cur_p, ctx);
         // llama_sampler_dist_plus_impl_0(cur_p, ctx);
         // llama_sampler_dist_plus_impl_0_1(cur_p, ctx);
-        // llama_sampler_dist_plus_impl_glob(cur_p, ctx);
-        llama_sampler_dist_plus_impl_glob_1(cur_p, ctx);
+        llama_sampler_dist_plus_impl_glob(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_glob_1(cur_p, ctx);
     }
 
     float prob_selected = cur_p->data[cur_p->selected].p;

@@ -157,7 +157,7 @@ struct modelThread{
     }
     
     void appendAnswer(std::string input) {
-        std::string eos = newChat.getEOS();
+        std::string eos = newChat.txt_vocab_eos;
         int eos_pos = input.rfind(eos);
         if (eos_pos != std::string::npos){
             input.erase(eos_pos);
@@ -180,7 +180,7 @@ struct modelThread{
     }
     
     void eraseEOS(std::string& input) {
-        std::string eos = newChat.getEOS();
+        std::string eos = newChat.txt_vocab_eos;
         int eos_pos = input.rfind(eos);
         if (eos_pos != std::string::npos){
             input.erase(eos_pos);
@@ -244,12 +244,12 @@ struct modelThread{
                 }
                 case 'b':{
                     if (!newChat.params.bos.empty()) result += newChat.params.bos;
-                    else result += newChat.getBOS();
+                    else result += newChat.txt_vocab_bos;
                     break;
                 }
                 case 'e':{
                     if (!newChat.params.eos.empty()) result += newChat.params.bos;
-                    else result += newChat.getEOS();
+                    else result += newChat.txt_vocab_eos;
                     break;
                 }
                 case 'p':{
@@ -357,8 +357,8 @@ struct modelThread{
         //text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
-        text +=  std::format("\n-BOS: {}", newChat.getBOS());
-        text +=  std::format("\n-EOS: {}", newChat.getEOS());
+        text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
+        text +=  std::format("\n-EOS: {}", newChat.txt_vocab_bos);
         // text +=  std::format("\n-bos: {}", newChat.params.bos);
         // text +=  std::format("\n-eos: {}", newChat.params.eos);
         text +=  std::format("\n-seamless: {}", seamless);

@@ -20,7 +20,10 @@ struct common_sampler {
     void set_logits(struct llama_context * ctx, int idx) {
         const auto * logits = llama_get_logits_ith(ctx, idx);
 
-        const int n_vocab = llama_n_vocab(llama_get_model(ctx));
+        const llama_model * model = llama_get_model(ctx);
+        const llama_vocab * vocab = llama_model_get_vocab(model);
+
+        const int n_vocab = llama_vocab_n_tokens(vocab);
 
         cur.resize(n_vocab);
 
@@ -47,13 +50,15 @@ std::string common_params_sampling::print() const {
 }
 
 struct common_sampler * common_sampler_init(const struct llama_model * model, const struct common_params_sampling & params) {
+    const llama_vocab * vocab = llama_model_get_vocab(model);
+
     llama_sampler_chain_params lparams = llama_sampler_chain_default_params();
 
     lparams.no_perf = params.no_perf;
 
     auto * result = new common_sampler {
         /* .params = */ params,
-        /* .grmr   = */ llama_sampler_init_grammar(model, params.grammar.c_str(), "root"),
+        /* .grmr   = */ llama_sampler_init_grammar(vocab, params.grammar.c_str(), "root"),
         /* .chain  = */ llama_sampler_chain_init(lparams),
         /* .prev   = */ ring_buffer<llama_token>(std::max(32, params.n_prev)),
         /* .cur    = */ {},
@@ -62,7 +67,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
 
     llama_sampler_chain_add(result->chain,
             llama_sampler_init_logit_bias(
-                llama_n_vocab(model),
+                llama_vocab_n_tokens(vocab),
                 params.logit_bias.size(),
                 params.logit_bias.data()));
 
@@ -72,7 +77,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         for (const auto& str : params.dry_sequence_breakers) {
             c_breakers.push_back(str.c_str());
         }
-        llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (model, params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
+        llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
     }
 
     //if (params.temp > 0.0f) {
@@ -116,7 +121,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         llama_sampler_chain_add(result->chain, llama_sampler_init_xtc_addon (params.xtc_probability, params.xtc_threshold, params.xtc_threshold_max, params.xtc_probability_once, params.xtc_min, params.min_keep, params.seed));
                         break;
                     case 'i':
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_infill   (model));
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_infill   (vocab));
                         break;
                     case 'e':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_penalties(params.penalty_last_n, params.penalty_repeat, params.penalty_freq, params.penalty_present));
@@ -130,7 +135,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
             llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus(params.seed, params.confidence_top, params.confidence_bottom));
         } else if (params.mirostat == 1) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_mirostat(llama_n_vocab(model), params.seed, params.mirostat_tau, params.mirostat_eta, 100));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_mirostat(llama_vocab_n_tokens(vocab), params.seed, params.mirostat_tau, params.mirostat_eta, 100));
         } else if (params.mirostat == 2) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_mirostat_v2(params.seed, params.mirostat_tau, params.mirostat_eta));
