@@ -151,6 +151,7 @@ struct common_params_sampling {
     int32_t mirostat          = 0;     // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
     float   mirostat_tau      = 5.00f; // target entropy
     float   mirostat_eta      = 0.10f; // learning rate
+    int32_t top_n_sigma       = -1;    // -1 = disabled
     llama_sampling_param_func temp_func;
     llama_sampling_param_func dynatemp_range_func;
     llama_sampling_param_func p_step_func;

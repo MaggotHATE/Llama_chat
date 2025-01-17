@@ -44,7 +44,7 @@ int xtc_total = 0;
 int xtc_removed = 0;
 float xtc_percent = 0.0;
 int candidates_max = 0;
-std::string last_candidates = "";
+std::string last_candidates = "NONE";
 
 int rx_total = 0;
 int rx_removed = 0;
@@ -1277,8 +1277,11 @@ static void llama_sampler_temp_ext_addon_apply(struct llama_sampler * smpl, llam
             cur_p->data[i].logit /= ctx->temp;
         }
     }
+
     temp_total = cur_p->size;
     //writeCandidatesToFile("candidates_after.txt", cur_p, "\nAFTER TEMP:");
+    // llama_sampler_softmax_impl(cur_p);
+    // last_candidates = getFormattedCandidates(cur_p);
 }
 
 static struct llama_sampler * llama_sampler_temp_ext_addon_clone(const struct llama_sampler * smpl) {
@@ -1511,6 +1514,77 @@ struct llama_sampler * llama_sampler_init_penalties_addon(
             /* .ignore_eos      = */ ignore_eos,
             /* .prev            = */ ring_buffer<llama_token>(penalty_last_n),
         },
+    };
+}
+
+// top-n-sigma
+
+struct llama_sampler_top_n_sigma {
+    const int32_t n;
+};
+
+static const char * llama_sampler_top_n_sigma_name(const struct llama_sampler * /*smpl*/) {
+    return "top-n-sigma";
+}
+
+static void llama_sampler_top_n_sigma_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    const auto * ctx = (llama_sampler_top_n_sigma *) smpl->ctx;
+
+    // find max logit and calculate mean
+    float max = cur_p->data[0].logit;
+    float logits_sum = 0;
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        if(cur_p->data[i].logit > max){
+            max = cur_p->data[i].logit;
+        }
+        logits_sum += cur_p->data[i].logit;
+    }
+
+    float mean = logits_sum/cur_p->size;
+
+    // calculate standard deviation
+    float acc = 0;
+    for(size_t i = 0; i < cur_p->size; ++i) {
+        acc += pow(cur_p->data[i].logit - mean, 2);
+    }
+
+    float std = sqrt(acc/cur_p->size);
+
+    //apply mask
+    for(size_t i = 0; i < cur_p->size; ++i) {
+        if(cur_p->data[i].logit < max - ctx->n * std) {
+            cur_p->data[i].logit = -INFINITY;
+        }
+    }
+
+    llama_sampler_softmax_impl(cur_p);
+    last_candidates = getFormattedCandidates(cur_p);
+}
+
+static struct llama_sampler * llama_sampler_top_n_sigma_clone(const struct llama_sampler * smpl){
+    const auto * ctx = (const llama_sampler_top_n_sigma *) smpl->ctx;
+    return llama_sampler_init_top_n_sigma(ctx->n);
+}
+
+static void llama_sampler_top_n_sigma_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_top_n_sigma *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_top_n_sigma_i = {
+    /* .name   = */ llama_sampler_top_n_sigma_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_top_n_sigma_apply,
+    /* .reset  = */ nullptr,
+    /* .clone  = */ llama_sampler_top_n_sigma_clone,
+    /* .free   = */ llama_sampler_top_n_sigma_free,
+};
+
+struct llama_sampler * llama_sampler_init_top_n_sigma(int32_t n) {
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_top_n_sigma_i,
+        /* .ctx   = */ new llama_sampler_top_n_sigma {
+            /* .n = */ n,
+                        },
     };
 }
 
@@ -1802,7 +1876,7 @@ static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_tok
 
     float prob_selected = cur_p->data[cur_p->selected].p;
     float conf_compr = 0.5f;
-    if (ctx->confidence_top > 0) conf_compr = ctx->confidence_top;
+    // if (ctx->confidence_top > 0) conf_compr = ctx->confidence_top;
     if (prob_selected > conf_compr) ++num_probs_tops;
     else ++num_probs_bottoms;
 

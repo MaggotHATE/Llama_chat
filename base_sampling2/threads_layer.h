@@ -13,6 +13,7 @@
 #endif
 
 extern std::string last_candidates;
+extern std::string chain_last;
 
 using namespace std;
 
@@ -354,7 +355,7 @@ struct modelThread{
         for (auto v : newChat.params.control_vectors) {
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
-        //text +=  std::format("\n-Last candidates: {}", last_candidates);
+        // text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
@@ -1292,6 +1293,7 @@ struct configurableChat{
         aChat.params.sparams.mirostat = params.sparams.mirostat;
         aChat.params.sparams.mirostat_tau = params.sparams.mirostat_tau;
         aChat.params.sparams.mirostat_eta = params.sparams.mirostat_eta;
+        aChat.params.sparams.top_n_sigma = params.sparams.top_n_sigma;
         //aChat.params.cfg_smooth_factor = cfg_smooth_factor;
     }
     
@@ -1443,7 +1445,8 @@ struct configurableChat{
         if (params.sparams.confidence_bottom != paramsDefault.sparams.confidence_bottom) modelConfig[model]["confidence_bottom"] = params.sparams.confidence_bottom;
         if (params.sparams.confidence_shift != paramsDefault.sparams.confidence_shift) modelConfig[model]["confidence_shift"] = params.sparams.confidence_shift;
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) modelConfig[model]["tfs_z"] = params.sparams.tfs_z;
-        
+        if (params.sparams.top_n_sigma != paramsDefault.sparams.top_n_sigma) modelConfig[model]["top_n_sigma"] = params.sparams.top_n_sigma;
+
         if (params.sparams.p_step_func != paramsDefault.sparams.p_step_func) {
             std::cout << "Need to create an object: p_step" << std::endl;
             modelConfig[model]["p_step"]["value"] = params.sparams.p_step;
@@ -1593,6 +1596,7 @@ struct configurableChat{
         if (params.sparams.mirostat != paramsDefault.sparams.mirostat) newCard["mirostat"] = params.sparams.mirostat;
         if (params.sparams.mirostat_tau != paramsDefault.sparams.mirostat_tau) newCard["mirostat_tau"] = params.sparams.mirostat_tau;
         if (params.sparams.mirostat_eta != paramsDefault.sparams.mirostat_eta) newCard["mirostat_eta"] = params.sparams.mirostat_eta;
+        if (params.sparams.top_n_sigma != paramsDefault.sparams.top_n_sigma) newCard["top_n_sigma"] = params.sparams.top_n_sigma;
         if (params.sparams.min_keep != paramsDefault.sparams.min_keep) newCard["min_keep"] = params.sparams.min_keep;
         if (params.n_ctx != paramsDefault.n_ctx) newCard["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;

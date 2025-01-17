@@ -81,7 +81,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
     }
 
     //if (params.temp > 0.0f) {
-        if (params.mirostat == 0) {
+        if (params.mirostat == 0 && params.top_n_sigma < 0) {
             for (const auto & cnstr : params.samplers_sequence) {
                 switch (cnstr) {
                     case 'l':
@@ -139,6 +139,12 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         } else if (params.mirostat == 2) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_mirostat_v2(params.seed, params.mirostat_tau, params.mirostat_eta));
+        } else if (params.top_n_sigma >= 0) {
+            llama_sampler_chain_add(result->chain, llama_sampler_init_top_k      (params.top_k));
+            if (params.penalty_repeat > 1) llama_sampler_chain_add(result->chain, llama_sampler_init_penalties(params.penalty_last_n, params.penalty_repeat, params.penalty_freq, params.penalty_present));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_temp       (params.temp));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma(params.top_n_sigma));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus  (params.seed, params.confidence_top, params.confidence_bottom));
         } else {
             GGML_ASSERT(false && "unknown mirostat version");
         }

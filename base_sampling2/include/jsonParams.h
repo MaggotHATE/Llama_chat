@@ -463,37 +463,48 @@ static std::string get_last_formatted(std::vector<std::pair<std::string, std::st
 static void getSamplingParamsFromJson(nlohmann::json& config, common_params& params) {
 // general sampling
     if (checkJString(config, "samplers_sequence")) params.sparams.samplers_sequence = config["samplers_sequence"];
+// confidence
     if (checkJNum(config, "confidence_shift")) params.sparams.confidence_shift = config["confidence_shift"];
     if (checkJNum(config, "confidence_top")) params.sparams.confidence_top = config["confidence_top"];
     if (checkJNum(config, "confidence_bottom")) params.sparams.confidence_bottom = config["confidence_bottom"];
 
 // samplers
+  // temp
     load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
     load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
-
     if (checkJNum(config, "temp_smoothing")) params.sparams.smoothing_factor = config["temp_smoothing"];
     if (checkJNum(config, "smoothing_factor")) params.sparams.smoothing_factor = config["smoothing_factor"];
     if (checkJNum(config, "smoothing_curve")) params.sparams.smoothing_curve = config["smoothing_curve"];
     if (checkJBool(config, "temp_adaptive")) params.sparams.temp_adaptive = config["temp_adaptive"];
+  // top-k
     if (checkJNum(config, "top_k")) params.sparams.top_k = config["top_k"];
+    if (checkJNum(config, "k_shift")) params.sparams.k_shift = config["k_shift"];
+  // top-p
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
+  // typical
+     if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
+  // tfs-z
+    if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
+  // min-p
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
     if (checkJNum(config, "min_p_rand")) params.sparams.min_p_rand = config["min_p_rand"];
+  // noise
     if (checkJNum(config, "noise_min")) params.sparams.noise_min = config["noise_min"];
     if (checkJNum(config, "noise_max")) params.sparams.noise_max = config["noise_max"];
+  // range-based exclusion
     if (checkJNum(config, "range_min")) params.sparams.range_min = config["range_min"];
     if (checkJNum(config, "range_max")) params.sparams.range_max = config["range_max"];
-    if (checkJNum(config, "k_shift")) params.sparams.k_shift = config["k_shift"];
-
-    if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
+  // p-step
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
-    if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
+  // xtc
     if (checkJNum(config, "xtc_probability")) params.sparams.xtc_probability = config["xtc_probability"];
     if (checkJNum(config, "xtc_threshold")) params.sparams.xtc_threshold = config["xtc_threshold"];
     if (checkJNum(config, "xtc_threshold_max")) params.sparams.xtc_threshold_max = config["xtc_threshold_max"];
     if (checkJNum(config, "xtc_min")) params.sparams.xtc_min = config["xtc_min"];
     if (checkJBool(config, "xtc_probability_once")) params.sparams.xtc_probability_once = config["xtc_probability_once"];
+  // top_n_sigma
+    if (checkJNum(config, "top_n_sigma")) params.sparams.top_n_sigma = config["top_n_sigma"];
 
 //penalties
     if (checkJNum(config, "repeat_penalty")) params.sparams.penalty_repeat = config["repeat_penalty"];

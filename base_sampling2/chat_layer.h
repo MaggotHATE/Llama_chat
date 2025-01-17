@@ -555,7 +555,8 @@ public:
             std::string name_mirostat_tau = fullnames ? "mirostat_tau" : "I_t";
             std::string name_mirostat_eta = fullnames ? "mirostat_eta" : "I_e";
 
-            
+            std::string name_top_n_sigma = fullnames ? "top_n_sigma" : "tns";
+
             std::string name_tfs_z = fullnames ? "tfs_z" : "F";
             std::string name_typical_p = fullnames ? "typical_p" : "Y";
             std::string name_p_step = fullnames ? "p_step" : "S";
@@ -584,6 +585,17 @@ public:
                 result += "-> " + name_mirostat + " = " + std::to_string(params.sparams.mirostat); 
                 result += std::format(";{}={:.2f}", name_mirostat_tau, params.sparams.mirostat_tau); 
                 result += std::format(";{}={:.2f}", name_mirostat_eta, params.sparams.mirostat_eta);
+            } else if (params.sparams.top_n_sigma >= 0) {
+                result += std::format("->{}={}",name_top_k,params.sparams.top_k);
+                if (params.sparams.penalty_repeat > 1.0f) {
+                    result += std::format("->{}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
+                    if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format(";{}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
+                    if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
+                    if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
+                }
+                result += std::format("->{}={:.2f}", name_temp, params.sparams.temp);
+                // result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
+                result += std::format("->{}={}", name_top_n_sigma, params.sparams.top_n_sigma);
             } else {
                 for (auto s : params.sparams.samplers_sequence){
                     result += "->";
