@@ -71,17 +71,17 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 params.logit_bias.size(),
                 params.logit_bias.data()));
 
-    if (params.dry_multiplier > 0) {
-        std::vector<const char*> c_breakers;
-        c_breakers.reserve(params.dry_sequence_breakers.size());
-        for (const auto& str : params.dry_sequence_breakers) {
-            c_breakers.push_back(str.c_str());
-        }
-        llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
-    }
-
     //if (params.temp > 0.0f) {
         if (params.mirostat == 0 && params.top_n_sigma < 0) {
+            if (params.dry_multiplier > 0) {
+                std::vector<const char*> c_breakers;
+                c_breakers.reserve(params.dry_sequence_breakers.size());
+                for (const auto& str : params.dry_sequence_breakers) {
+                    c_breakers.push_back(str.c_str());
+                }
+                llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
+            }
+
             for (const auto & cnstr : params.samplers_sequence) {
                 switch (cnstr) {
                     case 'l':
@@ -142,6 +142,14 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         } else if (params.top_n_sigma >= 0) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_top_k      (params.top_k));
             if (params.penalty_repeat > 1) llama_sampler_chain_add(result->chain, llama_sampler_init_penalties(params.penalty_last_n, params.penalty_repeat, params.penalty_freq, params.penalty_present));
+            if (params.dry_multiplier > 0) {
+                std::vector<const char*> c_breakers;
+                c_breakers.reserve(params.dry_sequence_breakers.size());
+                for (const auto& str : params.dry_sequence_breakers) {
+                    c_breakers.push_back(str.c_str());
+                }
+                llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
+            }
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp       (params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma(params.top_n_sigma));
             llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus  (params.seed, params.confidence_top, params.confidence_bottom));

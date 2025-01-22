@@ -423,6 +423,40 @@ void string_replace_all(std::string & s, const std::string & search, const std::
     s = std::move(builder);
 }
 
+std::string string_join(const std::vector<std::string> & values, const std::string & separator) {
+    std::ostringstream result;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            result << separator;
+        }
+        result << values[i];
+    }
+    return result.str();
+}
+std::vector<std::string> string_split(const std::string & str, const std::string & delimiter) {
+    std::vector<std::string> parts;
+    size_t start = 0;
+    size_t end = str.find(delimiter);
+    while (end != std::string::npos) {
+        parts.push_back(str.substr(start, end - start));
+        start = end + delimiter.length();
+        end = str.find(delimiter, start);
+    }
+    parts.push_back(str.substr(start));
+    return parts;
+}
+std::string string_repeat(const std::string & str, size_t n) {
+    if (n == 0) {
+        return "";
+    }
+    std::string result;
+    result.reserve(str.length() * n);
+    for (size_t i = 0; i < n; ++i) {
+        result += str;
+    }
+    return result;
+}
+
 std::string string_from(bool value) {
     return value ? "true" : "false";
 }
@@ -973,7 +1007,7 @@ struct llama_model_params common_model_params_to_llama(common_params & params) {
     if (params.n_gpu_layers != -1) {
         mparams.n_gpu_layers = params.n_gpu_layers;
     }
-    mparams.rpc_servers     = params.rpc_servers.c_str();
+
     mparams.main_gpu        = params.main_gpu;
     mparams.split_mode      = params.split_mode;
     mparams.tensor_split    = params.tensor_split;
@@ -1315,99 +1349,9 @@ std::string common_detokenize(const struct llama_vocab * vocab, const std::vecto
 
 //
 // Chat template utils
+// Removed since they are unsued now
+// Since there were no chages to this part, you can simply copy it from llama.cpp
 //
-
-std::string common_get_builtin_chat_template(const struct llama_model * model) {
-    static const char * template_key = "tokenizer.chat_template";
-    // call with NULL buffer to get the total size of the string
-    int32_t res = llama_model_meta_val_str(model, template_key, NULL, 0);
-    if (res > 0) {
-        std::vector<char> model_template(res + 1, 0);
-        llama_model_meta_val_str(model, template_key, model_template.data(), model_template.size());
-        return std::string(model_template.data(), model_template.size() - 1);
-    }
-    return "";
-}
-
-bool common_chat_verify_template(const std::string & tmpl) {
-    llama_chat_message chat[] = {{"user", "test"}};
-    const int res = llama_chat_apply_template(tmpl.c_str(), chat, 1, true, nullptr, 0);
-    return res >= 0;
-}
-
-std::string common_chat_apply_template(const struct llama_model * model,
-        const std::string & tmpl,
-        const std::vector<common_chat_msg> & msgs,
-        bool add_ass) {
-    int alloc_size = 0;
-    bool fallback = false; // indicate if we must fallback to default chatml
-    std::vector<llama_chat_message> chat;
-    for (const auto & msg : msgs) {
-        chat.push_back({msg.role.c_str(), msg.content.c_str()});
-        alloc_size += (msg.role.size() + msg.content.size()) * 1.25;
-    }
-
-    const char * ptr_tmpl = tmpl.empty() ? llama_model_chat_template(model) : tmpl.c_str();
-    std::vector<char> buf(alloc_size);
-
-    // run the first time to get the total output length
-    int32_t res = llama_chat_apply_template(ptr_tmpl, chat.data(), chat.size(), add_ass, buf.data(), buf.size());
-
-    // error: chat template is not supported
-    if (res < 0) {
-        if (ptr_tmpl != nullptr) {
-            // if the custom "tmpl" is not supported, we throw an error
-            // this is a bit redundant (for good), since we're not sure if user validated the custom template with llama_chat_verify_template()
-            throw std::runtime_error("this custom template is not supported");
-        }
-
-        // If the built-in template is not supported, we default to chatml
-        res = llama_chat_apply_template("chatml", chat.data(), chat.size(), add_ass, buf.data(), buf.size());
-        fallback = true;
-    }
-
-    // if it turns out that our buffer is too small, we resize it
-    if ((size_t) res > buf.size()) {
-        buf.resize(res);
-        res = llama_chat_apply_template(
-            fallback ? "chatml" : ptr_tmpl,
-            chat.data(), chat.size(), add_ass, buf.data(), buf.size());
-    }
-
-    std::string formatted_chat(buf.data(), res);
-    return formatted_chat;
-}
-
-std::string common_chat_format_single(const struct llama_model * model,
-        const std::string & tmpl,
-        const std::vector<common_chat_msg> & past_msg,
-        const common_chat_msg & new_msg,
-        bool add_ass) {
-    std::ostringstream ss;
-    auto fmt_past_msg = past_msg.empty() ? "" : common_chat_apply_template(model, tmpl, past_msg, false);
-    std::vector<common_chat_msg> chat_new(past_msg);
-    // if the past_msg ends with a newline, we must preserve it in the formatted version
-    if (add_ass && !fmt_past_msg.empty() && fmt_past_msg.back() == '\n') {
-        ss << "\n";
-    };
-    // format chat with new_msg
-    chat_new.push_back(new_msg);
-    auto fmt_new_msg = common_chat_apply_template(model, tmpl, chat_new, add_ass);
-    // get the diff part
-    ss << fmt_new_msg.substr(fmt_past_msg.size(), fmt_new_msg.size() - fmt_past_msg.size());
-    return ss.str();
-}
-
-std::string common_chat_format_example(const struct llama_model * model,
-        const std::string & tmpl) {
-    std::vector<common_chat_msg> msgs = {
-        {"system",    "You are a helpful assistant"},
-        {"user",      "Hello"},
-        {"assistant", "Hi there"},
-        {"user",      "How are you?"},
-    };
-    return common_chat_apply_template(model, tmpl, msgs, true);
-}
 
 //
 // KV cache utils

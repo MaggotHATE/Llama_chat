@@ -343,7 +343,7 @@ public:
         
         // if (embd.size()) clear();
 	// }
-    
+
     void clearSoft(){
         session_tokens.clear();
         n_matching_session_tokens = 0;
@@ -357,7 +357,7 @@ public:
         candidates.clear();
         formatRepresentation = "";
         //resetCTX();
-        
+
         n_past                = 0;
         n_remain              = 0;
         n_consumed            = 0;
@@ -370,20 +370,20 @@ public:
         n_keep                = 0;
         n_past_last           = 0;
         n_remain_last         = 0;
-        
+
         xtc_total = 0;
         xtc_removed = 0;
         xtc_percent = 0;
-        
+
         params = paramsDefault;
 
         rewind_state.clear();
     }
-    
+
     void clear(){
         if (!cleared){
             cleared = true;
-            
+
             params.n_keep = n_keep;
             common_sampler_free(smpl);
             llama_perf_context_reset(ctx);
@@ -396,14 +396,12 @@ public:
             llama_backend_free();
             ggml_threadpool_free(threadpool);
             ggml_threadpool_free(threadpool_batch);
-            
-            
+
             clearSoft();
-            
         }
         
     }
-    
+
     void switch_debug() {
         debug = !debug;
     }
@@ -418,7 +416,7 @@ public:
 
     int getRemainTokens() {
         return n_remain;
-    } 
+    }
 
     int getConsumedTokens(){
         return n_consumed;
@@ -567,11 +565,6 @@ public:
             std::string name_noise = fullnames ? "noise" : "O";
             std::string name_k_shift = fullnames ? "k_shift" : "k_s";
 
-            
-            //DRY
-            if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
-                result += std::format("-> {}={:.2f}*{:.2f}L{}N{}", name_dry, params.sparams.dry_base, params.sparams.dry_multiplier, params.sparams.dry_allowed_length, params.sparams.dry_penalty_last_n);
-            }
             // mirostat is special 
             if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
                 if (params.sparams.dynatemp_range > 0) {
@@ -593,10 +586,18 @@ public:
                     if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
                     if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
                 }
+                //DRY
+                if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
+                    result += std::format("->{}={:.2f}*{:.2f}L{}N{}", name_dry, params.sparams.dry_base, params.sparams.dry_multiplier, params.sparams.dry_allowed_length, params.sparams.dry_penalty_last_n);
+                }
                 result += std::format("->{}={:.2f}", name_temp, params.sparams.temp);
                 // result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
-                result += std::format("->{}={}", name_top_n_sigma, params.sparams.top_n_sigma);
+                result += std::format("->{}={:.2f}", name_top_n_sigma, params.sparams.top_n_sigma);
             } else {
+                //DRY
+                if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
+                    result += std::format("->{}={:.2f}*{:.2f}L{}N{}", name_dry, params.sparams.dry_base, params.sparams.dry_multiplier, params.sparams.dry_allowed_length, params.sparams.dry_penalty_last_n);
+                }
                 for (auto s : params.sparams.samplers_sequence){
                     result += "->";
                     switch (s) {
@@ -1385,6 +1386,7 @@ public:
         // common_sampler_reset(smpl);
     // context
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
+        // llama_kv_cache_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
     // chat parameters
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
@@ -1471,15 +1473,18 @@ public:
     }
 
     // inserts antiprompt after EOS/EOG
-    void checkEOS() {
+    bool checkEOS() {
         // deal with end of text token in interactive mode
         if (llama_token_is_eog(vocab, common_sampler_last(smpl))) {
             if (params.interactive) {
-                tokenizeAntiprompt();
+                if (!is_antiprompt) tokenizeAntiprompt();
 
                 is_interacting = true;
+                return true;
             }
         }
+
+        return false;
     }
 
     void appendSuffix(std::string& buffer){
@@ -1824,9 +1829,9 @@ public:
         if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");
 
-            checkAntiprompt();
+            if (checkEOS() == false) checkAntiprompt();
 
-            if (!is_antiprompt) checkEOS();
+            // if (!is_antiprompt) checkEOS();
 
             if (n_past > 0 && is_interacting) {
 

@@ -359,7 +359,7 @@ struct modelThread{
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
-        text +=  std::format("\n-EOS: {}", newChat.txt_vocab_bos);
+        text +=  std::format("\n-EOS: {}", newChat.txt_vocab_eos);
         // text +=  std::format("\n-bos: {}", newChat.params.bos);
         // text +=  std::format("\n-eos: {}", newChat.params.eos);
         text +=  std::format("\n-seamless: {}", seamless);

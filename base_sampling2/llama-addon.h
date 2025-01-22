@@ -148,4 +148,4 @@ void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sam
     LLAMA_API struct llama_sampler * llama_sampler_init_tail_free  (float   z, size_t min_keep);
 
     /// @details Top n sigma sampling as described in academic paper "Top-nσ: Not All Logits Are You Need" https://arxiv.org/pdf/2411.07641
-    LLAMA_API struct llama_sampler * llama_sampler_init_top_n_sigma(int32_t n);
+    LLAMA_API struct llama_sampler * llama_sampler_init_top_n_sigma(float n);

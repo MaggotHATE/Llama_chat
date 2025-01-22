@@ -151,7 +151,7 @@ struct common_params_sampling {
     int32_t mirostat          = 0;     // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
     float   mirostat_tau      = 5.00f; // target entropy
     float   mirostat_eta      = 0.10f; // learning rate
-    int32_t top_n_sigma       = -1;    // -1 = disabled
+    float   top_n_sigma       = -1;    // -1 = disabled
     llama_sampling_param_func temp_func;
     llama_sampling_param_func dynatemp_range_func;
     llama_sampling_param_func p_step_func;
@@ -268,7 +268,6 @@ struct common_params {
     std::string lookup_cache_static  = ""; // path of static ngram cache file for lookup decoding           // NOLINT
     std::string lookup_cache_dynamic = ""; // path of dynamic ngram cache file for lookup decoding          // NOLINT
     std::string logits_file          = ""; // file for saving *all* logits                                  // NOLINT
-    std::string rpc_servers          = ""; // comma separated list of RPC servers                           // NOLINT
 
     std::string format_instruct   = "bi";  // format for the first prompt
     std::string format_dialog     = "pis"; // format for interacive
@@ -435,6 +434,10 @@ bool set_process_priority(enum ggml_sched_priority prio);
 std::string string_strip(const std::string & str);
 std::string string_get_sortable_timestamp();
 
+std::string string_join(const std::vector<std::string> & values, const std::string & separator);
+std::vector<std::string> string_split(const std::string & str, const std::string & delimiter);
+std::string string_repeat(const std::string & str, size_t n);
+
 void string_replace_all(std::string & s, const std::string & search, const std::string & replace);
 
 static bool string_starts_with(const std::string & str,
@@ -551,30 +554,9 @@ struct common_chat_msg {
     std::string content;
 };
 
-// Get the built-in chat template for the model. Return empty string if not present.
-std::string common_get_builtin_chat_template(const struct llama_model * model);
-
-// Check if the template supplied via "--chat-template" is supported or not. Returns true if it's valid
-bool common_chat_verify_template(const std::string & tmpl);
-
-// CPP wrapper for llama_chat_apply_template
-// If the built-in template is not supported, we default to chatml
-// If the custom "tmpl" is not supported, we throw an error
-std::string common_chat_apply_template(const struct llama_model * model,
-        const std::string & tmpl,
-        const std::vector<common_chat_msg> & chat,
-        bool add_ass);
-
-// Format single message, while taking into account the position of that message in chat history
-std::string common_chat_format_single(const struct llama_model * model,
-        const std::string & tmpl,
-        const std::vector<common_chat_msg> & past_msg,
-        const common_chat_msg & new_msg,
-        bool add_ass);
-
-// Returns an example of formatted chat
-std::string common_chat_format_example(const struct llama_model * model,
-        const std::string & tmpl);
+// Get the built-in chat template for the model.
+// Removed since they are unsued now
+// Since there were no chages to this part, you can simply copy it from llama.cpp
 
 //
 // KV cache utils
