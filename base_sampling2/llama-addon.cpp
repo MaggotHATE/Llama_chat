@@ -702,6 +702,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
         // Resize the output vector to keep only the matching tokens
         cur_p->size = i;
     }
+
     min_p_total = cur_p->size;
 
     if (candidates_max < cur_p->size) candidates_max = cur_p->size;

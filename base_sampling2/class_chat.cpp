@@ -218,11 +218,9 @@ int main(int argc, char ** argv) {
                     } else queue["choices"].erase("regens");
                 } else if (queue["choices"].back() != "input") input = queue["choices"].back();
                 else std::getline(std::cin, input);
-                
-                
-                
+
                 char choice = queue_logic.process(input);
-                
+
                 switch (choice) {
                     case 't': {
                         threadedChat.unload();
@@ -321,10 +319,9 @@ int main(int argc, char ** argv) {
                 }
 
         }
-        
-        
+
       }
-    
+
     return 0;
 
 }

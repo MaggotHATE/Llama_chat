@@ -221,7 +221,7 @@ private:
     int n_keep                = 0;
 
     int ga_i = 0;
-    int ga_n;
+    int ga_n = 1;
     int ga_w;
 
     std::vector<llama_token> embd;
@@ -593,6 +593,7 @@ public:
                 result += std::format("->{}={:.2f}", name_temp, params.sparams.temp);
                 // result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
                 result += std::format("->{}={:.2f}", name_top_n_sigma, params.sparams.top_n_sigma);
+                result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
             } else {
                 //DRY
                 if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
@@ -1188,7 +1189,7 @@ public:
             // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
 
             if (n_past + (int) std::size(embd) >= n_ctx) {
-                if (!params.ctx_shift){
+                if (!params.ctx_shift) {
                     printf("\n\n%s: context full and context shift is disabled => stopping\n", __func__);
                     return;
                 }
@@ -1264,9 +1265,9 @@ public:
             }
             if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
                 fprintf(stderr, "%s : failed to eval\n", __func__);
-                std::string report = std::format("{}(): failed to eval: {}\n{}\n Failed: {}", __func__, params.model, params.prompt,embd[i]);
-                writeTextFile(std::to_string(getRand()) + ".txt", report);
-                return 1;
+                std::string report = std::format("\n{}(): {} failed to eval: {}", __func__, params.model, embd[i]);
+                writeTextFile(std::to_string(params.sparams.seed) + ".txt", report);
+                return 0;
             }
             n_past += n_eval;
             //n_past_last = n_past;
@@ -1382,8 +1383,8 @@ public:
 
     void rewindBack() {
     // sampling
+        common_sampler_reset(smpl);
         restore_smpl();
-        // common_sampler_reset(smpl);
     // context
         llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
@@ -1505,7 +1506,7 @@ public:
         //std::cout << " ** " << std::endl;
         
         if (std::size(embd) > 0) {
-            checkEmbd(); // 1
+            if (checkEmbd() == 0) return 0; // 1
         }
 
         embd.clear();
@@ -1721,7 +1722,7 @@ public:
 
     std::string getTokenOld(){ // 1 2 3 4
         if (std::size(embd) > 0) {
-            checkEmbd(); // 1
+            if (checkEmbd() == 0) return txt_vocab_eos;  // 1, plus safety measure
         }
 
         embd.clear();
@@ -1770,12 +1771,14 @@ public:
         is_interacting = false;
     }
 
-    void checkAndClearEmbd() {
+    int checkAndClearEmbd() {
         if (std::size(embd) > 0) {
-            checkEmbd(); // 1
+            if (checkEmbd() == 0) return 0; // 1
         }
 
         embd.clear();
+
+        return 1;
     }
 
 //input processing, which requires preemptive checking, adding prompt leftovers, antiprompt processing
@@ -1798,7 +1801,7 @@ public:
 
         fromInpToEmbd();
 
-        checkAndClearEmbd();
+        if (checkAndClearEmbd() == 0) return 0;
 
         return 1;
     }
@@ -1810,7 +1813,11 @@ public:
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
 
-        checkAndClearEmbd();
+        // if (checkAndClearEmbd() == 0) return txt_vocab_eos;
+        if (checkAndClearEmbd() == 0) {
+            finished = true;
+            return txt_vocab_eos;
+        }
 
         if (!is_interacting) sampleTknIntoEmbd(); // 2
 

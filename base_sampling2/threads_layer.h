@@ -345,6 +345,7 @@ struct modelThread{
         text +=  std::format("\n-ubatch size: {}", newChat.params.n_ubatch);
         text +=  std::format("\n-cache_type_k: {}", newChat.params.cache_type_k);
         text +=  std::format("\n-cache_type_v: {}", newChat.params.cache_type_v);
+        text +=  std::format("\n-ctx_shift: {}", newChat.params.ctx_shift);
 #ifdef GGML_USE_CLBLAST
         text +=  std::format("\n-GPU: {}", GGML_OPENCL_RESULT_DEVICE_NAME);
 #endif
@@ -355,7 +356,7 @@ struct modelThread{
         for (auto v : newChat.params.control_vectors) {
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
-        // text +=  std::format("\n-Last candidates: {}", last_candidates);
+        text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
@@ -1483,6 +1484,7 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) modelConfig[model]["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) modelConfig[model]["n_ubatch"] = params.n_ubatch;
+        if (params.ctx_shift != paramsDefault.ctx_shift) modelConfig[model]["ctx_shift"] = params.ctx_shift;
 
         if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) modelConfig[model]["n_threads"] = params.cpuparams.n_threads;
         if (params.cpuparams.poll != paramsDefault.cpuparams.poll) modelConfig[model]["n_threads_poll"] = params.cpuparams.poll;
@@ -1601,7 +1603,7 @@ struct configurableChat{
         if (params.n_ctx != paramsDefault.n_ctx) newCard["ctx-size"] = params.n_ctx;
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
-        if (params.n_ubatch != paramsDefault.n_ubatch) newCard["n_ubatch"] = params.n_ubatch;
+        if (params.ctx_shift != paramsDefault.ctx_shift) newCard["ctx_shift"] = params.ctx_shift;
         if (params.clblast_platform_id != paramsDefault.clblast_platform_id) newCard["clblast_platform_id"] = params.clblast_platform_id;
 
         if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) newCard["n_threads"] = params.cpuparams.n_threads;
