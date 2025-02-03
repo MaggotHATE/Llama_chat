@@ -95,6 +95,9 @@ llama_token common_sampler_last(const struct common_sampler * gsmpl);
 // print the sampler chain into a string
 std::string common_sampler_print(const struct common_sampler * gsmpl);
 
+llama_sampler * llama_sampler_init_llg(const llama_vocab * vocab,
+                const char * grammar_kind, const char * grammar_data);
+
 void common_sampler_set_shift(struct common_params_sampling & params);
 void common_sampler_reset_shift(struct common_params_sampling & params);
 

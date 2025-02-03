@@ -356,7 +356,7 @@ struct modelThread{
         for (auto v : newChat.params.control_vectors) {
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
-        text +=  std::format("\n-Last candidates: {}", last_candidates);
+        // text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);

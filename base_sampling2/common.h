@@ -123,6 +123,11 @@ struct common_params_vocoder {
     std::string model_url = ""; // model url to download                                     // NOLINT
 };
 
+struct common_grammar_trigger {
+    std::string word;
+    bool at_start;
+};
+
 // sampling parameters
 struct common_params_sampling {
     uint32_t seed = LLAMA_DEFAULT_SEED; // the seed used to initialize llama_sampler
@@ -182,7 +187,10 @@ struct common_params_sampling {
 
     std::vector<std::string> dry_sequence_breakers = {"\n", ":", "\"", "*"};     // default sequence breakers for DRY
 
-    std::string grammar; // optional BNF-like grammar to constrain sampling
+    std::string                         grammar; // optional BNF-like grammar to constrain sampling
+    bool                                grammar_lazy = false;
+    std::vector<common_grammar_trigger> grammar_trigger_words;  // optional trigger words to trigger lazy grammar
+    std::vector<llama_token>            grammar_trigger_tokens; // optional trigger tokens to trigger lazy grammar and print trigger special tokens.
 
     std::vector<llama_logit_bias> logit_bias; // logit biases to apply
 

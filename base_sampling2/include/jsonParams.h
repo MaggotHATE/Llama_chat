@@ -654,6 +654,7 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
     if (checkJNum(config, "min_keep")) params.sparams.min_keep = config["min_keep"];
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
+    if (checkJBool(config, "ctx_shift")) params.ctx_shift = config["ctx_shift"];
 
 // misc
     if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
