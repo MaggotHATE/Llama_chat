@@ -1637,7 +1637,7 @@ struct chatUI{
         // accomodating pause
         if (newChat.lastResult.empty()) newChat.resultsStringPairs.pop_back();
         else cancelled = false;
-        newChat.newChat.rewind();
+        newChat.newChat.rewindBack();
         localResultPairs = newChat.resultsStringPairs;
         
         helpLabel = "Generating... ";//+std::to_string(tokens_this_session) + " tokens.";
