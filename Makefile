@@ -443,17 +443,20 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-chat.o \
     $(TMP)$(PREFIX)_llama-context.o \
     $(TMP)$(PREFIX)_llama-grammar.o \
+    $(TMP)$(PREFIX)_llama-graph.o \
     $(TMP)$(PREFIX)_llama-hparams.o \
     $(TMP)$(PREFIX)_llama-impl.o \
+    $(TMP)$(PREFIX)_llama-io.o \
     $(TMP)$(PREFIX)_llama-kv-cache.o \
+    $(TMP)$(PREFIX)_llama-memory.o \
     $(TMP)$(PREFIX)_llama-mmap.o \
     $(TMP)$(PREFIX)_llama-model-loader.o \
     $(TMP)$(PREFIX)_llama-model.o \
     $(TMP)$(PREFIX)_llama-quant.o \
     $(TMP)$(PREFIX)_llama-sampling.o \
     $(TMP)$(PREFIX)_llama-vocab.o \
-    $(TMP)$(PREFIX)_unicode.o \
-    $(TMP)$(PREFIX)_unicode-data.o
+    $(TMP)$(PREFIX)_unicode-data.o \
+    $(TMP)$(PREFIX)_unicode.o
 
 OBJS_GGUF += \
     $(OBJS_GGUF_LLAMA) \
@@ -698,11 +701,15 @@ endif
 # Final parts
 $(TMP)$(PREFIX)_class_chat.o:$(conapp) $(json_layer) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+	@echo ------------------------------------------------------------------------
 	@echo $(TMP)$(PREFIX)_class_chat.o compiled
+	@echo ------------------------------------------------------------------------
 
 $(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(json_layer) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+	@echo ------------------------------------------------------------------------
 	@echo $(TMP)$(PREFIX)_dual_chat.o compiled
+	@echo ------------------------------------------------------------------------
 
 # Final parts UI
 $(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)

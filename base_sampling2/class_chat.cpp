@@ -237,7 +237,7 @@ int main(int argc, char ** argv) {
                         break;
                     }
                     case 'R': {
-                        threadedChat.writeTextFileDivided("tales/",std::to_string(regens));
+                        // threadedChat.writeTextFileDivided("tales/",std::to_string(regens));
                         window_title = "ChatTest: Regens ";
                         regens = 19;
                         queue["choices"].push_back("regens");
@@ -259,7 +259,7 @@ int main(int argc, char ** argv) {
                     }
                     case 's': {
                         //threadedChat.writeTextFile();
-                        threadedChat.writeTextFileCompact("","", false);
+                        threadedChat.writeTextFileCompact("","chat", false);
                         break;
                     }
                     case 'c': {

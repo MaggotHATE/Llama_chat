@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <unordered_map>
+#include <algorithm>
 
 struct common_sampler {
     common_params_sampling params;
@@ -172,7 +173,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                 llama_sampler_chain_add(result->chain, llama_sampler_init_dry      (vocab, llama_model_n_ctx_train(model), params.dry_multiplier, params.dry_base, params.dry_allowed_length, params.dry_penalty_last_n, c_breakers.data(), c_breakers.size()));
             }
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp       (params.temp));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma(params.top_n_sigma));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma_addon(params.top_n_sigma));
             llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));
             llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus  (params.seed, params.confidence_top, params.confidence_bottom));
         } else {

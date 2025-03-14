@@ -1580,7 +1580,7 @@ static struct llama_sampler_i llama_sampler_top_n_sigma_i = {
     /* .free   = */ llama_sampler_top_n_sigma_free,
 };
 
-struct llama_sampler * llama_sampler_init_top_n_sigma(float n) {
+struct llama_sampler * llama_sampler_init_top_n_sigma_addon(float n) {
     return new llama_sampler {
         /* .iface = */ &llama_sampler_top_n_sigma_i,
         /* .ctx   = */ new llama_sampler_top_n_sigma {

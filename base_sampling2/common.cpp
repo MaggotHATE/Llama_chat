@@ -873,7 +873,7 @@ struct common_init_result common_init_from_params(common_params & params) {
         return iparams;
     }
 
-    if (params.ctx_shift && !llama_kv_cache_can_shift(lctx)) {
+    if (params.ctx_shift && !llama_kv_self_can_shift(lctx)) {
         printf("%s: KV cache shifting is not supported for this model (--no-context-shift to disable)'\n", __func__);
         llama_model_free(model);
         return iparams;
@@ -950,6 +950,8 @@ struct common_init_result common_init_from_params(common_params & params) {
     if (params.warmup) {
         printf("%s: warming up the model with an empty run - please wait ... (--no-warmup to disable)\n", __func__);
 
+        llama_set_warmup(lctx, true);
+
         std::vector<llama_token> tmp;
         llama_token bos = llama_vocab_bos(vocab);
         llama_token eos = llama_vocab_eos(vocab);
@@ -977,9 +979,10 @@ struct common_init_result common_init_from_params(common_params & params) {
         if (llama_model_has_decoder(model)) {
             llama_decode(lctx, llama_batch_get_one(tmp.data(), std::min(tmp.size(), (size_t) params.n_batch)));
         }
-        llama_kv_cache_clear(lctx);
+        llama_kv_self_clear(lctx);
         llama_synchronize(lctx);
         llama_perf_context_reset(lctx);
+        llama_set_warmup(lctx, false);
     }
 
     iparams.model.reset(model);

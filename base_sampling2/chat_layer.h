@@ -52,6 +52,7 @@
 
 extern int temp_total;
 extern int min_p_total;
+extern int candidates_max;
 extern int p_step_total;
 extern int xtc_total;
 extern int xtc_removed;
@@ -80,6 +81,20 @@ static bool is_interacting = false;
 static void log_down(std::string text, uint32_t seed) {
     writeTextFile(std::to_string(seed) + ".log", text);
 }
+
+#ifdef GGML_USE_BLAS
+        std::string backend_name = "blas";
+        std::string backend_name_short = "b";
+#elif defined GGML_USE_CLBLAST
+        std::string backend_name = "Clblast";
+        std::string backend_name_short = "c";
+#elif defined GGML_USE_VULKAN
+        std::string backend_name = "Vulkan";
+        std::string backend_name_short = "v";
+#else
+        std::string backend_name = "CPU";
+        std::string backend_name_short = "u";
+#endif
 
 //STRUCT/////////////////////////////////////////
 
@@ -518,7 +533,9 @@ public:
     }
     
     std::string getSparamsChanged(bool fullnames = true) {
-        std::string result = fullnames ? "logits" : "@";
+
+        std::string result = fullnames ? backend_name + "->logits" : backend_name_short + "@";
+
         std::string name_top_k = fullnames ? "top_k" : "K";
         std::string name_rx = fullnames ? "range" : "R";
 
@@ -616,7 +633,7 @@ public:
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
                         case 'o': result += std::format("{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
-                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({})", min_p_total); break;
+                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({}/{})", min_p_total, candidates_max); break;
                         case 'l': result += std::format("{}:{}({} max)", name_k_shift, params.sparams.confidence_shift, params.sparams.k_shift); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
                         case 't': {
@@ -1094,7 +1111,7 @@ public:
 
             // remove any "future" tokens that we might have inherited from the previous session
             //llama_kv_cache_tokens_rm(ctx, n_matching_session_tokens, -1);
-            llama_kv_cache_seq_rm(ctx, -1, n_matching_session_tokens, -1);
+            llama_kv_self_seq_rm(ctx, -1, n_matching_session_tokens, -1);
         }
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
@@ -1167,8 +1184,8 @@ public:
             // always keep the first token - BOS
             //n_past = std::max(1, params.n_keep);
             //n_past_guidance = std::max(1, params.n_keep + guidance_offset);
-            llama_kv_cache_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
-            llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
+            llama_kv_self_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
+            llama_kv_self_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
 
             // insert n_left/2 tokens at the start of embd from last_n_tokens
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
@@ -1202,8 +1219,8 @@ public:
                 const int n_left    = n_past - params.n_keep;
                 const int n_discard = n_left/2;
 
-                llama_kv_cache_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
-                llama_kv_cache_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
+                llama_kv_self_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
+                llama_kv_self_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
 
                 n_past -= n_discard;
 
@@ -1216,9 +1233,9 @@ public:
                 const int bd = (ga_w/ga_n)*(ga_n - 1);
                 const int dd = (ga_w/ga_n) - ib*bd - ga_w;
                 
-                llama_kv_cache_seq_add(ctx, 0, ga_i,                n_past,              ib*bd);
-                llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
-                llama_kv_cache_seq_add(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+                llama_kv_self_seq_add(ctx, 0, ga_i,                n_past,              ib*bd);
+                llama_kv_self_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
+                llama_kv_self_seq_add(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
                 
                 n_past -= bd;
 
@@ -1386,8 +1403,8 @@ public:
         common_sampler_reset(smpl);
         restore_smpl();
     // context
-        llama_kv_cache_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
-        // llama_kv_cache_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
+        llama_kv_self_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
+        // llama_kv_self_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
     // chat parameters
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());

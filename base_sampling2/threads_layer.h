@@ -390,9 +390,11 @@ struct modelThread{
 
         std::string perf = std::format("Ctx left: {}t| pp:{:.2f}t/s| tg:{:.2f}t/s", left_tokens, lastSpeedPrompt, lastSpeed);
 #ifdef GGML_USE_VULKAN
-        perf = std::format("VK{}|{}",newChat.params.n_gpu_layers, perf);
+        perf = std::format("VK{}|{}", newChat.params.n_gpu_layers, perf);
+#elif defined(GGML_USE_BLAS)
+        perf = std::format("B{}", perf);
 #elif defined(GGML_USE_CLBLAST)
-        perf = std::format("CL{}|{}",newChat.params.n_gpu_layers, perf);
+        perf = std::format("CL{}|{}", newChat.params.n_gpu_layers, perf);
 #else
         perf = std::format("CPU|{}", perf);
 #endif
@@ -487,7 +489,8 @@ struct modelThread{
     }
 
     bool writeTextFile(std::string path, std::string name){
-        std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + ".txt";
+        // std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + ".txt";
+        std::string path1 = std::format("{}{}-{}-{}.txt",path, std::to_string(newChat.params.sparams.seed), name, shortModelName);
         std::ofstream file(path1, std::ios::app);
         if (file.is_open()) {
             file << __func__ << DELIMINER;
@@ -544,8 +547,10 @@ struct modelThread{
     }
 
     bool writeTextFileUnified(std::string path, std::string name, bool first_time = false, bool full = false){
-        std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-INPUT-" + shortModelName + ".txt";
-        std::string path2 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
+        // std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-INPUT-" + shortModelName + ".txt";
+        std::string path1 = std::format("{}{}-{}-INPUT-{}.txt", path, std::to_string(newChat.params.sparams.seed), backend_name, shortModelName);
+        // std::string path2 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + "-O.txt";
+        std::string path2 = std::format("{}{}-{}-{}-{}-O.txt", path, std::to_string(newChat.params.sparams.seed), backend_name, name, shortModelName);
         if (first_time) {
             std::ofstream file_i(path1, std::ios::app);
             if (file_i.is_open()) {
@@ -578,7 +583,8 @@ struct modelThread{
     }
 
     bool writeTextFileCompact(std::string path, std::string name, bool full = false){
-        std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + ".txt";
+        // std::string path1 = path + std::to_string(newChat.params.sparams.seed) + "-" + name  + "-" + shortModelName + ".txt";
+        std::string path1 = std::format("{}{}-{}-{}-{}.txt", path, std::to_string(newChat.params.sparams.seed), backend_name, name, shortModelName);
 
         std::ofstream file_o(path1, std::ios::app);
         if (file_o.is_open()) {
