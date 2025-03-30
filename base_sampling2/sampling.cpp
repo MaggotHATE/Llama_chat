@@ -76,6 +76,9 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                                                trigger_words.data(), trigger_words.size(),
                                                params.grammar_trigger_tokens.data(), params.grammar_trigger_tokens.size())
              :      llama_sampler_init_grammar(vocab, params.grammar.c_str(), "root");
+        if (!grmr) {
+            return nullptr;
+        }
     }
 
     auto * result = new common_sampler {

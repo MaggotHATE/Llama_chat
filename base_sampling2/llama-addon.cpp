@@ -1861,6 +1861,10 @@ static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_tok
 
     llama_sampler_softmax_impl(cur_p);
 
+last_candidates = getFormattedCandidates(cur_p) + "\n";
+
+
+
     cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
 
     if (ctx->confidence_top > ctx->confidence_bottom &&

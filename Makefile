@@ -423,7 +423,10 @@ OBJS_GGUF_CPU = \
     $(TMP)$(PREFIX)_ggml-cpu-aarch64.o \
     $(TMP)$(PREFIX)_ggml-cpu-hbm.o \
     $(TMP)$(PREFIX)_ggml-cpu-quants.o \
-    $(TMP)$(PREFIX)_ggml-cpu-traits.o
+    $(TMP)$(PREFIX)_ggml-cpu-traits.o \
+    $(TMP)$(PREFIX)_common.o \
+    $(TMP)$(PREFIX)_binary-ops.o \
+    $(TMP)$(PREFIX)_unary-ops.o
 
 ifdef DYNAMIC
 	CXXFLAGS += $(bcknd_dyn)

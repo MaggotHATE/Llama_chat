@@ -217,7 +217,10 @@ int main(int argc, char ** argv) {
                         threadedChat.externalData = "Cycles left: " + std::to_string(regens);
                     } else queue["choices"].erase("regens");
                 } else if (queue["choices"].back() != "input") input = queue["choices"].back();
-                else std::getline(std::cin, input);
+                else {
+                    std::getline(std::cin, input);
+                    remove_last_nl(input);
+                }
 
                 char choice = queue_logic.process(input);
 
@@ -307,7 +310,6 @@ int main(int argc, char ** argv) {
                     case 'I': {
                         window_title = "ChatTest: Input ";
                         if (!input.empty()) inputPrompt = input;
-                        remove_last_nl(inputPrompt);
                         threadedChat.appendQuestion(inputPrompt);
                         threadedChat.display(fancyDisplay);
                         threadedChat.startGen();

@@ -356,11 +356,12 @@ struct modelThread{
         for (auto v : newChat.params.control_vectors) {
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
-        // text +=  std::format("\n-Last candidates: {}", last_candidates);
+        text +=  std::format("\n-Last candidates: {}", last_candidates);
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
         text +=  std::format("\n-EOS: {}", newChat.txt_vocab_eos);
+        text +=  std::format("\n-Empty messages: {}", newChat.c_empty_msgs);
         // text +=  std::format("\n-bos: {}", newChat.params.bos);
         // text +=  std::format("\n-eos: {}", newChat.params.eos);
         text +=  std::format("\n-seamless: {}", seamless);
@@ -555,7 +556,7 @@ struct modelThread{
             std::ofstream file_i(path1, std::ios::app);
             if (file_i.is_open()) {
                 file_i << __func__ << DELIMINER;
-
+                file_i << getSummary() << DELIMINER;
                 file_i << text << std::endl;
                 file_i << "Prompt:" << consumed_tokens << std::endl;
                 file_i << "Result: " << last_tokens << std::endl;
@@ -568,13 +569,13 @@ struct modelThread{
 
         std::ofstream file_o(path2, std::ios::app);
         if (file_o.is_open()) {
-            file_o << __func__ << DELIMINER;
-            if (full) file_o << text << DELIMINER;
+            std::string result = std::format("{}{}{}{}RESULT:{}{}",__func__,DELIMINER,getSummary(),DELIMINER,resultsStringPairs.back().second,DELIMINER);
 
-            file_o << getSummary() << DELIMINER;
-            file_o << last_candidates << DELIMINER;
+            if (full) result += text;
 
-            file_o << '\n' << resultsStringPairs.back().second << DELIMINER;
+            result += std::format("{}-Empty messages: {}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates,DELIMINER);
+            result +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
+            file_o << result << DELIMINER;
             file_o.close();
             return true;
         } else {
@@ -594,7 +595,8 @@ struct modelThread{
 
             file_o << getSummary() << DELIMINER;
             file_o << last_candidates << DELIMINER;
-
+            std::string kv_info =  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
+            file_o << kv_info << DELIMINER; 
             file_o << '\n' << getMessagesPure() << DELIMINER;
             file_o.close();
             return true;
@@ -792,7 +794,7 @@ struct modelThread{
                     getTimigsBoth();
                     getSparamsList();
 
-                    std::string output = newChat.cycleStringsOnly(false);
+                    std::string output = newChat.cycleStringsOnly(false, lastResult.empty());
                     if (isContinue == 'i') {
                         if (isUnload == 'y') {
                             unload();

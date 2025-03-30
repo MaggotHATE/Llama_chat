@@ -240,7 +240,7 @@ private:
     int ga_w;
 
     std::vector<llama_token> embd;
-    std::vector<llama_token> embd_msg;
+    // std::vector<llama_token> embd_msg;
 
     std::vector<int> inp_pfx;
     std::vector<int> inp_sfx;
@@ -267,6 +267,7 @@ public:
     int n_remain_last   = 0;
     int n_consumed_last = 0;
     int n_embd_inp_last = 0;
+    int c_empty_msgs    = 0;
 
     // experimenting with simple dynamic paramenters
     float d_temp_min = 1.8;
@@ -385,6 +386,7 @@ public:
         n_keep                = 0;
         n_past_last           = 0;
         n_remain_last         = 0;
+        c_empty_msgs          = 0;
 
         xtc_total = 0;
         xtc_removed = 0;
@@ -630,7 +632,8 @@ public:
                         case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.2f}",params.sparams.tfs_z); break;
                         case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.2f}",params.sparams.typical_p); break;
                         case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); result += std::format("({})", p_step_total); break;
-                        case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
+                        // case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
+                        case 'x': result += std::format("xtc={:.2f}-{:.2f}/{:.2f}%",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100); result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
                         case 'o': result += std::format("{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
                         case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({}/{})", min_p_total, candidates_max); break;
@@ -722,8 +725,9 @@ public:
                     // printf("%s: found antiprompt\n", __func__);
                     if (std::size(params.antiprompt)){
                         formatRepresentation += params.antiprompt[0];
-                        const auto line_antiprompt_format = common_tokenize(ctx, params.antiprompt[0], false, true);
-                        embd_inp.insert(embd_inp.end(), line_antiprompt_format.begin(), line_antiprompt_format.end());
+                        // const auto line_antiprompt_format = common_tokenize(ctx, params.antiprompt[0], false, true);
+                        // embd_inp.insert(embd_inp.end(), line_antiprompt_format.begin(), line_antiprompt_format.end());
+                        tokenizeAntiprompt();
                     }
                     break;
                 }
@@ -1346,7 +1350,7 @@ public:
     }
 
     // main generation, includes adding antiprompt at the end
-    int sampleTknIntoEmbd(bool fastStop = false) {
+    int sampleTknIntoEmbd(bool emptyMessage = false) {
         if (debug) printf("-ae");
 
         // optionally save the session on first sample (for faster prompt loading next time)
@@ -1356,7 +1360,15 @@ public:
         }
 
         // new generation function, moved to common 
-        const llama_token id = common_sampler_sample(smpl, ctx, -1);
+        // const llama_token id = common_sampler_sample(smpl, ctx, -1);
+        llama_token id = common_sampler_sample(smpl, ctx, -1);
+
+        // try to sample a different token to avoid empty messages
+        while (emptyMessage == true && llama_token_is_eog(vocab, id)) {
+            ++c_empty_msgs;
+            common_sampler_reset(smpl);
+            id = common_sampler_sample(smpl, ctx, -1);
+        }
 
         // accept the result
         common_sampler_accept(smpl, id, /* apply_grammar= */ true);
@@ -1370,7 +1382,7 @@ public:
 
         // decrement remaining sampling budget
         if (n_remain > 0) --n_remain;
-        
+
         return 1;
     }
 
@@ -1380,7 +1392,9 @@ public:
     void captureStateOnce() {
         if (rewind_state.kv_cache_pos == 0) {
             capture_smpl();
-            rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
+            // rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
+            // rewind_state.capture_kv_cache(llama_kv_self_seq_pos_max(ctx, -1));
+            rewind_state.capture_kv_cache(llama_kv_self_seq_pos_max(ctx, 0));
             rewind_state.capture_embd_inp(embd_inp.size());
             rewind_state.capture_n_past(n_past);
             rewind_state.capture_n_consumed(n_consumed);
@@ -1388,7 +1402,9 @@ public:
     }
 
     int get_kv_cache_seq_pos_max() {
-        return llama_kv_cache_seq_pos_max(ctx, 0);
+        // return llama_kv_cache_seq_pos_max(ctx, 0);
+        // return llama_kv_self_seq_pos_max(ctx, -1);
+        return llama_kv_self_seq_pos_max(ctx, 0);
     }
 
     void clearStates2() {
@@ -1402,13 +1418,14 @@ public:
     // sampling
         common_sampler_reset(smpl);
         restore_smpl();
+        //common_sampler_reset(smpl);
     // context
         llama_kv_self_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
         // llama_kv_self_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
     // chat parameters
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
-        n_past = rewind_state.n_past_size;
+        n_past = rewind_state.n_past_size - 1;
         n_consumed = rewind_state.n_consumed_size;
     }
 
@@ -1804,7 +1821,7 @@ public:
         formatRepresentation = "";
         has_antiprompt = "";
 
-        embd_msg.clear();
+        // embd_msg.clear();
 
         if (n_past > 0 && is_interacting) {
             getFormattedInput(input);
@@ -1826,7 +1843,7 @@ public:
 // this is an attempt to strictly separate all input-based preparations
 // however, it assumes conditions (see in getTokenOld())
 // fromInpToEmbd() and capture_states() should be done elsewhere
-    std::string getBit() { // 1 2 3 4
+    std::string getBit(bool emptyMessage = false) { // 1 2 3 4
         //std::cout << " ** " << std::endl;
         //log_down(std::format("processEmb: {} vs {}\n", embd_inp.size(), n_consumed), params.seed);
 
@@ -1836,19 +1853,19 @@ public:
             return txt_vocab_eos;
         }
 
-        if (!is_interacting) sampleTknIntoEmbd(); // 2
+        if (!is_interacting) sampleTknIntoEmbd(emptyMessage); // 2
 
         return getTknFromEmbd();
     }
 
     // token by token generation and pushing
-    std::string cycleStringsOnly(bool stream = false) {
+    std::string cycleStringsOnly(bool stream = false, bool emptyMessage = false) {
 
         dynamicParamsPrepare();
         //process_prompt(false);  // do not forget to include it elsewhere after loading the model  
         //inputOnly(input); // MOVED
 
-        std::string bit = getBit();
+        std::string bit = getBit(emptyMessage);
 
         if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");
