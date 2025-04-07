@@ -53,6 +53,7 @@
 extern int temp_total;
 extern int min_p_total;
 extern int candidates_max;
+extern int candidates_max_min_p;
 extern int p_step_total;
 extern int xtc_total;
 extern int xtc_removed;
@@ -636,7 +637,7 @@ public:
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}/{:.2f}%",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100); result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
                         case 'o': result += std::format("{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
-                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({}/{})", min_p_total, candidates_max); break;
+                        case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({}/{})", min_p_total, candidates_max_min_p); break;
                         case 'l': result += std::format("{}:{}({} max)", name_k_shift, params.sparams.confidence_shift, params.sparams.k_shift); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
                         case 't': {
@@ -666,7 +667,7 @@ public:
                 }
             }
         //}
-        result += std::format("({}vs{}={:.2f})", num_probs_tops, num_probs_bottoms, confidence_total);
+        result += std::format(":{}({}vs{}={:.2f})", candidates_max, num_probs_tops, num_probs_bottoms, confidence_total);
         if (params.sparams.confidence_top > 0) result += std::format(" Cnf[{:.2f}-{:.2f}]", params.sparams.confidence_top, params.sparams.confidence_bottom);
         return result;
     }

@@ -426,7 +426,9 @@ OBJS_GGUF_CPU = \
     $(TMP)$(PREFIX)_ggml-cpu-traits.o \
     $(TMP)$(PREFIX)_common.o \
     $(TMP)$(PREFIX)_binary-ops.o \
-    $(TMP)$(PREFIX)_unary-ops.o
+    $(TMP)$(PREFIX)_unary-ops.o \
+    $(TMP)$(PREFIX)_vec.o \
+    $(TMP)$(PREFIX)_ops.o
 
 ifdef DYNAMIC
 	CXXFLAGS += $(bcknd_dyn)
@@ -551,17 +553,8 @@ $(TMP)$(PREFIX)_%.o: $(llamacpp_f_s)/%.cpp
 COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f_h)/llama.h
 COMMON_DEPS   = $(TMP)$(PREFIX)_common.o $(TMP)$(PREFIX)_sampling.o
 
-$(TMP)$(PREFIX)_common.o: $(common_f)/common.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
-
-$(TMP)$(PREFIX)_sampling.o: $(common_f)/sampling.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
-
-$(TMP)$(PREFIX)_llama-addon.o: $(common_f)/llama-addon.cpp $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
-
-$(TMP)$(PREFIX)_grammar-parser.o: $(common_f)/grammar-parser.cpp $(common_f)/grammar-parser.h
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+$(TMP)$(PREFIX)_%.o: $(common_f)/%.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -MMD -c $< -o $@
 
 # cpu dynamic
 ggml-cpu$(DSO_EXT): \
@@ -702,11 +695,11 @@ ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
 # Final parts
-$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(json_layer) $(chat_layer) $(settings_layer)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
-	@echo ------------------------------------------------------------------------
-	@echo $(TMP)$(PREFIX)_class_chat.o compiled
-	@echo ------------------------------------------------------------------------
+# $(TMP)$(PREFIX)_class_chat.o:$(conapp) $(json_layer) $(chat_layer) $(settings_layer)
+	# $(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+	# @echo ------------------------------------------------------------------------
+	# @echo $(TMP)$(PREFIX)_class_chat.o compiled
+	# @echo ------------------------------------------------------------------------
 
 $(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(json_layer) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@

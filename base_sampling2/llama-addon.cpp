@@ -44,6 +44,7 @@ int xtc_total = 0;
 int xtc_removed = 0;
 float xtc_percent = 0.0;
 int candidates_max = 0;
+int candidates_max_min_p = 0;
 std::string last_candidates = "NONE";
 
 int rx_total = 0;
@@ -705,7 +706,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
 
     min_p_total = cur_p->size;
 
-    if (candidates_max < cur_p->size) candidates_max = cur_p->size;
+    if (candidates_max_min_p < cur_p->size) candidates_max_min_p = cur_p->size;
 }
 
 static struct llama_sampler * llama_sampler_min_p_addon_clone(const struct llama_sampler * smpl) {
@@ -1861,6 +1862,7 @@ static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_tok
 
     llama_sampler_softmax_impl(cur_p);
 
+candidates_max = cur_p->size;
 last_candidates = getFormattedCandidates(cur_p) + "\n";
 
 
