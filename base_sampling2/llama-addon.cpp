@@ -412,8 +412,8 @@ std::string cur_p_disp = "\n" + getFormattedCandidatesPartFull(cur_p, 8);
     while (cur_p->data[k].p < conf_diff && k > 0) {
         --k;
     }
-cur_p_disp += "\n Will cut #" + std::to_string(k) + " at " + std::to_string(cur_p->data[k].p);
-writeToFile("k_addon.txt", cur_p_disp);
+// cur_p_disp += "\n Will cut #" + std::to_string(k) + " at " + std::to_string(cur_p->data[k].p);
+// writeToFile("k_addon.txt", cur_p_disp);
     // shift to a token #[k]
     cur_p->data += k;
     cur_p->size -= k;

@@ -406,6 +406,32 @@ $(TMP)tinyfiledialogs/tinyfiledialogs.o: tinyfiledialogs/tinyfiledialogs.c tinyf
 #####################################
 ################################ GGUF
 
+HEADERS_GGUF_BASE = \
+    $(ggmlsrc_f_h)/ggml.h \
+    $(ggmlsrc_f_h)/ggml-cpp.h \
+    $(ggmlsrc_f_h)/ggml-alloc.h \
+    $(ggmlsrc_f_h)/ggml-backend.h \
+    $(ggmlsrc_f_h)/ggml-cpu.h \
+    $(ggmlsrc_f_h)/ggml-opt.h \
+    $(ggmlsrc_f_h)/gguf.h \
+    $(ggmlsrc_f_s)/ggml-common.h \
+    $(ggmlsrc_f_s)/ggml-impl.h \
+    $(ggmlsrc_f_s)/ggml-backend-impl.h \
+    $(ggmlsrc_f_s)/ggml-quants.h \
+    $(ggmlsrc_f_s)/ggml-threading.h \
+    $(ggmlsrc_cpu_f)/ggml-cpu-aarch64.h \
+    $(ggmlsrc_cpu_f)/ggml-cpu-hbm.h \
+    $(ggmlsrc_cpu_f)/ggml-cpu-impl.h \
+    $(ggmlsrc_cpu_f)/ggml-cpu-quants.h \
+    $(ggmlsrc_cpu_f)/ggml-cpu-traits.h \
+    $(ggmlsrc_cpu_f)/common.h \
+    $(ggmlsrc_cpu_f)/binary-ops.h \
+    $(ggmlsrc_cpu_f)/unary-ops.h \
+    $(ggmlsrc_cpu_f)/simd-mappings.h \
+    $(ggmlsrc_cpu_f)/vec.h \
+    $(ggmlsrc_cpu_f)/amx/amx.h \
+    $(ggmlsrc_cpu_f)/amx/mmq.h
+
 OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_ggml.o \
     $(TMP)$(PREFIX)_gguf.o \
@@ -540,6 +566,9 @@ $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-cpu/llamafile/%.cpp
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-blas/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
+$(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-vulkan/%.cpp
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+
 $(TMP)$(PREFIX)_%_cpp.o: $(ggmlsrc_f_s)/%.cpp
 	$(CC) $(CXXFLAGS) $(LDFLAGS) -MMD -c $< -o $@
 
@@ -575,14 +604,14 @@ $(TMP)$(PREFIX)_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/gg
 # vulkan
 GLSLC_CMD  = glslc
 _ggml_vk_genshaders_cmd = $(shell pwd)/vkt-shaders-gen
-_ggml_vk_header = $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
-_ggml_vk_source = $(ggmlsrc_f)/ggml-vulkan-shaders.cpp
-_ggml_vk_input_dir = $(ggmlsrc_f)/ggml-vulkan/vulkan-shaders
+_ggml_vk_header = $(ggmlsrc_f_s)/ggml-vulkan-shaders.hpp
+_ggml_vk_source = $(ggmlsrc_f_s)/ggml-vulkan-shaders.cpp
+_ggml_vk_input_dir = $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders
 _ggml_vk_shader_deps = $(echo $(_ggml_vk_input_dir)/*.comp)
 
 $(TMP)$(PREFIX)_ggml-vulkan.o: \
-	$(ggmlsrc_f)/ggml-vulkan/ggml-vulkan.cpp \
-	$(ggmlsrc_f)/ggml-vulkan.h \
+	$(ggmlsrc_f_s)/ggml-vulkan/ggml-vulkan.cpp \
+	$(ggmlsrc_f_h)/ggml-vulkan.h \
 	$(_ggml_vk_header) \
 	$(_ggml_vk_source)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
@@ -620,8 +649,8 @@ $(_ggml_vk_source): $(_ggml_vk_shader_deps) $(vkt-compiler)
 
 endif
 
-vkt-shaders-gen: $(ggmlsrc_f)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_f)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+vkt-shaders-gen: $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
 
 $(TMP)$(PREFIX)_ggml-vulkan-shaders.o: $(_ggml_vk_source) $(_ggml_vk_header)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
@@ -695,21 +724,24 @@ ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
 # Final parts
-# $(TMP)$(PREFIX)_class_chat.o:$(conapp) $(json_layer) $(chat_layer) $(settings_layer)
-	# $(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
-	# @echo ------------------------------------------------------------------------
-	# @echo $(TMP)$(PREFIX)_class_chat.o compiled
-	# @echo ------------------------------------------------------------------------
+$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(COMMON_H_DEPS) $(json_layer) $(chat_layer) $(settings_layer) $(OBJS_GGUF)
+	@echo ------------------------------------------------------------------------
+	$(CXX) $(I_GGUF) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+	@echo ---------------CHAT COMPILED with: $(PREFIX)
+	@echo ------------------------------------------------------------------------
 
 $(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(json_layer) $(chat_layer) $(settings_layer)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo ------------------------------------------------------------------------
-	@echo $(TMP)$(PREFIX)_dual_chat.o compiled
+	@echo ---------------DUAL CHAT COMPILED with: $(PREFIX)
 	@echo ------------------------------------------------------------------------
 
 # Final parts UI
-$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)
+$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(HEADERS_GGUF_BASE) $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) $(LDFLAGS) -DUI_SIMPLE -c $< -o $@
+	@echo ------------------------------------------------------------------------
+	@echo UI CHAT COMPILED with: $(PREFIX) + $(MAIN)
+	@echo ------------------------------------------------------------------------
 
 # Naming
 chatTest_cpu = chatTest_$(PREFIX)
@@ -806,17 +838,17 @@ blas_dll: ggml-blas$(DSO_EXT)
 #    
 # MAIN EXE's
 # universal recipes
-    
+
 $(EXE): $(OBJS) $(OBJS_GGUF) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
-     
+
 $(EXE)_mini:$(TMP)$(PREFIX)_main_$(MAIN).o llama_chat1.res $(OBJS) $(OBJS_GGUF)
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS) $(LIBS)
-    
+
 $(chatTest_cpu):$(TMP)$(PREFIX)_class_chat.o $(OBJS_GGUF)
 	@echo ARCH = $(ARCH)
 	$(CXX) $(I_GGUF) $(filter-out %.h,$^) $(LDFLAGS) -o $@ $(CXXFLAGS)
-    
+
 dualTest:$(TMP)$(PREFIX)_dual_chat.o $(OBJS_GGUF)
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
 
@@ -826,12 +858,12 @@ dualTest:$(TMP)$(PREFIX)_dual_chat.o $(OBJS_GGUF)
 
 $(EXE_VK): $(OBJS) $(OBJS_VK) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
-     
+
 $(EXE_VK)_mini:$(MAIN_CPP) llama_chat1.res $(OBJS) $(OBJS_VK)
 	# $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE2, $<)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE2, $<) -o $@ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
-     
+
 $(chatTest_vk):$(conapp) $(OBJS_VK)
 	#$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
 	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)

@@ -882,7 +882,16 @@ public:
             (int) params.cpuparams.n_threads
         );
 
-        auto * reg = ggml_backend_dev_backend_reg(ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU));
+        // auto * reg = ggml_backend_dev_backend_reg(ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU));
+        // this is somewhat redundant since we don't use dynamic backens
+        // however, it's better than no check at all
+        auto * cpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU);
+        if (!cpu_dev) {
+            printf("%s: no CPU backend found\n", __func__);
+            return 1;
+        }
+        auto * reg = ggml_backend_dev_backend_reg(cpu_dev);
+
         auto * ggml_threadpool_new_fn = (decltype(ggml_threadpool_new) *) ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_new");
         auto * ggml_threadpool_free_fn = (decltype(ggml_threadpool_free) *) ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_free");
 
@@ -1011,6 +1020,7 @@ public:
 
         common_sampler_get_seed(smpl);
         printf("%s: common_sampler_get_seed\n", __func__);
+
         ga_n = params.grp_attn_n;
         ga_w = params.grp_attn_w;
 
@@ -1019,7 +1029,7 @@ public:
             GGML_ASSERT(ga_w % ga_n == 0            && "grp_attn_w must be a multiple of grp_attn_n");     // NOLINT
         }
 
-
+        printf("%s: checking for a saved session...\n", __func__);
         path_session = params.path_prompt_cache;
 
         if (!path_session.empty()) {
@@ -1058,18 +1068,19 @@ public:
         // std::getline(std::cin, pause);
 
         add_bos = llama_vocab_get_add_bos(vocab);
+        printf("%s: add_bos: %d\n", __func__, add_bos);
 
         if (!llama_model_has_encoder(model)) {
             GGML_ASSERT(!llama_vocab_get_add_eos(vocab));
         }
 
         add_eos = llama_vocab_get_add_eos(vocab);
-
-        txt_vocab_bos = llama_token_get_text(vocab, llama_vocab_bos(vocab));
-        txt_vocab_eos = llama_token_get_text(vocab, llama_vocab_eos(vocab));
-
-        printf("%s: add_bos: %d\n", __func__, add_bos);
         printf("%s: add_eos: %d\n", __func__, add_eos);
+
+        if (add_bos == true) txt_vocab_bos = llama_token_get_text(vocab, llama_vocab_bos(vocab));
+        txt_vocab_eos = llama_token_get_text(vocab, llama_vocab_eos(vocab));
+        printf("%s: txt_vocab_bos: %s\n", __func__, txt_vocab_bos.c_str());
+        printf("%s: txt_vocab_eos: %s\n", __func__, txt_vocab_eos.c_str());
 
         if (params.interactive_first || !params.prompt.empty() || session_tokens.empty()) {
             //this is the first problem we have
@@ -1080,7 +1091,7 @@ public:
             embd_inp = session_tokens;
         }
 
-        if (embd_inp.empty()) {
+        if (embd_inp.empty() && add_bos == true) {
             embd_inp.emplace_back(llama_vocab_bos(vocab));
             //embd_inp.push_back(llama_token_bos(model));
         }
@@ -1092,6 +1103,7 @@ public:
             fprintf(stderr, "%s: error: prompt is too long (%d tokens, max %d)\n", __func__, (int) std::size(embd_inp), n_ctx - 4);
             return 1;
         }
+        printf("%s: embd_inp filled\n", __func__, add_eos);
 
         // debug message about similarity of saved session, if applicable
         n_matching_session_tokens = 0;
