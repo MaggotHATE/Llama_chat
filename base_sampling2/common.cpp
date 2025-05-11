@@ -1000,6 +1000,65 @@ void common_set_adapter_lora(struct llama_context * ctx, std::vector<common_adap
     }
 }
 
+void common_process_override_tensors(common_params & params, const std::map<std::string, std::string> & values) {
+    /* static */ std::map<std::string, ggml_backend_buffer_type_t> buft_list;
+    if (buft_list.empty()) {
+        // enumerate all the devices and add their buffer types to the list
+        for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+            auto * dev = ggml_backend_dev_get(i);
+            auto * buft = ggml_backend_dev_buffer_type(dev);
+            if (buft) {
+                buft_list[ggml_backend_buft_name(buft)] = buft;
+            }
+        }
+    }
+
+    for (const auto & [tensor_name, buffer_type] : values) {
+        if (buft_list.find(buffer_type) == buft_list.end()) {
+            printf("Available buffer types:\n");
+            for (const auto & it : buft_list) {
+                printf("  %s\n", ggml_backend_buft_name(it.second));
+            }
+        } else {
+            printf("Overriding buffer type: %s = %s\n", tensor_name.c_str(), buffer_type.c_str());
+            // FIXME: this leaks memory
+            params.tensor_buft_overrides.push_back({strdup(tensor_name.c_str()), buft_list.at(buffer_type)});
+        }
+
+    }
+}
+
+void common_process_override_tensors(common_params & params) {
+    /* static */ std::map<std::string, ggml_backend_buffer_type_t> buft_list;
+    if (buft_list.empty()) {
+        // enumerate all the devices and add their buffer types to the list
+        for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+            auto * dev = ggml_backend_dev_get(i);
+            auto * buft = ggml_backend_dev_buffer_type(dev);
+            if (buft) {
+                buft_list[ggml_backend_buft_name(buft)] = buft;
+            }
+        }
+    }
+
+    printf("Available buffer types:\n");
+    for (const auto & it : buft_list) {
+        printf("  %s\n", ggml_backend_buft_name(it.second));
+    }
+
+    for (const auto & [tensor_name, buffer_type] : params.tensor_override_pairs) {
+        if (buft_list.find(buffer_type) == buft_list.end()) {
+            printf("Invalid buffer type!\n");
+        } else {
+            printf("Overriding buffer type: %s = %s\n", tensor_name.c_str(), buffer_type.c_str());
+            // FIXME: this leaks memory
+            params.tensor_buft_overrides.push_back({tensor_name.c_str(), buft_list.at(buffer_type)});
+        }
+    }
+
+    params.tensor_buft_overrides.push_back({nullptr, buft_list.at("CPU")});
+}
+
 struct llama_model_params common_model_params_to_llama(common_params & params) {
     auto mparams = llama_model_default_params();
 
@@ -1024,12 +1083,16 @@ struct llama_model_params common_model_params_to_llama(common_params & params) {
         mparams.kv_overrides = params.kv_overrides.data();
     }
 
+    common_process_override_tensors(params);
+
     if (params.tensor_buft_overrides.empty()) {
-         mparams.tensor_buft_overrides = NULL;
-     } else {
-         GGML_ASSERT(params.tensor_buft_overrides.back().pattern == nullptr && "Tensor buffer overrides not terminated with empty pattern");
-         mparams.tensor_buft_overrides = params.tensor_buft_overrides.data();
-     }
+        mparams.tensor_buft_overrides = NULL;
+    } else {
+        printf("%s: Checking %s\n", __func__, params.tensor_buft_overrides.back().pattern);
+        GGML_ASSERT(params.tensor_buft_overrides.back().pattern == nullptr && "Tensor buffer overrides not terminated with empty pattern");
+        printf("%s: ------------TENSOR BUFFER OVERRIDES FOUND A CORRECT PATTERN------------\n", __func__);
+        mparams.tensor_buft_overrides = params.tensor_buft_overrides.data();
+    }
 
     return mparams;
 }

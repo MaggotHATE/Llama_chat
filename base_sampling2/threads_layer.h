@@ -1516,7 +1516,7 @@ struct configurableChat{
         if (params.yarn_beta_slow != paramsDefault.yarn_beta_slow) modelConfig[model]["yarn_beta_slow"] = params.yarn_beta_slow;
         if (params.yarn_orig_ctx != paramsDefault.yarn_orig_ctx) modelConfig[model]["yarn_orig_ctx"] = params.yarn_orig_ctx;
         if (params.yarn_attn_factor != paramsDefault.yarn_attn_factor) modelConfig[model]["yarn_attn_factor"] = params.yarn_attn_factor;
-        
+
         if (params.rope_scaling_type != paramsDefault.rope_scaling_type) {
             if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_NONE) modelConfig[model]["rope_scaling_type"] = "none";
             else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_LINEAR) modelConfig[model]["rope_scaling_type"] = "linear";
@@ -1533,11 +1533,17 @@ struct configurableChat{
             modelConfig[model]["reverse-prompt"] = "### Instruction:";
             params.antiprompt.emplace_back("### Instruction:");
         }
+
         if(std::size(params.control_vectors)) {
             for (auto v : params.control_vectors) {
                 modelConfig[model]["control_vectors"][v.fname] = v.strength;
             }
         }
+
+        if(std::size(params.tensor_override_pairs)) {
+            modelConfig[model]["override_tensor"] = params.tensor_override_pairs;
+        }
+
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
         
         //modelConfig["temp_first"] = tempFirst;
@@ -1629,7 +1635,7 @@ struct configurableChat{
         if (params.yarn_beta_slow != paramsDefault.yarn_beta_slow) newCard["yarn_beta_slow"] = params.yarn_beta_slow;
         if (params.yarn_orig_ctx != paramsDefault.yarn_orig_ctx) newCard["yarn_orig_ctx"] = params.yarn_orig_ctx;
         if (params.yarn_attn_factor != paramsDefault.yarn_attn_factor) newCard["yarn_attn_factor"] = params.yarn_attn_factor;
-        
+
         if (params.rope_scaling_type != paramsDefault.rope_scaling_type) {
             if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_NONE) newCard["rope_scaling_type"] = "none";
             else if (params.rope_scaling_type == LLAMA_ROPE_SCALING_TYPE_LINEAR) newCard["rope_scaling_type"] = "linear";
@@ -1645,11 +1651,17 @@ struct configurableChat{
             newCard["reverse-prompt"] = "### Instruction:";
             params.antiprompt.emplace_back("### Instruction:");
         }
+
         if(std::size(params.control_vectors)) {
             for (auto v : params.control_vectors) {
                 modelConfig["control_vectors"][v.fname] = v.strength;
             }
         }
+
+        if(std::size(params.tensor_override_pairs)) {
+            modelConfig["override_tensor"]= params.tensor_override_pairs;
+        }
+
         if(grammarFile != "") newCard["grammar-file"] = grammarFile;
         
         return newCard;

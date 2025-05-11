@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 #ifdef _WIN32
 #define DIRECTORY_SEPARATOR '\\'
@@ -286,6 +287,8 @@ struct common_params {
     std::vector<std::string> antiprompt; // strings upon which more user input is prompted (a.k.a. reverse prompts)
     std::vector<llama_model_kv_override> kv_overrides;
     std::vector<llama_model_tensor_buft_override> tensor_buft_overrides;
+    // to simplify the process
+    std::map<std::string, std::string> tensor_override_pairs;
 
     bool lora_init_without_apply = false; // only load lora to memory, but do not apply it to ctx (user can manually apply lora later using llama_lora_adapter_apply)
     std::vector<common_adapter_lora_info> lora_adapters; // lora adapter path with user defined scale
@@ -490,6 +493,10 @@ struct llama_model * common_load_model_from_hf(const char * repo, const char * f
 
 // clear LoRA adapters from context, then apply new list of adapters
 void common_set_adapter_lora(struct llama_context * ctx, std::vector<common_adapter_lora_info> & lora);
+
+// copied from arg
+void common_process_override_tensors(common_params & params, const std::map<std::string, std::string> & values);
+void common_process_override_tensors(common_params & params);
 
 // Batch utils
 

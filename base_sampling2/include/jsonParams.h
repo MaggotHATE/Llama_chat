@@ -453,6 +453,12 @@ static std::string msg_formatting(std::vector<std::pair<std::string, std::string
     return formatted_result;
 }
 
+static void getTensorOverridePairs(nlohmann::json& config, common_params & params) {
+    if (checkJObj(config, "override_tensor")) {
+        params.tensor_override_pairs = config["override_tensor"];
+    }
+}
+
 static std::string get_last_formatted(std::vector<std::pair<std::string, std::string>> messages, std::string order_sys, std::string order_msg, std::string presystem, std::string postsystem, std::string preinput, std::string postinput, std::string preoutput, std::string postoutput) {
     std::string total = msg_formatting(messages, order_sys, order_msg, presystem, postsystem, preinput, postinput, preoutput, postoutput, messages.size());
     std::string previous = msg_formatting(messages, order_sys, order_msg, presystem, postsystem, preinput, postinput, preoutput, postoutput, messages.size() - 1);
@@ -702,6 +708,7 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     getPerformanceParamsFromJson(config, params);
     //sampling
     getSamplingParamsFromJson(config, params);
+    getTensorOverridePairs(config, params);
 }
 
 static void getParamsFromPreset(nlohmann::json& config, common_params& params){

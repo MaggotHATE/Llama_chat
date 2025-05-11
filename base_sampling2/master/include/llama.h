@@ -112,6 +112,7 @@ extern "C" {
         LLAMA_VOCAB_PRE_TYPE_BAILINGMOE     = 32,
         LLAMA_VOCAB_PRE_TYPE_LLAMA4         = 33,
         LLAMA_VOCAB_PRE_TYPE_PIXTRAL        = 34,
+        LLAMA_VOCAB_PRE_TYPE_SEED_CODER     = 35,
     };
 
     enum llama_rope_type {
@@ -362,6 +363,7 @@ extern "C" {
         bool offload_kqv; // whether to offload the KQV ops (including the KV cache) to GPU
         bool flash_attn;  // whether to use flash attention [EXPERIMENTAL]
         bool no_perf;     // whether to measure performance timings
+        bool op_offload;  // whether to offload host tensor operations to device
     };
 
     // model quantization parameters

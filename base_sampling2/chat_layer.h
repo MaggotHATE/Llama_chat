@@ -963,28 +963,28 @@ public:
 
             llama_backend_init();
 #ifdef GGML_USE_CLBLAST
-            printf("..............Backend initialized common: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
+            printf("..............BACKEND INITIALIZED COMMON: %s................\n", GGML_OPENCL_RESULT_DEVICE_NAME);
 #else
-            printf("..............Backend initialized common (%s)................\n", __func__);
+            printf("..............BACKEND INITIALIZED COMMON (%s)................\n", __func__);
 #endif
 
             // load the model and apply lora adapter, if any
             common_init_result llama_init = common_init_from_params(params);
-            printf("..............common_init_from_params (%s)................\n", __func__);
+            printf("..............PARAMS INITIALIZED COMMON (%s)................\n", __func__);
 
             // model = llama_init.model.release();
             // model = llama_init.model.get();
             model = llama_init.model.release();
             vocab = llama_model_get_vocab(model);
-            printf("..............Model initialized (%s)................\n", __func__);
+            printf("..............MODEL INITIALIZED (%s)................\n", __func__);
 
             // ctx = llama_init.context.release();
             // ctx = llama_init.context.get();
             ctx = llama_init.context.release();
-            printf("..............Context initialized (%s)................\n", __func__);
+            printf("..............CONTEXT INITIALIZED (%s)................\n", __func__);
 
             assignThreads();
-            printf("..............Threads assigned (%s)................\n", __func__);
+            printf("..............THREADS ASSIGNED (%s)................\n", __func__);
 
             if (model == NULL) {
                 fprintf(stderr, "%s: error: unable to load model\n", __func__);
