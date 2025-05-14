@@ -482,6 +482,7 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-memory.o \
     $(TMP)$(PREFIX)_llama-mmap.o \
     $(TMP)$(PREFIX)_llama-model-loader.o \
+    $(TMP)$(PREFIX)_llama-model-saver.o \
     $(TMP)$(PREFIX)_llama-model.o \
     $(TMP)$(PREFIX)_llama-quant.o \
     $(TMP)$(PREFIX)_llama-sampling.o \
