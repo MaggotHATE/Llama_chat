@@ -531,6 +531,9 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
     if (checkJNum(config, "mirostat_tau")) params.sparams.mirostat_tau = config["mirostat_tau"];
     if (checkJNum(config, "mirostat_eta")) params.sparams.mirostat_eta = config["mirostat_eta"];
 
+// logit_bias_strings
+    if (checkJArr(config, "logit_bias_strings")) params.sparams.logit_bias_strings = config["logit_bias_strings"];
+
 }
 
 static void getPromptingParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false) {
@@ -592,7 +595,6 @@ static void getPromptingParamsFromJson(nlohmann::json& config, common_params& pa
                 }
             }
         }
-        
     }
 
     if (checkJString(config, "format_instruct")) params.format_instruct = config["format_instruct"];
@@ -671,6 +673,7 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
 
     if (checkJString(config, "grammar")) params.sparams.grammar = config["grammar"];
     if (checkJString(config, "grammar-file")) readGrammarFile(params, config["grammar-file"]);
+    if (checkJString(config, "kv_overrides_pair")) params.kv_overrides_pair = config["kv_overrides_pair"];
 
     #ifdef GGML_OLD_FORMAT
     if (checkJNum(config, "rms-norm-eps")) params.rms_norm_eps = config["rms-norm-eps"];

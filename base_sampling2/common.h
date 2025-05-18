@@ -194,6 +194,7 @@ struct common_params_sampling {
     std::vector<llama_token>            grammar_trigger_tokens; // optional trigger tokens to trigger lazy grammar and print trigger special tokens.
 
     std::vector<llama_logit_bias> logit_bias; // logit biases to apply
+    std::vector<std::string> logit_bias_strings; // words for logit biases
 
     // print the parameters into a string
     std::string print() const;
@@ -286,6 +287,7 @@ struct common_params {
     std::vector<std::string> in_files;   // all input files
     std::vector<std::string> antiprompt; // strings upon which more user input is prompted (a.k.a. reverse prompts)
     std::vector<llama_model_kv_override> kv_overrides;
+    std::string kv_overrides_pair;
     std::vector<llama_model_tensor_buft_override> tensor_buft_overrides;
     // to simplify the process
     std::map<std::string, std::string> tensor_override_pairs;

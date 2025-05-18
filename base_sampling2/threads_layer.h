@@ -356,7 +356,8 @@ struct modelThread{
         for (auto v : newChat.params.control_vectors) {
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
-        text +=  std::format("\n-Last candidates: {}", last_candidates);
+        // text +=  std::format("\n-Last candidates: {}", last_candidates);
+        text +=  std::format("\n-get_logit_bias_str: {}", newChat.get_logit_bias_str());
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
@@ -1508,6 +1509,7 @@ struct configurableChat{
         if (params.bos != paramsDefault.bos) modelConfig[model]["bos"] = params.bos;
         if (params.eos != paramsDefault.eos) modelConfig[model]["eos"] = params.eos;
         if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
+        if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig[model]["logit_bias_strings"] = params.sparams.logit_bias_strings;
         
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
 
@@ -1543,6 +1545,8 @@ struct configurableChat{
         if(std::size(params.tensor_override_pairs)) {
             modelConfig[model]["override_tensor"] = params.tensor_override_pairs;
         }
+
+        if (params.kv_overrides_pair != paramsDefault.kv_overrides_pair) modelConfig[model]["kv_overrides_pair"] = params.kv_overrides_pair;
 
         if(grammarFile != "") modelConfig[model]["grammar-file"] = grammarFile;
         
@@ -1661,6 +1665,8 @@ struct configurableChat{
         if(std::size(params.tensor_override_pairs)) {
             modelConfig["override_tensor"]= params.tensor_override_pairs;
         }
+
+        if (params.kv_overrides_pair != paramsDefault.kv_overrides_pair) modelConfig["kv_overrides_pair"] = params.kv_overrides_pair;
 
         if(grammarFile != "") newCard["grammar-file"] = grammarFile;
         

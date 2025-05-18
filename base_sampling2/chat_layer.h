@@ -250,7 +250,7 @@ private:
 
     std::vector<int>   input_tokens;
     std::vector<int>   output_tokens;
-    std::ostringstream output_ss; 
+    std::ostringstream output_ss;
     
     struct ggml_threadpool * threadpool;
     struct ggml_threadpool * threadpool_batch = NULL;
@@ -505,6 +505,60 @@ public:
     void clear_speed(){
         t_eval_ms = 0;
         n_eval = 0;
+    }
+
+    bool kv_override_prefill() {
+        if (string_parse_kv_override(params.kv_overrides_pair.c_str(), params.kv_overrides) == true) {
+            printf("%s: string_parse_kv_override done\n", __func__);
+            return true;
+        } else {
+            printf("%s: string_parse_kv_override FAILED\n", __func__);
+        }
+
+        return false;
+    }
+
+    void sparams_postfill() {
+        // std::string space = " ";
+        if (params.sparams.logit_bias_strings.size()) {
+            for (llama_token i = 0; i < llama_vocab_n_tokens(vocab); i++) {
+                std::string token_str = common_token_to_piece(ctx, i);
+                if (token_str.front() == ' ') {
+                    token_str = token_str.substr(1);
+                }
+
+                if (token_str.back() == ' ') {
+                    token_str.pop_back();
+                }
+
+                if (token_str.length() >= 2) {
+                    for (auto word : params.sparams.logit_bias_strings) {
+                        auto token_str_pos = word.find(token_str);
+                        if (token_str_pos == 0 || token_str_pos == (word.size() - 1) ) {
+                            printf("%s: added \"%s\" logit bias = %f\n", __func__, common_token_to_piece(ctx, i).c_str(), -INFINITY);
+                            params.sparams.logit_bias.push_back({i, -INFINITY});
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // std::string pause = "";
+        // std::getline(std::cin, pause);
+    }
+
+    std::string get_logit_bias_str() {
+        std::string result;
+        for (auto l : params.sparams.logit_bias) {
+            result += std::format(" {};", l.token);
+        }
+        return result;
+    }
+
+    void params_postfill() {
+        kv_override_prefill();
+        common_process_override_tensors(params);
     }
 
     // unsafe to run in threads;
@@ -794,7 +848,7 @@ public:
 
     }
     
-    int checkPreLoad(){
+    int checkPreLoad() {
     
         
     
@@ -971,12 +1025,16 @@ public:
             // load the model and apply lora adapter, if any
             common_init_result llama_init = common_init_from_params(params);
             printf("..............PARAMS INITIALIZED COMMON (%s)................\n", __func__);
+            params_postfill();
+            printf("..............PARAMS POSTFILL FINISHED (%s)................\n", __func__);
 
             // model = llama_init.model.release();
             // model = llama_init.model.get();
             model = llama_init.model.release();
-            vocab = llama_model_get_vocab(model);
             printf("..............MODEL INITIALIZED (%s)................\n", __func__);
+
+            vocab = llama_model_get_vocab(model);
+            printf("..............VOCAB INITIALIZED (%s)................\n", __func__);
 
             // ctx = llama_init.context.release();
             // ctx = llama_init.context.get();
@@ -1020,6 +1078,9 @@ public:
 
         common_sampler_get_seed(smpl);
         printf("%s: common_sampler_get_seed\n", __func__);
+
+        // processing restricted words into logit_bias
+        sparams_postfill();
 
         ga_n = params.grp_attn_n;
         ga_w = params.grp_attn_w;
@@ -1381,6 +1442,15 @@ public:
             ++c_empty_msgs;
             common_sampler_reset(smpl);
             id = common_sampler_sample(smpl, ctx, -1);
+        }
+
+        for (auto biased_logit : params.sparams.logit_bias) {
+            int attempts = 1000; // safeguard
+            while (biased_logit.token == id && attempts > 0) {
+                common_sampler_reset(smpl);
+                id = common_sampler_sample(smpl, ctx, -1);
+                --attempts;
+            }
         }
 
         // accept the result
