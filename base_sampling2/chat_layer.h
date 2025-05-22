@@ -264,11 +264,12 @@ public:
     bool add_bos         = false;
     bool add_eos         = false;
 
-    int n_past_last     = 0;
-    int n_remain_last   = 0;
-    int n_consumed_last = 0;
-    int n_embd_inp_last = 0;
-    int c_empty_msgs    = 0;
+    int n_past_last       = 0;
+    int n_remain_last     = 0;
+    int n_consumed_last   = 0;
+    int n_embd_inp_last   = 0;
+    int c_empty_msgs      = 0;
+    int c_restricted_tkns = 0;
 
     // experimenting with simple dynamic paramenters
     float d_temp_min = 1.8;
@@ -283,6 +284,8 @@ public:
     std::string formatRepresentation = "";
     std::string txt_vocab_bos = "";
     std::string txt_vocab_eos = "";
+    std::string logit_bias_strings_display = "";
+    std::string logit_bias_strings_ext_display = "";
 
     struct llama_perf_context_data ctx_performance_data;
 
@@ -388,6 +391,7 @@ public:
         n_past_last           = 0;
         n_remain_last         = 0;
         c_empty_msgs          = 0;
+        c_restricted_tkns     = 0;
 
         xtc_total = 0;
         xtc_removed = 0;
@@ -518,28 +522,68 @@ public:
         return false;
     }
 
+// the idea is to search for:
+// 1. start of the words (with spaces)
+// 2. end of the words
+// 3. middle parts?
     void sparams_postfill() {
         // std::string space = " ";
-        if (params.sparams.logit_bias_strings.size()) {
+        if (params.sparams.logit_bias_strings.size() || params.sparams.logit_bias_strings_ext.size()) {
             for (llama_token i = 0; i < llama_vocab_n_tokens(vocab); i++) {
                 std::string token_str = common_token_to_piece(ctx, i);
+                // cutting spaces since there are "duplicated" tokens with them
                 if (token_str.front() == ' ') {
                     token_str = token_str.substr(1);
                 }
 
+                // almost never happens
                 if (token_str.back() == ' ') {
                     token_str.pop_back();
                 }
 
-                if (token_str.length() >= 2) {
+                bool restricted = false;
+                float bias = -INFINITY;
+
+                if (token_str.length() > 2) {
                     for (auto word : params.sparams.logit_bias_strings) {
                         auto token_str_pos = word.find(token_str);
-                        if (token_str_pos == 0 || token_str_pos == (word.size() - 1) ) {
-                            printf("%s: added \"%s\" logit bias = %f\n", __func__, common_token_to_piece(ctx, i).c_str(), -INFINITY);
-                            params.sparams.logit_bias.push_back({i, -INFINITY});
+
+                        if (token_str_pos == 0 || token_str_pos == (word.size() - 1)) {
+                            restricted = true;
+                            break;
+                        } else if (token_str.find(word) == 0 && (token_str.length() - word.length() < 4)) {
+                            restricted = true;
                             break;
                         }
                     }
+
+                    for (auto word_bias_pair : params.sparams.logit_bias_strings_ext) {
+                        auto token_str_pos = word_bias_pair.first.find(token_str);
+                        if (token_str_pos == 0 || token_str_pos == (word_bias_pair.first.size() - 1) ) {
+                            restricted = true;
+                            bias = word_bias_pair.second;
+                            break;
+                        }
+                    }
+                } else if (token_str.length() > 0) {
+                    for (auto word : params.sparams.logit_bias_strings) {
+                        if (token_str == word) {
+                            restricted = true;
+                            break;
+                        }
+                    }
+
+                    for (auto word_bias_pair : params.sparams.logit_bias_strings_ext) {
+                        if (token_str == word_bias_pair.first) {
+                            restricted = true;
+                            bias = word_bias_pair.second;
+                            break;
+                        }
+                    }
+                }
+
+                if (restricted == true) {
+                    params.sparams.logit_bias.push_back({i, bias});
                 }
             }
         }
@@ -548,16 +592,48 @@ public:
         // std::getline(std::cin, pause);
     }
 
-    std::string get_logit_bias_str() {
-        std::string result;
-        for (auto l : params.sparams.logit_bias) {
-            result += std::format(" {};", l.token);
+    void sparams_postfill_ext() {
+        // std::string space = " ";
+        if (params.sparams.logit_bias_strings_ext.size()) {
+            for (llama_token i = 0; i < llama_vocab_n_tokens(vocab); i++) {
+                std::string token_str = common_token_to_piece(ctx, i);
+                // cutting spaces since there are "duplicated" tokens with them
+                if (token_str.front() == ' ') {
+                    token_str = token_str.substr(1);
+                }
+
+                // almost never happens
+                if (token_str.back() == ' ') {
+                    token_str.pop_back();
+                }
+
+                if (token_str.length() > 1) {
+                    for (auto word_bias_pair : params.sparams.logit_bias_strings_ext) {
+                        auto token_str_pos = word_bias_pair.first.find(token_str);
+                        if (token_str_pos == 0 || token_str_pos == (word_bias_pair.first.size() - 1) ) {
+                            params.sparams.logit_bias.push_back({i, word_bias_pair.second});
+                            break;
+                        }
+                    }
+                }
+            }
         }
-        return result;
+    }
+
+    void get_logit_bias_str() {
+        logit_bias_strings_display = "";
+        logit_bias_strings_ext_display = "";
+        for (auto l : params.sparams.logit_bias) {
+            if (l.bias == -INFINITY) { 
+                logit_bias_strings_display += std::format(" '{}';", common_token_to_piece(ctx, l.token));
+            } else {
+                logit_bias_strings_ext_display += std::format(" '{}'={:.2f};", common_token_to_piece(ctx, l.token), l.bias);
+            }
+        }
     }
 
     void params_postfill() {
-        kv_override_prefill();
+        if (params.kv_overrides_pair.size()) kv_override_prefill();
         common_process_override_tensors(params);
     }
 
@@ -1069,6 +1145,11 @@ public:
         n_ctx = llama_n_ctx(ctx);
         printf("%s: llama_n_ctx = %d\n", __func__, n_ctx);
 
+        // processing restricted words into logit_bias
+        sparams_postfill();
+        //sparams_postfill_ext();
+
+
         smpl = common_sampler_init(model, sparams);
         printf("%s: common_sampler_init\n", __func__);
         if (!smpl) {
@@ -1078,9 +1159,6 @@ public:
 
         common_sampler_get_seed(smpl);
         printf("%s: common_sampler_get_seed\n", __func__);
-
-        // processing restricted words into logit_bias
-        sparams_postfill();
 
         ga_n = params.grp_attn_n;
         ga_w = params.grp_attn_w;
@@ -1444,14 +1522,23 @@ public:
             id = common_sampler_sample(smpl, ctx, -1);
         }
 
-        for (auto biased_logit : params.sparams.logit_bias) {
-            int attempts = 1000; // safeguard
-            while (biased_logit.token == id && attempts > 0) {
-                common_sampler_reset(smpl);
-                id = common_sampler_sample(smpl, ctx, -1);
-                --attempts;
-            }
-        }
+        // for (auto biased_logit : params.sparams.logit_bias) {
+            // if (biased_logit.bias < 0 && biased_logit.token == id) {
+                // int attempts = 1000; // safeguard
+                // while (biased_logit.token == id && attempts > 0) {
+                    // common_sampler_reset(smpl);
+                    // id = common_sampler_sample(smpl, ctx, -1);
+                    // --attempts;
+                // }
+
+                // if (biased_logit.token == id) {
+                    // ++c_restricted_tkns;
+                    // std::string c_restricted_tkn_string = common_token_to_piece(ctx, id);
+                    // writeTextFile("logit_biasing.txt", std::format("+{}\n", c_restricted_tkn_string));
+                    // break;
+                // }
+            // }
+        // }
 
         // accept the result
         common_sampler_accept(smpl, id, /* apply_grammar= */ true);
@@ -1728,6 +1815,9 @@ public:
     std::string process_prompt(bool consoleOutput = true, bool verbose = false) {
 
         if (debug) printf("Starting initial prompt processing...\n");
+
+        get_logit_bias_str();
+
 
         std::string result;
         //std::cout << " * " << std::endl;

@@ -122,6 +122,7 @@ void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sam
 
     LLAMA_API struct llama_sampler * llama_sampler_init_post_addon (uint32_t seed, float probability, float threshold);
     LLAMA_API struct llama_sampler * llama_sampler_init_dist_plus  (uint32_t seed, float confidence_top, float confidence_bottom);
+    LLAMA_API struct llama_sampler * llama_sampler_init_dist_plus1 (uint32_t seed, float confidence_top, float confidence_bottom, const std::vector<llama_logit_bias> logit_bias);
 
     LLAMA_API struct llama_sampler * llama_sampler_init_penalties_addon(
                              int32_t   n_vocab,           // llama_n_vocab()
@@ -149,3 +150,8 @@ void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sam
 
     /// @details Top n sigma sampling as described in academic paper "Top-nσ: Not All Logits Are You Need" https://arxiv.org/pdf/2411.07641
     LLAMA_API struct llama_sampler * llama_sampler_init_top_n_sigma_addon(float n);
+
+    LLAMA_API struct llama_sampler * llama_sampler_init_logit_bias_addon(
+                             int32_t   n_vocab,
+                             int32_t   n_logit_bias,
+              const llama_logit_bias * logit_bias);

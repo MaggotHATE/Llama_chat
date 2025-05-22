@@ -533,6 +533,7 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
 
 // logit_bias_strings
     if (checkJArr(config, "logit_bias_strings")) params.sparams.logit_bias_strings = config["logit_bias_strings"];
+    if (checkJObj(config, "logit_bias_strings_ext")) params.sparams.logit_bias_strings_ext = config["logit_bias_strings_ext"];
 
 }
 
@@ -663,6 +664,7 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
     if (checkJNum(config, "n_batch")) params.n_batch = config["n_batch"];
     if (checkJNum(config, "n_ubatch")) params.n_ubatch = config["n_ubatch"];
     if (checkJBool(config, "ctx_shift")) params.ctx_shift = config["ctx_shift"];
+    if (checkJBool(config, "swa_full")) params.swa_full = config["swa_full"];
 
 // misc
     if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];

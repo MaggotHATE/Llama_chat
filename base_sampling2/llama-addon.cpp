@@ -62,7 +62,9 @@ int confidence_num = 0;
 float confidence_acc = 0.0f;
 float confidence_total = 1.0f;
 
-static bool writeToFile(std::string path, std::string text){
+bool test_dumbed_logits_biased = false;
+
+static bool writeToFile(std::string path, std::string text) {
     std::ofstream file(path, std::ios::app);
     if (file.is_open()) {
         file << text;
@@ -73,7 +75,7 @@ static bool writeToFile(std::string path, std::string text){
     }
 }
 
-static bool writeFloatToFile(std::string path, float data, std::string add){
+static bool writeFloatToFile(std::string path, float data, std::string add) {
     std::string text = add + std::to_string(data);
     
     std::ofstream file(path, std::ios::app);
@@ -86,7 +88,7 @@ static bool writeFloatToFile(std::string path, float data, std::string add){
     }
 }
 
-static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add){
+static bool writeCandidatesToFile(std::string path, llama_token_data_array * candidates, std::string add) {
     std::string text = add + "(" + std::to_string(candidates->size) + ")";
     int zeroes = 0;
     for (size_t i = 0; i < candidates->size; ++i) {
@@ -106,7 +108,7 @@ static bool writeCandidatesToFile(std::string path, llama_token_data_array * can
     }
 }
 
-static bool writeCandidatesToFile2(std::string path, llama_token_data_array * candidates, std::string add){
+static bool writeCandidatesToFile2(std::string path, llama_token_data_array * candidates, std::string add) {
     std::string text = add + "(" + std::to_string(candidates->size) + "): ";
     int zeroes = 0;
     for (size_t i = 0; i < candidates->size; ++i) {
@@ -128,7 +130,7 @@ static bool writeCandidatesToFile2(std::string path, llama_token_data_array * ca
     }
 }
 
-static bool writeCandidatesToFile2vec(std::string path, std::vector<llama_token_data> & candidates, std::string add){
+static bool writeCandidatesToFile2vec(std::string path, std::vector<llama_token_data> & candidates, std::string add) {
     std::string text = add + "(" + std::to_string(candidates.size()) + "): ";
     int zeroes = 0;
     for (size_t i = 0; i < candidates.size(); ++i) {
@@ -150,7 +152,7 @@ static bool writeCandidatesToFile2vec(std::string path, std::vector<llama_token_
     }
 }
 
-static std::string getFormattedCandidates(llama_token_data_array * candidates){
+static std::string getFormattedCandidates(llama_token_data_array * candidates) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
     int zeroes = 0;
     for (size_t i = 0; i < candidates->size; ++i) {
@@ -165,7 +167,7 @@ static std::string getFormattedCandidates(llama_token_data_array * candidates){
     return text;
 }
 
-static std::string getFormattedCandidatesFull(llama_token_data_array * candidates){
+static std::string getFormattedCandidatesFull(llama_token_data_array * candidates) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
     for (size_t i = 0; i < candidates->size; ++i) {
         int chance = candidates->data[i].p * 100;
@@ -179,7 +181,7 @@ static std::string getFormattedCandidatesFull(llama_token_data_array * candidate
     return text;
 }
 
-static std::string getFormattedCandidatesPart(llama_token_data_array * candidates, size_t part){
+static std::string getFormattedCandidatesPart(llama_token_data_array * candidates, size_t part) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
     
     size_t cur_size = std::min(part, candidates->size);
@@ -196,7 +198,7 @@ static std::string getFormattedCandidatesPart(llama_token_data_array * candidate
     return text;
 }
 
-static std::string getFormattedCandidatesPartFull(llama_token_data_array * candidates, size_t part){
+static std::string getFormattedCandidatesPartFull(llama_token_data_array * candidates, size_t part) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
     
     size_t cur_size = std::min(part, candidates->size);
@@ -213,7 +215,7 @@ static std::string getFormattedCandidatesPartFull(llama_token_data_array * candi
     return text;
 }
 
-static std::string getFormattedCandidatesPartLogitsOnly(llama_token_data_array * candidates, size_t part){
+static std::string getFormattedCandidatesPartLogitsOnly(llama_token_data_array * candidates, size_t part) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
     
     size_t cur_size = std::min(part, candidates->size);
@@ -229,7 +231,7 @@ static std::string getFormattedCandidatesPartLogitsOnly(llama_token_data_array *
     return text;
 }
 
-static std::string getFormattedCandidatesVec(std::vector<llama_token_data> & candidates){
+static std::string getFormattedCandidatesVec(std::vector<llama_token_data> & candidates) {
     std::string text = "(" + std::to_string(candidates.size()) + "): ";
     int zeroes = 0;
     for (size_t i = 0; i < candidates.size(); ++i) {
@@ -244,7 +246,7 @@ static std::string getFormattedCandidatesVec(std::vector<llama_token_data> & can
     return text;
 }
 
-static bool writeCandidatesToFileLogitsOnly(std::string path, llama_token_data_array * candidates, std::string add){
+static bool writeCandidatesToFileLogitsOnly(std::string path, llama_token_data_array * candidates, std::string add) {
     if (candidates->size <= 1) return false;
 
     std::string text = add + "(" + std::to_string(candidates->size) + "): ";
@@ -1863,7 +1865,7 @@ static void llama_sampler_dist_plus_apply(struct llama_sampler * smpl, llama_tok
     llama_sampler_softmax_impl(cur_p);
 
 candidates_max = cur_p->size;
-last_candidates = getFormattedCandidates(cur_p) + "\n";
+last_candidates = getFormattedCandidates(cur_p) + "+-" + __func__;
 
 
 
@@ -1942,4 +1944,247 @@ struct llama_sampler * llama_sampler_init_dist_plus(uint32_t seed, float confide
         },
     };
 }
+
+//-----
+
+struct llama_sampler_dist_plus1 {
+    const uint32_t seed;
+          uint32_t seed_cur;
+          float    confidence_top;
+          float    confidence_bottom;
+
+    const std::vector<llama_logit_bias> logit_bias;
+
+    std::mt19937 rng;
+};
+
+static void llama_sampler_dist_plus1_impl_glob(llama_token_data_array * cur_p, llama_sampler_dist_plus1 * ctx) {
+    if (confidence_total > ctx->confidence_top && cur_p->selected < (cur_p->size - 1)) {
+        cur_p->selected += 1;
+    } else if (confidence_total < ctx->confidence_top && cur_p->selected > 0) {
+        cur_p->selected -= 1;
+    }
+}
+
+static const char * llama_sampler_dist_plus1_name(const struct llama_sampler * /*smpl*/) {
+    return "dist1";
+}
+
+static void llama_sampler_dist_plus1_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_dist_plus1 *) smpl->ctx;
+
+    llama_sampler_softmax_impl(cur_p);
+
+candidates_max = cur_p->size;
+last_candidates = getFormattedCandidates(cur_p) + "|-" + __func__;
+
+    cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
+
+    if (ctx->confidence_top > ctx->confidence_bottom &&
+        ctx->confidence_top > 0.0f &&
+        cur_p->size > 1) {
+        // llama_sampler_dist_plus_impl(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_1(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_2(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_0(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_0_1(cur_p, ctx);
+        llama_sampler_dist_plus1_impl_glob(cur_p, ctx);
+        // llama_sampler_dist_plus_impl_glob_1(cur_p, ctx);
+    }
+
+    std::string restricted_string = "\nChecking:\n";
+
+    // if (test_dumbed_logits_biased == false) {
+        // writeToFile("logit_biasing.txt", restricted_string);
+        // test_dumbed_logits_biased = true;
+    // }
+
+    for (auto biased_logit : ctx->logit_bias) {
+        if (biased_logit.bias == -INFINITY && cur_p->data[cur_p->selected].id == biased_logit.token) {
+            std::string restricted_string = "\nChecking:";
+            // cur_p->selected = llama_sample_dist(cur_p, ctx->rng);
+            restricted_string += " switched " + std::to_string(biased_logit.token);
+            if (cur_p->selected < (cur_p->size - 1)) {
+                cur_p->selected += 1;
+            } else if (cur_p->selected > 0) {
+                cur_p->selected -= 1;
+            }
+
+            restricted_string += " to " + std::to_string(biased_logit.token);
+            writeToFile("logit_biasing.txt", restricted_string);
+        }
+    }
+
+    float prob_selected = cur_p->data[cur_p->selected].p;
+    float conf_compr = 0.5f;
+    // if (ctx->confidence_top > 0) conf_compr = ctx->confidence_top;
+    if (prob_selected > conf_compr) ++num_probs_tops;
+    else ++num_probs_bottoms;
+
+    confidence_num += 1;
+    confidence_acc += prob_selected;
+    confidence_total = confidence_acc / confidence_num;
+}
+
+static struct llama_sampler * llama_sampler_dist_plus1_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_dist_plus1 *) smpl->ctx;
+    auto * result = llama_sampler_init_dist_plus1(ctx->seed, ctx->confidence_top, ctx->confidence_bottom, ctx->logit_bias);
+
+    // copy the state
+    {
+        auto * result_ctx = (llama_sampler_dist_plus1 *) result->ctx;
+
+        result_ctx->rng = ctx->rng;
+    }
+
+    return result;
+}
+
+static void llama_sampler_dist_plus1_reset(struct llama_sampler * smpl) {
+    auto * ctx = (llama_sampler_dist_plus1 *) smpl->ctx;
+    ctx->seed_cur = get_rng_seed(ctx->seed);
+    ctx->rng.seed(ctx->seed_cur);
+
+    confidence_num = 0;
+    confidence_acc = 0.0f;
+    confidence_total = 1.0f;
+}
+
+static void llama_sampler_dist_plus1_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_dist_plus1 *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_dist_plus1_i = {
+    /* .name   = */ llama_sampler_dist_plus1_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_dist_plus1_apply,
+    /* .reset  = */ llama_sampler_dist_plus1_reset,
+    /* .clone  = */ llama_sampler_dist_plus1_clone,
+    /* .free   = */ llama_sampler_dist_plus1_free,
+};
+
+struct llama_sampler * llama_sampler_init_dist_plus1(uint32_t seed, float confidence_top, float confidence_bottom, const std::vector<llama_logit_bias> logit_bias) {
+    auto seed_cur = get_rng_seed(seed);
+    return new llama_sampler {
+        /* .iface = */ &llama_sampler_dist_plus1_i,
+        /* .ctx   = */ new llama_sampler_dist_plus1 {
+            /* .seed              = */ seed,
+            /* .seed_cur          = */ seed_cur,
+            /* .confidence_top    = */ confidence_top,
+            /* .confidence_bottom = */ confidence_bottom,
+            /* .logit_bias        = */ logit_bias,
+            /* .rng               = */ std::mt19937(seed_cur),
+        },
+    };
+}
+
+// BIAS
+
+// logit-bias
+
+struct llama_sampler_logit_bias_addon {
+    const int32_t n_vocab;
+
+    const std::vector<llama_logit_bias> logit_bias;
+
+    std::vector<llama_logit_bias> to_search;
+};
+
+static const char * llama_sampler_logit_bias_addon_name(const struct llama_sampler * /*smpl*/) {
+    return "logit-bias";
+}
+
+static void llama_sampler_logit_bias_addon_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_logit_bias_addon *) smpl->ctx;
+
+    if (ctx->logit_bias.empty()) {
+        // std::string logits_orig = "\nLOGITS: EMPTY\n";
+        // if (test_dumbed_logits_biased == false) {
+            // writeToFile("logit_biasing.txt", logits_orig);
+            // test_dumbed_logits_biased = true;
+        // }
+        return;
+    }
+
+    ctx->to_search.clear();
+
+                                    // std::string logits_orig = "\nLOGITS:\n";
+                                    // std::string logits_positive = "\nLOGITS POS:\n";
+    // update the candidates that have not been shuffled in the vocabulary (i.e. idx == id)
+    for (const auto & lb : ctx->logit_bias) {
+        if (lb.token >= 0 && cur_p->size > (size_t) lb.token && cur_p->data[lb.token].id == lb.token) {
+                                // if (lb.bias < 0) {
+                                    // logits_orig += std::to_string(cur_p->data[lb.token].id) + ": " + std::to_string(cur_p->data[lb.token].logit) + " -> ";
+                                // } else logits_positive += std::to_string(cur_p->data[lb.token].id) + ": " + std::to_string(cur_p->data[lb.token].logit) + " -> ";
+            cur_p->data[lb.token].logit += lb.bias;
+                                // if (lb.bias < 0) {
+                                    // logits_orig += std::to_string(cur_p->data[lb.token].logit) + ";\n";
+                                // } else logits_positive += std::to_string(cur_p->data[lb.token].logit) + ";\n";
+        } else {
+            ctx->to_search.push_back(lb);
+        }
+    }
+
+    if (ctx->to_search.empty()) {
+        // if (test_dumbed_logits_biased == false) {
+            // logits_orig += logits_positive + "\nNO SEARCH\n";
+            // writeToFile("logit_biasing.txt", logits_orig);
+            // test_dumbed_logits_biased = true;
+        // }
+        return;
+    }
+
+    // search for the remaining candidates that were not found in the previous step
+                                    // logits_orig += "\nSEARCH:\n";
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        for (const auto & lb : ctx->to_search) {
+            if (cur_p->data[i].id == lb.token) {
+                                    // logits_orig += std::to_string(cur_p->data[i].logit) + "->";
+                cur_p->data[i].logit += lb.bias;
+                                    // logits_orig += std::to_string(cur_p->data[i].logit) + ";\n";
+                break;
+            }
+        }
+    }
+
+                                // if (test_dumbed_logits_biased == false) {
+                                    // logits_orig += logits_positive;
+                                    // writeToFile("logit_biasing.txt", logits_orig);
+                                    // test_dumbed_logits_biased = true;
+                                // }
+}
+
+static struct llama_sampler * llama_sampler_logit_bias_addon_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_logit_bias_addon *) smpl->ctx;
+    return llama_sampler_init_logit_bias_addon(ctx->n_vocab, ctx->logit_bias.size(), ctx->logit_bias.data());
+}
+
+static void llama_sampler_logit_bias_addon_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_logit_bias_addon *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_logit_bias_addon_i = {
+    /* .name   = */ llama_sampler_logit_bias_addon_name,
+    /* .accept = */ nullptr,
+    /* .apply  = */ llama_sampler_logit_bias_addon_apply,
+    /* .reset  = */ nullptr,
+    /* .clone  = */ llama_sampler_logit_bias_addon_clone,
+    /* .free   = */ llama_sampler_logit_bias_addon_free,
+};
+
+struct llama_sampler * llama_sampler_init_logit_bias_addon(
+                         int32_t   n_vocab,
+                         int32_t   n_logit_bias,
+          const llama_logit_bias * logit_bias) {
+    return llama_sampler_init(
+        /* .iface = */ &llama_sampler_logit_bias_addon_i,
+        /* .ctx   = */ new llama_sampler_logit_bias_addon {
+            /* .n_vocab    = */ n_vocab,
+            /* .logit_bias = */ std::vector<llama_logit_bias>(logit_bias, logit_bias + n_logit_bias),
+            /* .to_search  = */ {},
+        }
+    );
+}
+
+
 

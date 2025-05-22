@@ -604,7 +604,7 @@ $(TMP)$(PREFIX)_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/gg
 
 # vulkan
 GLSLC_CMD  = glslc
-_ggml_vk_genshaders_cmd = $(shell pwd)/vkt-shaders-gen
+_ggml_vk_genshaders_cmd = $(shell pwd)/$(TMP)vkt-shaders-gen
 _ggml_vk_header = $(ggmlsrc_f_s)/ggml-vulkan-shaders.hpp
 _ggml_vk_source = $(ggmlsrc_f_s)/ggml-vulkan-shaders.cpp
 _ggml_vk_input_dir = $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders
@@ -621,7 +621,7 @@ $(_ggml_vk_header): $(_ggml_vk_source)
 
 hascompiler = 1
 
-ifeq (,$(wildcard vkt-shaders-gen.exe))
+ifeq (,$(wildcard $(TMP)/vkt-shaders-gen.exe))
     hascompiler = 0
 endif
 
@@ -636,7 +636,7 @@ ifeq (,$(wildcard $(_ggml_vk_source)))
 endif
 
 ifeq (0,$(hascompiler))
-    vkt-compiler = vkt-shaders-gen
+    vkt-compiler = $(TMP)/vkt-shaders-gen
 endif
 
 ifeq (0,$(hasfiles))
@@ -650,7 +650,7 @@ $(_ggml_vk_source): $(_ggml_vk_shader_deps) $(vkt-compiler)
 
 endif
 
-vkt-shaders-gen: $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+$(TMP)/vkt-shaders-gen: $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
 
 $(TMP)$(PREFIX)_ggml-vulkan-shaders.o: $(_ggml_vk_source) $(_ggml_vk_header)

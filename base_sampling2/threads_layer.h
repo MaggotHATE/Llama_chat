@@ -356,13 +356,13 @@ struct modelThread{
         for (auto v : newChat.params.control_vectors) {
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
-        // text +=  std::format("\n-Last candidates: {}", last_candidates);
-        text +=  std::format("\n-get_logit_bias_str: {}", newChat.get_logit_bias_str());
+
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
         text +=  std::format("\n-EOS: {}", newChat.txt_vocab_eos);
         text +=  std::format("\n-Empty messages: {}", newChat.c_empty_msgs);
+        text +=  std::format("\n-Restricted tokens: {}", newChat.c_restricted_tkns);
         // text +=  std::format("\n-bos: {}", newChat.params.bos);
         // text +=  std::format("\n-eos: {}", newChat.params.eos);
         text +=  std::format("\n-seamless: {}", seamless);
@@ -370,9 +370,15 @@ struct modelThread{
         text +=  std::format("\n-format_dialog: {}", newChat.params.format_dialog);
         text +=  std::format("\n-has_antiprompt: {}", newChat.has_antiprompt);
         text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);
+
+        // text +=  std::format("\n-Last candidates: {}", last_candidates);
+        // text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
+        text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
+
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
         //text +=  newChat.formatRepresentation + "\n\n";
+
         text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
 
         text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
@@ -1494,6 +1500,7 @@ struct configurableChat{
         if (params.n_batch != paramsDefault.n_batch) modelConfig[model]["n_batch"] = params.n_batch;
         if (params.n_ubatch != paramsDefault.n_ubatch) modelConfig[model]["n_ubatch"] = params.n_ubatch;
         if (params.ctx_shift != paramsDefault.ctx_shift) modelConfig[model]["ctx_shift"] = params.ctx_shift;
+        if (params.swa_full != paramsDefault.swa_full) modelConfig[model]["swa_full"] = params.swa_full;
 
         if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) modelConfig[model]["n_threads"] = params.cpuparams.n_threads;
         if (params.cpuparams.poll != paramsDefault.cpuparams.poll) modelConfig[model]["n_threads_poll"] = params.cpuparams.poll;
@@ -1510,7 +1517,8 @@ struct configurableChat{
         if (params.eos != paramsDefault.eos) modelConfig[model]["eos"] = params.eos;
         if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
         if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig[model]["logit_bias_strings"] = params.sparams.logit_bias_strings;
-        
+        if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig[model]["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
+
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
 
         if (params.rope_freq_base != paramsDefault.rope_freq_base) modelConfig[model]["rope_freq_base"] = params.rope_freq_base;
@@ -1622,6 +1630,7 @@ struct configurableChat{
         if (params.n_keep != paramsDefault.n_keep) newCard["n_keep"] = params.n_keep;
         if (params.n_batch != paramsDefault.n_batch) newCard["n_batch"] = params.n_batch;
         if (params.ctx_shift != paramsDefault.ctx_shift) newCard["ctx_shift"] = params.ctx_shift;
+        if (params.swa_full != paramsDefault.swa_full) newCard["swa_full"] = params.swa_full;
         if (params.clblast_platform_id != paramsDefault.clblast_platform_id) newCard["clblast_platform_id"] = params.clblast_platform_id;
 
         if (params.cpuparams.n_threads != paramsDefault.cpuparams.n_threads) newCard["n_threads"] = params.cpuparams.n_threads;
@@ -1631,7 +1640,7 @@ struct configurableChat{
         if (params.cpuparams_batch.n_threads != paramsDefault.cpuparams_batch.n_threads) newCard["n_threads_batch"] = params.cpuparams_batch.n_threads;
         if (params.cpuparams_batch.poll != paramsDefault.cpuparams_batch.poll) newCard["n_threads_batch_poll"] = params.cpuparams_batch.poll;
         if (params.cpuparams_batch.priority != paramsDefault.cpuparams_batch.priority) newCard["n_threads_batch_sched_priority"] = params.cpuparams_batch.priority;
-        
+
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) newCard["n_gpu_layers"] = params.n_gpu_layers;
 
         if (params.rope_freq_base != paramsDefault.rope_freq_base) newCard["rope_freq_base"] = params.rope_freq_base;
@@ -1669,7 +1678,10 @@ struct configurableChat{
         if (params.kv_overrides_pair != paramsDefault.kv_overrides_pair) modelConfig["kv_overrides_pair"] = params.kv_overrides_pair;
 
         if(grammarFile != "") newCard["grammar-file"] = grammarFile;
-        
+
+        if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig["logit_bias_strings"] = params.sparams.logit_bias_strings;
+        if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
+
         return newCard;
     }
     

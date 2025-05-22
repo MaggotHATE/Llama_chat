@@ -44,3 +44,5 @@
 /base/ggml/ggml-vulkan-shaders.hpp
 /base_sampling2/ggml/ggml-vulkan-shaders.cpp
 /base_sampling2/ggml/ggml-vulkan-shaders.hpp
+/base_sampling2/master/ggml/src/ggml-vulkan-shaders.cpp
+/base_sampling2/master/ggml/src/ggml-vulkan-shaders.hpp

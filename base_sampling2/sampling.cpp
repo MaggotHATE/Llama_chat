@@ -91,7 +91,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
     };
 
     llama_sampler_chain_add(result->chain,
-            llama_sampler_init_logit_bias(
+            llama_sampler_init_logit_bias_addon(
                 llama_vocab_n_tokens(vocab),
                 params.logit_bias.size(),
                 params.logit_bias.data()));
@@ -158,6 +158,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
             //llama_sampler_chain_add(result->chain, llama_sampler_init_post_addon(params.seed, params.xtc_probability, params.xtc_threshold));
             // llama_sampler_chain_add(result->chain, llama_sampler_init_dist(params.seed));
             llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus(params.seed, params.confidence_top, params.confidence_bottom));
+            // llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus1 (params.seed, params.confidence_top, params.confidence_bottom, params.logit_bias));
         } else if (params.mirostat == 1) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_mirostat(llama_vocab_n_tokens(vocab), params.seed, params.mirostat_tau, params.mirostat_eta, 100));
@@ -178,7 +179,8 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp       (params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma_addon(params.top_n_sigma));
             llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus  (params.seed, params.confidence_top, params.confidence_bottom));
+            // llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus  (params.seed, params.confidence_top, params.confidence_bottom));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus1 (params.seed, params.confidence_top, params.confidence_bottom, params.logit_bias));
         } else {
             GGML_ASSERT(false && "unknown mirostat version");
         }
