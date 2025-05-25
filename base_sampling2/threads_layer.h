@@ -372,8 +372,9 @@ struct modelThread{
         text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);
 
         // text +=  std::format("\n-Last candidates: {}", last_candidates);
-        // text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
+        text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
         text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
+        text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
 
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
@@ -581,6 +582,7 @@ struct modelThread{
             if (full) result += text;
 
             result += std::format("{}-Empty messages: {}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates,DELIMINER);
+            result += std::format("-Restricted tokens: {}{}", newChat.c_restricted_tkns, DELIMINER);
             result +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
             file_o << result << DELIMINER;
             file_o.close();
@@ -672,7 +674,7 @@ struct modelThread{
         newChat.rewindBack();
         // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
-    
+
     void unload(){
         newChat.clear();
         lastResult = "";
@@ -682,7 +684,7 @@ struct modelThread{
         isLoading = '_';
         isUnload = '_';
     }
-    
+
     void unloadSoft(){
         newChat.clearSoft();
         lastResult = "";
@@ -702,12 +704,12 @@ struct modelThread{
         float tmp = newChat.get_speed_p();
         if (tmp != 0) lastSpeedPrompt = tmp;
     }
-    
+
     void getTimigsGen(){
         //lastTimings = newChat.get_timings_simple();
         float tmp = newChat.get_speed();
         if (tmp != 0) lastSpeed = tmp;
-    } 
+    }
 
     void getTimigsBoth(){
         getTimigsPre();
@@ -801,7 +803,7 @@ struct modelThread{
                     getTimigsBoth();
                     getSparamsList();
 
-                    std::string output = newChat.cycleStringsOnly(false, lastResult.empty());
+                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 5, lastResult.length() < 20);
                     if (isContinue == 'i') {
                         if (isUnload == 'y') {
                             unload();
@@ -843,7 +845,7 @@ struct modelThread{
             while (isContinue != 'i') {
 
 
-                std::string output = newChat.cycleStringsOnly(false);
+                std::string output = newChat.cycleStringsOnly(lastResult.length() < 5, lastResult.length() < 20);
                 if (isContinue == 'i') {
                     if (isUnload == 'y') {
                         unload();
@@ -904,7 +906,7 @@ struct modelThread{
             while (isContinue != 'i'){
 
 
-                std::string output = newChat.cycleStringsOnly(false);
+                std::string output = newChat.cycleStringsOnly(lastResult.length() < 5, lastResult.length() < 20);
                 if (isContinue == 'i') {
                     if (isUnload == 'y') {
                         unload();
@@ -1518,6 +1520,7 @@ struct configurableChat{
         if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
         if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig[model]["logit_bias_strings"] = params.sparams.logit_bias_strings;
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig[model]["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
+        if (params.sparams.logit_bias_strings_start != paramsDefault.sparams.logit_bias_strings_start) modelConfig[model]["logit_bias_strings_start"] = params.sparams.logit_bias_strings_start;
 
         if (params.n_gpu_layers != paramsDefault.n_gpu_layers) modelConfig[model]["n_gpu_layers"] = params.n_gpu_layers;
 
@@ -1681,6 +1684,7 @@ struct configurableChat{
 
         if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig["logit_bias_strings"] = params.sparams.logit_bias_strings;
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
+        if (params.sparams.logit_bias_strings_start != paramsDefault.sparams.logit_bias_strings_start) modelConfig["logit_bias_strings_start"] = params.sparams.logit_bias_strings_start;
 
         return newCard;
     }

@@ -300,6 +300,82 @@ llama_token common_sampler_sample(struct common_sampler * gsmpl, struct llama_co
     return cur_p.data[cur_p.selected].id;
 }
 
+std::vector<llama_token> common_sampler_sample_group(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, bool grammar_first) {
+    gsmpl->set_logits(ctx, idx);
+
+    auto & grmr  = gsmpl->grmr;
+    auto & chain = gsmpl->chain;
+    auto & cur_p = gsmpl->cur_p; // initialized by set_logits
+
+    std::vector<llama_token> token_group;
+
+    if (grammar_first) {
+        llama_sampler_apply(grmr, &cur_p);
+    }
+
+    llama_sampler_apply(chain, &cur_p);
+
+    GGML_ASSERT(cur_p.selected != -1 && "no selected token during sampling - check your sampling configuration");
+
+    if (grammar_first) {
+        for (int i = 1; i < cur_p.size; ++i) {
+                token_group.push_back(cur_p.data[i].id);
+            }
+
+        return token_group;
+    }
+
+    const llama_token id = cur_p.data[cur_p.selected].id;
+
+    // check if it the sampled token fits the grammar
+    {
+        llama_token_data       single_token_data       = { id, 1.0f, 0.0f };
+        llama_token_data_array single_token_data_array = { &single_token_data, 1, -1, false };
+
+        llama_sampler_apply(grmr, &single_token_data_array);
+
+        const bool is_valid = single_token_data_array.data[0].logit != -INFINITY;
+        if (is_valid) {
+            for (int i = 1; i < cur_p.size; ++i) {
+                token_group.push_back(cur_p.data[i].id);
+            }
+
+            return token_group;
+        }
+    }
+
+    // resampling:
+    // if the token is not valid, sample again, but first apply the grammar sampler and then the sampling chain
+    gsmpl->set_logits(ctx, idx);
+
+    llama_sampler_apply(grmr,  &cur_p);
+    llama_sampler_apply(chain, &cur_p);
+
+    GGML_ASSERT(cur_p.selected != -1 && "no selected token during re-sampling - check your sampling configuration");
+
+    for (int i = 1; i < cur_p.size; ++i) {
+        token_group.push_back(cur_p.data[i].id);
+    }
+
+    return token_group;
+}
+
+llama_token common_sampler_shift(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, llama_token invalid_token) {
+    auto & grmr  = gsmpl->grmr;
+    auto & chain = gsmpl->chain;
+    auto & cur_p = gsmpl->cur_p; // initialized by set_logits
+
+    while (cur_p.data[cur_p.selected].id == invalid_token) {
+        if (cur_p.selected < (cur_p.size - 1)) {
+            cur_p.selected += 1;
+        } else if (cur_p.selected > 0) {
+            cur_p.selected -= 1;
+        }
+    }
+
+    return cur_p.data[cur_p.selected].id;
+}
+
 std::vector<llama_token> common_sampler_sample_and_accept_n(struct common_sampler * gsmpl, struct llama_context * ctx, const std::vector<int> & idxs, const llama_tokens & draft, bool grammar_first) {
     GGML_ASSERT(idxs.size() == draft.size() + 1 && "idxs.size() must be draft.size() + 1");
 

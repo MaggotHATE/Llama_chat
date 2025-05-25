@@ -194,8 +194,10 @@ struct common_params_sampling {
     std::vector<llama_token>            grammar_trigger_tokens; // optional trigger tokens to trigger lazy grammar and print trigger special tokens.
 
     std::vector<llama_logit_bias> logit_bias; // logit biases to apply
+
     std::vector<std::string> logit_bias_strings; // words for logit biases
     std::map<std::string, float> logit_bias_strings_ext; // words for logit biases, but with extra configuration
+    std::vector<std::string> logit_bias_strings_start; // restricted beginnings of messages
 
     // print the parameters into a string
     std::string print() const;

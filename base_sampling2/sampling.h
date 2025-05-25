@@ -61,6 +61,12 @@ void common_perf_print(const struct llama_context * ctx, const struct common_sam
 //
 llama_token common_sampler_sample(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, bool grammar_first = false);
 
+// in case we want to get the last state of all tokens after sampling
+std::vector<llama_token> common_sampler_sample_group(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, bool grammar_first = false);
+
+// for cases when we want to control tokens externally
+llama_token common_sampler_shift(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, llama_token invalid_token);
+
 // generalized version of common_sampler_sample
 //
 // will cross-reference the sampled tokens with a batch of draft tokens and accept those that match
