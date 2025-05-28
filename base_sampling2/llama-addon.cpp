@@ -674,7 +674,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
         }
 
         // if we have enough values the operation was a success
-        if (filtered_tokens.size() >= ctx->min_keep) {
+        if (!filtered_tokens.empty() && filtered_tokens.size() >= ctx->min_keep) {
             memcpy(cur_p->data, filtered_tokens.data(), filtered_tokens.size()*sizeof(llama_token_data));
             cur_p->size = filtered_tokens.size();
             min_p_applied = true;

@@ -596,6 +596,45 @@ public:
         // std::getline(std::cin, pause);
     }
 
+    bool logit_bias_check_exact(std::string_view token_str) {
+        for (auto word : params.sparams.logit_bias_strings_exact) {
+            if (token_str == word) return true;
+        }
+
+        return false;
+    }
+
+    bool logit_bias_check_beginning(std::string_view token_str) {
+        for (auto word : params.sparams.logit_bias_strings_beginning) {
+            if ((token_str.find(word) == 0 && (token_str.length() - word.length()) < 4) ||
+                (token_str.length() > 2 && word.find(token_str) == 0)
+                ) return true;
+        }
+
+        return false;
+    }
+
+    bool logit_bias_check_ending(std::string_view token_str) {
+        for (auto word : params.sparams.logit_bias_strings_ending) {
+            auto token_str_pos = word.find(token_str);
+            if (token_str_pos == (token_str.length() - 1)) return true;
+        }
+
+        return false;
+    }
+
+   bool logit_bias_checks(std::string token_str) {
+        if (token_str.front() == ' ') {
+           token_str = token_str.substr(1);
+        }
+
+        if (token_str.back() == ' ') {
+            token_str.pop_back();
+        }
+
+        return logit_bias_check_exact(token_str) || logit_bias_check_beginning(token_str) || logit_bias_check_ending(token_str);
+   }
+
    void logit_bias_postfill(llama_token & id, std::string token_str) {
         // cutting spaces since there are "duplicated" tokens with them
         if (token_str.front() == ' ') {
@@ -687,14 +726,21 @@ public:
     }
 
     void processByVocab(std::string safeguard_string) {
+        bool has_logit_biases_detailed = (params.sparams.logit_bias_strings_exact.size() || params.sparams.logit_bias_strings_beginning.size() || params.sparams.logit_bias_strings_ending.size());
+
         bool has_logit_biases = (params.sparams.logit_bias_strings.size() || params.sparams.logit_bias_strings_ext.size());
         bool has_logit_biases_start = params.sparams.logit_bias_strings_start.size();
 
         for (llama_token id = 0; id < llama_vocab_n_tokens(vocab); id++) {
             std::string token_str = common_token_to_piece(ctx, id);
 
-            if (has_logit_biases) logit_bias_postfill(id, token_str);
-            if (has_logit_biases_start) start_bias_tokens_postfill(id, token_str);
+            if (has_logit_biases_detailed == true && logit_bias_checks(token_str) == true) {
+                params.sparams.logit_bias.push_back({id, -INFINITY});
+            } else if (has_logit_biases == true) {
+                logit_bias_postfill(id, token_str);
+            }
+
+            if (has_logit_biases_start == true) start_bias_tokens_postfill(id, token_str);
             if (safeguard_token < 0) get_safeguard_token(id, token_str, safeguard_string);
         }
 
@@ -1636,7 +1682,7 @@ public:
                         if (id == l) {
                             checks = 0;
                             std::string c_restricted_tkn_string = common_token_to_piece(ctx, id);
-                            writeTextFile("logit_biasing.txt", std::format("Found: '{}';", c_restricted_tkn_string));
+                            writeTextFile("logit_biasing.txt", std::format("{}: Found '{}';", params.sparams.seed, c_restricted_tkn_string));
 
                             id = common_sampler_shift(smpl, ctx, -1, id);
 
@@ -1659,7 +1705,7 @@ public:
                     // --attempts;
                 // }
 
-                if (biased_logit.token == id) {
+                if (biased_logit.bias < -9 && biased_logit.token == id) {
                     ++c_restricted_tkns;
                     // std::string c_restricted_tkn_string = common_token_to_piece(ctx, id);
                     // writeTextFile("logit_biasing.txt", std::format("+{}\n", c_restricted_tkn_string));

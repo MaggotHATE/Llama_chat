@@ -533,6 +533,11 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
 
 // logit_bias_strings
     if (checkJArr(config, "logit_bias_strings")) params.sparams.logit_bias_strings = config["logit_bias_strings"];
+    if (checkJArr(config, "logit_bias_strings_exact")) params.sparams.logit_bias_strings_exact = config["logit_bias_strings_exact"];
+    if (checkJArr(config, "logit_bias_strings_beginning")) params.sparams.logit_bias_strings_beginning = config["logit_bias_strings_beginning"];
+    if (checkJArr(config, "logit_bias_strings_ending")) params.sparams.logit_bias_strings_ending = config["logit_bias_strings_ending"];
+
+
     if (checkJObj(config, "logit_bias_strings_ext")) params.sparams.logit_bias_strings_ext = config["logit_bias_strings_ext"];
     if (checkJArr(config, "logit_bias_strings_start")) params.sparams.logit_bias_strings_start = config["logit_bias_strings_start"];
 

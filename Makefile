@@ -473,6 +473,7 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-batch.o \
     $(TMP)$(PREFIX)_llama-chat.o \
     $(TMP)$(PREFIX)_llama-context.o \
+    $(TMP)$(PREFIX)_llama-cparams.o \
     $(TMP)$(PREFIX)_llama-grammar.o \
     $(TMP)$(PREFIX)_llama-graph.o \
     $(TMP)$(PREFIX)_llama-hparams.o \

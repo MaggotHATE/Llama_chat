@@ -601,12 +601,12 @@ struct modelThread{
             file_o << "--------------------" << DELIMINER;
             file_o << __func__ << DELIMINER;
             if (full) file_o << text << DELIMINER;
-
-            file_o << getSummary() << DELIMINER;
-            file_o << last_candidates << DELIMINER;
-            std::string kv_info =  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
-            file_o << kv_info << DELIMINER; 
             file_o << '\n' << getMessagesPure() << DELIMINER;
+            file_o << getSummary() << DELIMINER;
+            file_o << std::format("{}-Empty messages: {}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates,DELIMINER);
+            std::string kv_info =  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
+            file_o << kv_info << DELIMINER;
+            file_o <<  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
             file_o.close();
             return true;
         } else {
@@ -1518,7 +1518,12 @@ struct configurableChat{
         if (params.bos != paramsDefault.bos) modelConfig[model]["bos"] = params.bos;
         if (params.eos != paramsDefault.eos) modelConfig[model]["eos"] = params.eos;
         if (params.sparams.samplers_sequence != paramsDefault.sparams.samplers_sequence) modelConfig[model]["samplers_sequence"] = params.sparams.samplers_sequence;
+
         if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig[model]["logit_bias_strings"] = params.sparams.logit_bias_strings;
+        if (params.sparams.logit_bias_strings_exact != paramsDefault.sparams.logit_bias_strings_exact) modelConfig[model]["logit_bias_strings_exact"] = params.sparams.logit_bias_strings_exact;
+        if (params.sparams.logit_bias_strings_beginning != paramsDefault.sparams.logit_bias_strings_beginning) modelConfig[model]["logit_bias_strings_beginning"] = params.sparams.logit_bias_strings_beginning;
+        if (params.sparams.logit_bias_strings_ending != paramsDefault.sparams.logit_bias_strings_ending) modelConfig[model]["logit_bias_strings_ending"] = params.sparams.logit_bias_strings_ending;
+
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig[model]["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
         if (params.sparams.logit_bias_strings_start != paramsDefault.sparams.logit_bias_strings_start) modelConfig[model]["logit_bias_strings_start"] = params.sparams.logit_bias_strings_start;
 
@@ -1683,6 +1688,11 @@ struct configurableChat{
         if(grammarFile != "") newCard["grammar-file"] = grammarFile;
 
         if (params.sparams.logit_bias_strings != paramsDefault.sparams.logit_bias_strings) modelConfig["logit_bias_strings"] = params.sparams.logit_bias_strings;
+        if (params.sparams.logit_bias_strings_exact != paramsDefault.sparams.logit_bias_strings_exact) modelConfig["logit_bias_strings_exact"] = params.sparams.logit_bias_strings_exact;
+        if (params.sparams.logit_bias_strings_beginning != paramsDefault.sparams.logit_bias_strings_beginning) modelConfig["logit_bias_strings_beginning"] = params.sparams.logit_bias_strings_beginning;
+        if (params.sparams.logit_bias_strings_ending != paramsDefault.sparams.logit_bias_strings_ending) modelConfig["logit_bias_strings_ending"] = params.sparams.logit_bias_strings_ending;
+
+
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
         if (params.sparams.logit_bias_strings_start != paramsDefault.sparams.logit_bias_strings_start) modelConfig["logit_bias_strings_start"] = params.sparams.logit_bias_strings_start;
 

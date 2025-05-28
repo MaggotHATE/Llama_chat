@@ -195,7 +195,12 @@ struct common_params_sampling {
 
     std::vector<llama_logit_bias> logit_bias; // logit biases to apply
 
-    std::vector<std::string> logit_bias_strings; // words for logit biases
+    std::vector<std::string> logit_bias_strings; // words for logit biases, all matches
+    std::vector<std::string> logit_bias_strings_exact; // words for logit biases, exact matches
+    std::vector<std::string> logit_bias_strings_beginning; // words for logit biases, beginning of the word matches
+    std::vector<std::string> logit_bias_strings_ending; // words for logit biases, ending of the word matches
+
+
     std::map<std::string, float> logit_bias_strings_ext; // words for logit biases, but with extra configuration
     std::vector<std::string> logit_bias_strings_start; // restricted beginnings of messages
 
