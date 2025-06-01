@@ -641,26 +641,6 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
         }
     }
 
-//gpu offload
-    if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
-    if (config["main_gpu"].is_boolean()) params.main_gpu = config["main_gpu"];
-
-// backend-specific
-#ifdef GGML_USE_VULKAN
-    if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
-    if (checkJNum(config, "n_threads_vk")) params.cpuparams.n_threads = config["n_threads_vk"];
-    if (checkJNum(config, "n_threads_batch_vk")) params.cpuparams_batch.n_threads = config["n_threads_batch_vk"];
-    if (config["use_mmap_vk"].is_boolean()) params.use_mmap = config["use_mmap_vk"];
-    if (config["flash_attn_vk"].is_boolean()) params.flash_attn = config["flash_attn_vk"];
-    if (config["no_kv_offload_vk"].is_boolean()) params.no_kv_offload = config["no_kv_offload_vk"];
-#elif GGML_USE_CLBLAST
-    if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
-    if (checkJNum(config, "n_threads_clblast")) params.cpuparams.n_threads = config["n_threads_clblast"];
-    if (checkJNum(config, "n_threads_batch_clblast")) params.cpuparams_batch.n_threads = config["n_threads_batch_clblast"];
-
-    if (checkJNum(config, "clblast_platform_id")) params.clblast_platform_id = config["clblast_platform_id"];
-#endif
-
 // context-related
     if (checkJNum(config, "ctx-size")) params.n_ctx = config["ctx-size"];
     if (checkJNum(config, "grp_attn_n")) params.grp_attn_n = config["grp_attn_n"];
@@ -708,6 +688,43 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
             params.control_vectors.push_back({ el.value(), el.key(), });
         }
     }
+
+//gpu offload
+    if (checkJNum(config, "n_gpu_layers")) params.n_gpu_layers = config["n_gpu_layers"];
+    if (config["main_gpu"].is_boolean()) params.main_gpu = config["main_gpu"];
+}
+
+static void getBackendParamsFromJson(nlohmann::json& config, common_params& params) {
+// backend-specific
+#ifdef GGML_USE_VULKAN
+    if (checkJNum(config, "n_gpu_layers_vk")) params.n_gpu_layers = config["n_gpu_layers_vk"];
+    if (checkJNum(config, "n_threads_vk")) params.cpuparams.n_threads = config["n_threads_vk"];
+    if (checkJNum(config, "n_threads_batch_vk")) params.cpuparams_batch.n_threads = config["n_threads_batch_vk"];
+    if (config["use_mmap_vk"].is_boolean()) params.use_mmap = config["use_mmap_vk"];
+    if (config["flash_attn_vk"].is_boolean()) params.flash_attn = config["flash_attn_vk"];
+    if (config["no_kv_offload_vk"].is_boolean()) params.no_kv_offload = config["no_kv_offload_vk"];
+
+    if (checkJObj(config, "VK")) {
+        nlohmann::json config_vk = config["VK"];
+        getPerformanceParamsFromJson(config_vk, params);
+    }
+#elif GGML_USE_CLBLAST
+    if (checkJNum(config, "n_gpu_layers_clblast")) params.n_gpu_layers = config["n_gpu_layers_clblast"];
+    if (checkJNum(config, "n_threads_clblast")) params.cpuparams.n_threads = config["n_threads_clblast"];
+    if (checkJNum(config, "n_threads_batch_clblast")) params.cpuparams_batch.n_threads = config["n_threads_batch_clblast"];
+
+    if (checkJNum(config, "clblast_platform_id")) params.clblast_platform_id = config["clblast_platform_id"];
+
+    if (checkJObj(config, "CL")) {
+        nlohmann::json config_cl = config["CL"];
+        getPerformanceParamsFromJson(config_cl, params);
+    }
+#elif GGML_USE_BLAS
+    if (checkJObj(config, "BLAS")) {
+        nlohmann::json config_blas = config["BLAS"];
+        getPerformanceParamsFromJson(config_blas, params);
+    }
+#endif
 }
 
 static void getParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false){
@@ -717,6 +734,7 @@ static void getParamsFromJson(nlohmann::json& config, common_params& params, boo
     getPromptingParamsFromJson(config, params, hasFile, headless);
     // performance and misc
     getPerformanceParamsFromJson(config, params);
+    getBackendParamsFromJson(config, params);
     //sampling
     getSamplingParamsFromJson(config, params);
     getTensorOverridePairs(config, params);

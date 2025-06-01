@@ -272,6 +272,22 @@ struct modelThread{
         return result;
     }
 
+    std::string getMessagesSimple() {
+        std::string messages_display;
+
+        for (auto r : resultsStringPairs){
+            if (r.first == "INSTRUCT"){
+                messages_display += std::format("\n------\n{}\n------", r.second);
+            } else if (r.first == "AI"){
+                messages_display += std::format("\nA:\n{}", r.second);
+            } else {
+                messages_display += std::format("\nQ:\n{}", r.second);
+            }
+        }
+
+        return messages_display;
+    }
+
     std::string getMessagesPure() {
         std::string messages_display;
 
@@ -462,12 +478,17 @@ struct modelThread{
             file << lastTimings << DELIMINER;
             file << '\n' << "Generated: " << past_tokens << '\n' << std::endl;
             file << "----------------------------------------\n"<< std::endl;
-            for (auto r : resultsStringPairs){
-                //file << r.first << DELIMINER;
-                //file << ' ' << r.second << DELIMINER;
-                file << '\n' << r.second << DELIMINER;
-            }
-            
+            // for (auto r : resultsStringPairs){
+                // if (r.first == "AI") {
+                    // file << "A:";
+                // } else {
+                    // file << "Q:";
+                // }
+
+                // file << '\n' << r.second << DELIMINER;
+            // }
+
+            file << '\n' << getMessagesSimple() << DELIMINER;
             file.close();
             return true;
         } else {
@@ -508,7 +529,7 @@ struct modelThread{
             file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
             file << lastTimings << std::endl;
             file << "Prompt:" << consumed_tokens << std::endl;
-            file << "Result: " << last_tokens << std::endl;
+            file << "Result:\n" << last_tokens << std::endl;
             file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 // file << r.first << DELIMINER;
@@ -536,7 +557,7 @@ struct modelThread{
             file_i << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
             file_i << lastTimings << std::endl;
             file_i << "Prompt:" << consumed_tokens << std::endl;
-            file_i << "Result: " << last_tokens << std::endl;
+            file_i << "Result:\n" << last_tokens << std::endl;
             file_i << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs) {
                 // file << r.first << DELIMINER;
@@ -567,7 +588,7 @@ struct modelThread{
                 file_i << getSummary() << DELIMINER;
                 file_i << text << std::endl;
                 file_i << "Prompt:" << consumed_tokens << std::endl;
-                file_i << "Result: " << last_tokens << std::endl;
+                file_i << "Result:\n" << last_tokens << std::endl;
                 file_i << "----------------------------------------\n"<< std::endl;
                 file_i << getMessagesPure() << DELIMINER;
 
@@ -577,7 +598,7 @@ struct modelThread{
 
         std::ofstream file_o(path2, std::ios::app);
         if (file_o.is_open()) {
-            std::string result = std::format("{}{}{}{}RESULT:{}{}",__func__,DELIMINER,getSummary(),DELIMINER,resultsStringPairs.back().second,DELIMINER);
+            std::string result = std::format("{}{}{}{}RESULT:\n{}{}",__func__,DELIMINER,getSummary(),DELIMINER,resultsStringPairs.back().second,DELIMINER);
 
             if (full) result += text;
 
@@ -625,7 +646,7 @@ struct modelThread{
             file << "Threads: " << newChat.params.cpuparams.n_threads << "/" << newChat.params.cpuparams_batch.n_threads << std::endl;
             file << lastTimings << std::endl;
             file << "Prompt:" << consumed_tokens << std::endl;
-            file << "Result: " << last_tokens << std::endl;
+            file << "Result:\n" << last_tokens << std::endl;
             file << "----------------------------------------\n"<< std::endl;
             for (auto r : resultsStringPairs){
                 //file << r.first << DELIMINER;

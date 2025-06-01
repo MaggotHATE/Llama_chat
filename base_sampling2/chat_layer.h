@@ -617,7 +617,7 @@ public:
     bool logit_bias_check_ending(std::string_view token_str) {
         for (auto word : params.sparams.logit_bias_strings_ending) {
             auto token_str_pos = word.find(token_str);
-            if (token_str_pos == (token_str.length() - 1)) return true;
+            if (token_str_pos == (word.length() - 1)) return true;
         }
 
         return false;
