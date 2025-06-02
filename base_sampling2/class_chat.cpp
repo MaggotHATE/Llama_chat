@@ -118,7 +118,7 @@ int main(int argc, char ** argv) {
 
     std::string suffix_addon = "";
 
-    if (filename.rfind(".json") != filename.npos){
+    if (filename.rfind(".json") != filename.npos) {
         SetConsoleTitle("Loading a json file...");
         auto instantJson = getJson(filename);
         if (instantJson.contains("presets")){
@@ -152,6 +152,7 @@ int main(int argc, char ** argv) {
             //threadedChat.externalData = "Cycles left: " + std::to_string(regens);
         }
         std::string extract = extract_string_mod(inputPrompt, "{{","}}");
+        extract_logit_bias_strings(inputPrompt, "[[","]]" , settings.modelConfig[settings.modelName]);
         if (extract != "NULL") suffix_addon = extract;
     }
 

@@ -2425,15 +2425,14 @@ static bool ggml_thread_apply_priority(int32_t prio) {
         case GGML_SCHED_PRIO_REALTIME: p = THREAD_PRIORITY_TIME_CRITICAL; break;
     }
 
-#if defined(__GNUC__)
-// MinGW doesn't support THREAD_POWER_THROTTLING_CURRENT_VERSION and THREAD_POWER_THROTTLING_EXECUTION_SPEED
-#else
     if (prio != GGML_SCHED_PRIO_LOW) {
         // Tell Windows that this thread should not be throttled (needs its own CPU core).
         // Newer Windows 11 versions aggresively park (offline) CPU cores and often place
         // all our threads onto the first 4 cores which results in terrible performance with
         // n_threads > 4
-        #if _WIN32_WINNT >= 0x0602
+        // MinGW doesn't support THREAD_POWER_THROTTLING_CURRENT_VERSION
+        // and THREAD_POWER_THROTTLING_EXECUTION_SPEED
+        #if !defined(__GNUC__) && _WIN32_WINNT >= 0x0602
         THREAD_POWER_THROTTLING_STATE t;
         ZeroMemory(&t, sizeof(t));
         t.Version     = THREAD_POWER_THROTTLING_CURRENT_VERSION;
@@ -2446,7 +2445,6 @@ static bool ggml_thread_apply_priority(int32_t prio) {
         }
         #endif
     }
-#endif
 
     if (prio == GGML_SCHED_PRIO_NORMAL) {
         // Keep inherited policy/priority
