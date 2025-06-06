@@ -73,6 +73,8 @@ extern int num_probs_bottoms;
 
 extern float confidence_total;
 
+extern std::vector<llama_token> last_candidates_logits;
+
 #define SESSIONS_FOLDER "sessions/"
 
 static common_params paramsDefault;
@@ -190,6 +192,7 @@ class chat
 private:
 	
     llama_context * ctx = nullptr;
+    llama_memory_t mem = nullptr;
     llama_model * model = nullptr;
     common_sampler * smpl = nullptr;
     const llama_vocab * vocab = nullptr;
@@ -288,6 +291,8 @@ public:
     std::string logit_bias_strings_display = "";
     std::string logit_bias_strings_ext_display = "";
     std::string logit_bias_strings_start_display = "";
+
+    std::string last_candidates_logits_display = "";
 
     struct llama_perf_context_data ctx_performance_data;
 
@@ -762,6 +767,14 @@ public:
 
         for (auto l : logit_bias_tokens_start) {
             logit_bias_strings_start_display += std::format(" '{}';", common_token_to_piece(ctx, l));
+        }
+    }
+
+    void get_last_candidates_logits_display() {
+        last_candidates_logits_display.clear();
+
+        for (auto logit : last_candidates_logits) {
+            last_candidates_logits_display += std::format("{}; ", common_token_to_piece(ctx, logit));
         }
     }
 
@@ -1250,6 +1263,9 @@ public:
             ctx = llama_init.context.release();
             printf("..............CONTEXT INITIALIZED (%s)................\n", __func__);
 
+            mem = llama_get_memory(ctx);
+            printf("..............MEM INITIALIZED (%s)................\n", __func__);
+
             assignThreads();
             printf("..............THREADS ASSIGNED (%s)................\n", __func__);
 
@@ -1402,7 +1418,7 @@ public:
 
             // remove any "future" tokens that we might have inherited from the previous session
             //llama_kv_cache_tokens_rm(ctx, n_matching_session_tokens, -1);
-            llama_kv_self_seq_rm(ctx, -1, n_matching_session_tokens, -1);
+            llama_memory_seq_rm(mem, -1, n_matching_session_tokens, -1);
         }
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
@@ -1475,8 +1491,8 @@ public:
             // always keep the first token - BOS
             //n_past = std::max(1, params.n_keep);
             //n_past_guidance = std::max(1, params.n_keep + guidance_offset);
-            llama_kv_self_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
-            llama_kv_self_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
+            llama_memory_seq_rm (mem, 0, params.n_keep            , params.n_keep + n_discard);
+            llama_memory_seq_add(mem, 0, params.n_keep + n_discard, n_past, -n_discard);
 
             // insert n_left/2 tokens at the start of embd from last_n_tokens
             //embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
@@ -1510,8 +1526,8 @@ public:
                 const int n_left    = n_past - params.n_keep;
                 const int n_discard = n_left/2;
 
-                llama_kv_self_seq_rm (ctx, 0, params.n_keep            , params.n_keep + n_discard);
-                llama_kv_self_seq_add(ctx, 0, params.n_keep + n_discard, n_past, -n_discard);
+                llama_memory_seq_rm (mem, 0, params.n_keep            , params.n_keep + n_discard);
+                llama_memory_seq_add(mem, 0, params.n_keep + n_discard, n_past, -n_discard);
 
                 n_past -= n_discard;
 
@@ -1524,9 +1540,9 @@ public:
                 const int bd = (ga_w/ga_n)*(ga_n - 1);
                 const int dd = (ga_w/ga_n) - ib*bd - ga_w;
                 
-                llama_kv_self_seq_add(ctx, 0, ga_i,                n_past,              ib*bd);
-                llama_kv_self_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
-                llama_kv_self_seq_add(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+                llama_memory_seq_add(mem, 0, ga_i,                n_past,              ib*bd);
+                llama_memory_seq_div(mem, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
+                llama_memory_seq_add(mem, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
                 
                 n_past -= bd;
 
@@ -1650,6 +1666,8 @@ public:
         // const llama_token id = common_sampler_sample(smpl, ctx, -1);
         llama_token id = common_sampler_sample(smpl, ctx, -1);
 
+        get_last_candidates_logits_display();
+
         // try to sample a different token to avoid empty messages
         int attempts = 1000; // safeguard
         while (emptyMessage == true && llama_token_is_eog(vocab, id) && attempts > 0) {
@@ -1738,7 +1756,7 @@ public:
             capture_smpl();
             // rewind_state.capture_kv_cache(llama_kv_cache_seq_pos_max(ctx, 0));
             // rewind_state.capture_kv_cache(llama_kv_self_seq_pos_max(ctx, -1));
-            rewind_state.capture_kv_cache(llama_kv_self_seq_pos_max(ctx, 0));
+            rewind_state.capture_kv_cache(llama_memory_seq_pos_max(mem, 0));
             rewind_state.capture_embd_inp(embd_inp.size());
             rewind_state.capture_n_past(n_past);
             rewind_state.capture_n_consumed(n_consumed);
@@ -1748,7 +1766,7 @@ public:
     int get_kv_cache_seq_pos_max() {
         // return llama_kv_cache_seq_pos_max(ctx, 0);
         // return llama_kv_self_seq_pos_max(ctx, -1);
-        return llama_kv_self_seq_pos_max(ctx, 0);
+        return llama_memory_seq_pos_max(mem, 0);
     }
 
     void clearStates2() {
@@ -1764,7 +1782,7 @@ public:
         restore_smpl();
         //common_sampler_reset(smpl);
     // context
-        llama_kv_self_seq_rm(ctx, 0, rewind_state.kv_cache_pos, -1);
+        llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
         // llama_kv_self_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
     // chat parameters

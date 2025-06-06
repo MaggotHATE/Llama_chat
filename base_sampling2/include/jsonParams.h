@@ -46,6 +46,32 @@ static std::string extract_string_mod(std::string& text, std::string open, std::
     return "NULL";
 }
 
+static void extract_logit_bias_strings(std::string& text, std::string open, std::string close, nlohmann::json& config) {
+    size_t open_pos = text.rfind(open);
+    size_t close_pos = text.rfind(close);
+    if (open_pos != text.npos && close_pos != text.npos) {
+        size_t diff = close_pos - open_pos - open.length();
+        std::string extract = text.substr(open_pos + open.length(), diff);
+        std::cout << "Extracting: " << extract << std::endl;
+        text.replace(open_pos,diff + open.length() + close.length(),"");
+
+        if (extract.size() > 1) {
+            int pos = 0;
+            for (int i = 0; i < extract.size(); i++) {
+                if (extract[i] == ',') {
+                    std::string part = extract.substr(pos, i);
+                    config["logit_bias_strings_exact"].push_back(part);
+                    std::cout << "Adding " << part << std::endl;
+                    pos = i+1;
+                }
+            }
+        } else if (extract.size() > 0) {
+            config["logit_bias_strings_exact"].push_back(extract);
+            std::cout << "Adding " << extract << std::endl;
+        }
+    }
+}
+
 static bool replace_string_mod(std::string& text, std::string target, std::string replacement) {
     size_t target_pos = text.rfind(target);
 
@@ -621,9 +647,10 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
     if (checkJNum(config, "n_threads_sched_priority")) {
         int sched_priority = config["n_threads_sched_priority"];
         switch (sched_priority){
-            case 1: params.cpuparams.priority = GGML_SCHED_PRIO_MEDIUM; break;
-            case 2: params.cpuparams.priority = GGML_SCHED_PRIO_HIGH; break;
-            case 3: params.cpuparams.priority = GGML_SCHED_PRIO_REALTIME; break;
+            case 1: params.cpuparams.priority = GGML_SCHED_PRIO_LOW; break;
+            case 2: params.cpuparams.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 3: params.cpuparams.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 4: params.cpuparams.priority = GGML_SCHED_PRIO_REALTIME; break;
             default: params.cpuparams.priority = GGML_SCHED_PRIO_NORMAL; break;
         }
     }
@@ -634,9 +661,10 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
     if (checkJNum(config, "n_threads_batch_sched_priority")) {
         int sched_priority = config["n_threads_batch_sched_priority"];
         switch (sched_priority){
-            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
-            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
-            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
+            case 1: params.cpuparams_batch.priority = GGML_SCHED_PRIO_LOW; break;
+            case 2: params.cpuparams_batch.priority = GGML_SCHED_PRIO_MEDIUM; break;
+            case 3: params.cpuparams_batch.priority = GGML_SCHED_PRIO_HIGH; break;
+            case 4: params.cpuparams_batch.priority = GGML_SCHED_PRIO_REALTIME; break;
             default: params.cpuparams_batch.priority = GGML_SCHED_PRIO_NORMAL; break;
         }
     }

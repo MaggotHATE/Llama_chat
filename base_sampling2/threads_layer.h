@@ -373,6 +373,10 @@ struct modelThread{
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
 
+        text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
+        text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
+        text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
+
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
         text +=  std::format("\n-BOS: {}", newChat.txt_vocab_bos);
@@ -388,9 +392,7 @@ struct modelThread{
         text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);
 
         // text +=  std::format("\n-Last candidates: {}", last_candidates);
-        text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
-        text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
-        text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
+        text +=  std::format("\n-Last candidates: {}", newChat.last_candidates_logits_display);
 
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);
@@ -602,8 +604,8 @@ struct modelThread{
 
             if (full) result += text;
 
-            result += std::format("{}-Empty messages: {}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates,DELIMINER);
-            result += std::format("-Restricted tokens: {}{}", newChat.c_restricted_tkns, DELIMINER);
+            result += std::format("{}-Empty messages: {}{}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates, DELIMINER, newChat.last_candidates_logits_display, DELIMINER);
+            result += std::format("{}-Restricted tokens: {}", DELIMINER, newChat.c_restricted_tkns);
             result +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
             file_o << result << DELIMINER;
             file_o.close();
@@ -624,7 +626,7 @@ struct modelThread{
             if (full) file_o << text << DELIMINER;
             file_o << '\n' << getMessagesPure() << DELIMINER;
             file_o << getSummary() << DELIMINER;
-            file_o << std::format("{}-Empty messages: {}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates,DELIMINER);
+            file_o << std::format("{}-Empty messages: {}{}{}{}", DELIMINER, newChat.c_empty_msgs, DELIMINER, last_candidates, DELIMINER, newChat.last_candidates_logits_display, DELIMINER);
             std::string kv_info =  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
             file_o << kv_info << DELIMINER;
             file_o <<  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
@@ -824,7 +826,7 @@ struct modelThread{
                     getTimigsBoth();
                     getSparamsList();
 
-                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 5, lastResult.length() < 20);
+                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 20);
                     if (isContinue == 'i') {
                         if (isUnload == 'y') {
                             unload();
@@ -866,7 +868,7 @@ struct modelThread{
             while (isContinue != 'i') {
 
 
-                std::string output = newChat.cycleStringsOnly(lastResult.length() < 5, lastResult.length() < 20);
+                std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 20);
                 if (isContinue == 'i') {
                     if (isUnload == 'y') {
                         unload();
@@ -927,7 +929,7 @@ struct modelThread{
             while (isContinue != 'i'){
 
 
-                std::string output = newChat.cycleStringsOnly(lastResult.length() < 5, lastResult.length() < 20);
+                std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 20);
                 if (isContinue == 'i') {
                     if (isUnload == 'y') {
                         unload();

@@ -2430,8 +2430,6 @@ static bool ggml_thread_apply_priority(int32_t prio) {
         // Newer Windows 11 versions aggresively park (offline) CPU cores and often place
         // all our threads onto the first 4 cores which results in terrible performance with
         // n_threads > 4
-        // MinGW doesn't support THREAD_POWER_THROTTLING_CURRENT_VERSION
-        // and THREAD_POWER_THROTTLING_EXECUTION_SPEED
         #if !defined(__GNUC__) && _WIN32_WINNT >= 0x0602
         THREAD_POWER_THROTTLING_STATE t;
         ZeroMemory(&t, sizeof(t));

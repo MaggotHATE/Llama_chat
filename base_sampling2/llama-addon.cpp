@@ -46,6 +46,7 @@ float xtc_percent = 0.0;
 int candidates_max = 0;
 int candidates_max_min_p = 0;
 std::string last_candidates = "NONE";
+std::vector<llama_token> last_candidates_logits;
 
 int rx_total = 0;
 int rx_removed = 0;
@@ -154,13 +155,16 @@ static bool writeCandidatesToFile2vec(std::string path, std::vector<llama_token_
 
 static std::string getFormattedCandidates(llama_token_data_array * candidates) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
+    last_candidates_logits.clear();
     int zeroes = 0;
     for (size_t i = 0; i < candidates->size; ++i) {
         int chance = candidates->data[i].p * 100;
         int logit = candidates->data[i].logit;
-        if (chance > 0 || candidates->size == 1) { 
-            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+        if (chance > 0 || candidates->size == 1) {
+            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]";
         } else ++zeroes;
+
+        last_candidates_logits.push_back(candidates->data[i].id);
     }
     //if (zeroes > 0) text += "~" + std::to_string(zeroes);
 
