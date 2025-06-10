@@ -611,8 +611,9 @@ public:
 
     bool logit_bias_check_beginning(std::string_view token_str) {
         for (auto word : params.sparams.logit_bias_strings_beginning) {
+            int len_min = (word.length() > 5 ? 3 : 2);
             if ((token_str.find(word) == 0 && (token_str.length() - word.length()) < 4) ||
-                (token_str.length() > 2 && word.find(token_str) == 0)
+                (token_str.length() > len_min && word.find(token_str) == 0)
                 ) return true;
         }
 

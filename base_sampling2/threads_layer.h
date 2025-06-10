@@ -279,9 +279,9 @@ struct modelThread{
             if (r.first == "INSTRUCT"){
                 messages_display += std::format("\n------\n{}\n------", r.second);
             } else if (r.first == "AI"){
-                messages_display += std::format("\nA:\n{}", r.second);
+                messages_display += std::format("\n\nA:\n{}", r.second);
             } else {
-                messages_display += std::format("\nQ:\n{}", r.second);
+                messages_display += std::format("\n\nQ:\n{}", r.second);
             }
         }
 
@@ -374,8 +374,8 @@ struct modelThread{
         }
 
         text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
-        text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
-        text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
+        // text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
+        // text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
 
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);
@@ -392,7 +392,7 @@ struct modelThread{
         text +=  std::format("\n-is_antiprompt: {}", newChat.is_antiprompt);
 
         // text +=  std::format("\n-Last candidates: {}", last_candidates);
-        text +=  std::format("\n-Last candidates: {}", newChat.last_candidates_logits_display);
+        // text +=  std::format("\n-Last candidates: {}", newChat.last_candidates_logits_display);
 
         text +=  std::format("\n-input_prefix: {}", newChat.params.input_prefix);
         text +=  std::format("\n-input_suffix: {}\n{}\n", newChat.params.input_suffix, separator_main);

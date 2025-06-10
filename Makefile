@@ -102,6 +102,8 @@ ARCH = -march=native -mtune=native
 TMP = o/
 endif
 
+ARCH_F = x86
+
 #the main folder for groups of sources
 base = base_sampling2
 
@@ -120,6 +122,7 @@ ggmlsrc_f_h = $(ggmlsrc_f)/include
 ggmlsrc_f_s = $(ggmlsrc_f)/src
 # backends
 ggmlsrc_cpu_f = $(ggmlsrc_f_s)/ggml-cpu
+ggmlsrc_cpu_86_f = $(ggmlsrc_cpu_f)/arch/$(ARCH_F)
 ggmlsrc_blas_f = $(ggmlsrc_f_s)/ggml-blas
 ggmlsrc_vulkan_f = $(ggmlsrc_f_s)/ggml-vulkan
 # llama
@@ -178,7 +181,7 @@ OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 # vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
 
 FILE_D = -Itinyfiledialogs
-I_GGUF = -I$(common_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(uibackend_f) -I$(include_f)
+I_GGUF = -I$(common_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_cpu_86_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(uibackend_f) -I$(include_f)
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -419,8 +422,7 @@ HEADERS_GGUF_BASE = \
     $(ggmlsrc_f_s)/ggml-backend-impl.h \
     $(ggmlsrc_f_s)/ggml-quants.h \
     $(ggmlsrc_f_s)/ggml-threading.h \
-    $(ggmlsrc_cpu_f)/ggml-cpu-aarch64.h \
-    $(ggmlsrc_cpu_f)/ggml-cpu-hbm.h \
+    $(ggmlsrc_cpu_f)/hbm.h \
     $(ggmlsrc_cpu_f)/ggml-cpu-impl.h \
     $(ggmlsrc_cpu_f)/ggml-cpu-quants.h \
     $(ggmlsrc_cpu_f)/ggml-cpu-traits.h \
@@ -446,10 +448,13 @@ OBJS_GGUF_CPU = \
     $(OBJS_GGUF_BASE) \
     $(TMP)$(PREFIX)_ggml-cpu.o \
     $(TMP)$(PREFIX)_ggml-cpu_cpp.o \
-    $(TMP)$(PREFIX)_ggml-cpu-aarch64.o \
-    $(TMP)$(PREFIX)_ggml-cpu-hbm.o \
-    $(TMP)$(PREFIX)_ggml-cpu-quants.o \
-    $(TMP)$(PREFIX)_ggml-cpu-traits.o \
+    $(TMP)$(PREFIX)_repack.o \
+    $(TMP)$(PREFIX)_hbm.o \
+    $(TMP)$(PREFIX)_quants.o \
+    $(TMP)$(PREFIX)_$(ARCH_F)_repack.o \
+    $(TMP)$(PREFIX)_$(ARCH_F)_quants.o \
+    $(TMP)$(PREFIX)_$(ARCH_F)_cpu-feats.o \
+    $(TMP)$(PREFIX)_traits.o \
     $(TMP)$(PREFIX)_common.o \
     $(TMP)$(PREFIX)_binary-ops.o \
     $(TMP)$(PREFIX)_unary-ops.o \
@@ -461,7 +466,7 @@ ifdef DYNAMIC
 	PREFIX = dyn_$(PREFIX_BASE)
 	OBJS_GGUF = $(OBJS_GGUF_BASE)
 else
-	CXXFLAGS += -DGGML_USE_CPU
+	CXXFLAGS += -DGGML_USE_CPU -DGGML_USE_CPU_REPACK
 	PREFIX = stt_$(PREFIX_BASE)
 	OBJS_GGUF = $(OBJS_GGUF_CPU)
 endif
@@ -554,33 +559,51 @@ endif
 # inherited from llama.cpp, usually no custom changes
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/%.c
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-cpu/%.c
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
+	@echo 
+
+$(TMP)$(PREFIX)_$(ARCH_F)_%.o: $(ggmlsrc_f_s)/ggml-cpu/arch/$(ARCH_F)/%.c
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-cpu/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
+
+$(TMP)$(PREFIX)_$(ARCH_F)_%.o: $(ggmlsrc_f_s)/ggml-cpu/arch/$(ARCH_F)/%.cpp
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-cpu/llamafile/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-blas/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-vulkan/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%_cpp.o: $(ggmlsrc_f_s)/%.cpp
 	$(CC) $(CXXFLAGS) $(LDFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%_cpp.o: $(ggmlsrc_f_s)/ggml-cpu/%.cpp
 	$(CC) $(CXXFLAGS) $(LDFLAGS) -MMD -c $< -o $@
+	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(llamacpp_f_s)/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
 
 # customized part
 COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f_h)/llama.h
