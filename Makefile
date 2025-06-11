@@ -424,8 +424,8 @@ HEADERS_GGUF_BASE = \
     $(ggmlsrc_f_s)/ggml-threading.h \
     $(ggmlsrc_cpu_f)/hbm.h \
     $(ggmlsrc_cpu_f)/ggml-cpu-impl.h \
-    $(ggmlsrc_cpu_f)/ggml-cpu-quants.h \
-    $(ggmlsrc_cpu_f)/ggml-cpu-traits.h \
+    $(ggmlsrc_cpu_f)/quants.h \
+    $(ggmlsrc_cpu_f)/traits.h \
     $(ggmlsrc_cpu_f)/common.h \
     $(ggmlsrc_cpu_f)/binary-ops.h \
     $(ggmlsrc_cpu_f)/unary-ops.h \
@@ -751,7 +751,7 @@ ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
 # Final parts
-$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(COMMON_H_DEPS) $(json_layer) $(chat_layer) $(settings_layer) $(OBJS_GGUF)
+$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(HEADERS_GGUF_BASE) $(COMMON_H_DEPS) $(json_layer) $(chat_layer) $(settings_layer) $(OBJS_GGUF)
 	@echo ------------------------------------------------------------------------
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo ---------------CHAT COMPILED with: $(PREFIX)

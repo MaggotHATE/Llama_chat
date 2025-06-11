@@ -551,6 +551,7 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
     if (checkJNum(config, "dry_base")) params.sparams.dry_base = config["dry_base"];
     if (checkJNum(config, "dry_allowed_length")) params.sparams.dry_allowed_length = config["dry_allowed_length"];
     if (checkJNum(config, "dry_penalty_last_n")) params.sparams.dry_penalty_last_n = config["dry_penalty_last_n"];
+    if (checkJArr(config, "dry_sequence_breakers")) params.sparams.dry_sequence_breakers = config["dry_sequence_breakers"];
 
 //mirostat
     if (checkJNum(config, "mirostat")) params.sparams.mirostat = config["mirostat"];
@@ -562,6 +563,7 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
     if (checkJArr(config, "logit_bias_strings_exact")) params.sparams.logit_bias_strings_exact = config["logit_bias_strings_exact"];
     if (checkJArr(config, "logit_bias_strings_beginning")) params.sparams.logit_bias_strings_beginning = config["logit_bias_strings_beginning"];
     if (checkJArr(config, "logit_bias_strings_ending")) params.sparams.logit_bias_strings_ending = config["logit_bias_strings_ending"];
+    if (checkJArr(config, "logit_bias_strings_manual")) params.sparams.logit_bias_strings_manual = config["logit_bias_strings_manual"];
 
 
     if (checkJObj(config, "logit_bias_strings_ext")) params.sparams.logit_bias_strings_ext = config["logit_bias_strings_ext"];

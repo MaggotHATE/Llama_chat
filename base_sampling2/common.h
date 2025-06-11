@@ -200,6 +200,9 @@ struct common_params_sampling {
     std::vector<std::string> logit_bias_strings_beginning; // words for logit biases, beginning of the word matches
     std::vector<std::string> logit_bias_strings_ending; // words for logit biases, ending of the word matches
 
+    std::vector<llama_token> logit_bias_tokens_manual; // tokens for manual restricting
+    std::vector<std::string> logit_bias_strings_manual; // words for manual restricting
+
 
     std::map<std::string, float> logit_bias_strings_ext; // words for logit biases, but with extra configuration
     std::vector<std::string> logit_bias_strings_start; // restricted beginnings of messages

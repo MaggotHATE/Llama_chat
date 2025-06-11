@@ -373,7 +373,9 @@ struct modelThread{
             text += std::format("\n-C_V: {} {:.1f}", v.fname, v.strength);
         }
 
+        text +=  std::format("\n-dry_sequence_breakers_display: {}", newChat.dry_sequence_breakers_display);
         text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
+        text +=  std::format("\n-logit_bias_strings_manual_display: {}", newChat.logit_bias_strings_manual_display);
         // text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
         // text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
 
@@ -1546,6 +1548,8 @@ struct configurableChat{
         if (params.sparams.logit_bias_strings_exact != paramsDefault.sparams.logit_bias_strings_exact) modelConfig[model]["logit_bias_strings_exact"] = params.sparams.logit_bias_strings_exact;
         if (params.sparams.logit_bias_strings_beginning != paramsDefault.sparams.logit_bias_strings_beginning) modelConfig[model]["logit_bias_strings_beginning"] = params.sparams.logit_bias_strings_beginning;
         if (params.sparams.logit_bias_strings_ending != paramsDefault.sparams.logit_bias_strings_ending) modelConfig[model]["logit_bias_strings_ending"] = params.sparams.logit_bias_strings_ending;
+        if (params.sparams.logit_bias_strings_manual != paramsDefault.sparams.logit_bias_strings_manual) modelConfig[model]["logit_bias_strings_manual"] = params.sparams.logit_bias_strings_manual;
+        if (params.sparams.dry_sequence_breakers != paramsDefault.sparams.dry_sequence_breakers) modelConfig[model]["dry_sequence_breakers"] = params.sparams.dry_sequence_breakers;
 
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig[model]["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
         if (params.sparams.logit_bias_strings_start != paramsDefault.sparams.logit_bias_strings_start) modelConfig[model]["logit_bias_strings_start"] = params.sparams.logit_bias_strings_start;
@@ -1714,6 +1718,8 @@ struct configurableChat{
         if (params.sparams.logit_bias_strings_exact != paramsDefault.sparams.logit_bias_strings_exact) modelConfig["logit_bias_strings_exact"] = params.sparams.logit_bias_strings_exact;
         if (params.sparams.logit_bias_strings_beginning != paramsDefault.sparams.logit_bias_strings_beginning) modelConfig["logit_bias_strings_beginning"] = params.sparams.logit_bias_strings_beginning;
         if (params.sparams.logit_bias_strings_ending != paramsDefault.sparams.logit_bias_strings_ending) modelConfig["logit_bias_strings_ending"] = params.sparams.logit_bias_strings_ending;
+        if (params.sparams.logit_bias_strings_manual != paramsDefault.sparams.logit_bias_strings_manual) modelConfig["logit_bias_strings_manual"] = params.sparams.logit_bias_strings_manual;
+        if (params.sparams.dry_sequence_breakers != paramsDefault.sparams.dry_sequence_breakers) modelConfig["dry_sequence_breakers"] = params.sparams.dry_sequence_breakers;
 
 
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;

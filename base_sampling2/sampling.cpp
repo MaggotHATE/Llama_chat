@@ -365,7 +365,7 @@ llama_token common_sampler_shift(struct common_sampler * gsmpl, struct llama_con
     auto & chain = gsmpl->chain;
     auto & cur_p = gsmpl->cur_p; // initialized by set_logits
 
-    while (cur_p.data[cur_p.selected].id == invalid_token) {
+    while (cur_p.data[cur_p.selected].id == invalid_token && cur_p.size > 1) {
         if (cur_p.selected < (cur_p.size - 1)) {
             cur_p.selected += 1;
         } else if (cur_p.selected > 0) {

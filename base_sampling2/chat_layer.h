@@ -291,8 +291,11 @@ public:
     std::string logit_bias_strings_display = "";
     std::string logit_bias_strings_ext_display = "";
     std::string logit_bias_strings_start_display = "";
+    std::string logit_bias_strings_manual_display = "";
 
     std::string last_candidates_logits_display = "";
+
+    std::string dry_sequence_breakers_display = "";
 
     struct llama_perf_context_data ctx_performance_data;
 
@@ -601,6 +604,57 @@ public:
         // std::getline(std::cin, pause);
     }
 
+    void sparams_postfill2() {
+        // std::string space = " ";
+        if (params.sparams.logit_bias_strings_manual.size()) {
+            for (llama_token i = 0; i < llama_vocab_n_tokens(vocab); i++) {
+                std::string token_str = common_token_to_piece(ctx, i);
+                // cutting spaces since there are "duplicated" tokens with them
+                if (token_str.front() == ' ') {
+                    token_str = token_str.substr(1);
+                }
+
+                // almost never happens
+                if (token_str.back() == ' ') {
+                    token_str.pop_back();
+                }
+
+                bool restricted = false;
+                float bias = -INFINITY;
+
+                if (token_str.length() > 2) {
+                    for (auto word : params.sparams.logit_bias_strings_manual) {
+                        auto token_str_pos = word.find(token_str);
+
+                        if (token_str_pos == 0 || token_str_pos == (word.size() - 1)) {
+                            restricted = true;
+                            break;
+                        } else if (token_str.find(word) == 0 && (token_str.length() - word.length()) < 4) {
+                            restricted = true;
+                            break;
+                        }
+                    }
+                } else if (token_str.length() > 0) {
+                    for (auto word : params.sparams.logit_bias_strings_manual) {
+                        if (token_str == word) {
+                            restricted = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (restricted == true) {
+                    params.sparams.logit_bias_tokens_manual.push_back(i);
+                }
+            }
+        }
+
+        // std::string pause = "";
+        // std::getline(std::cin, pause);
+    }
+
+
+
     bool logit_bias_check_exact(std::string_view token_str) {
         for (auto word : params.sparams.logit_bias_strings_exact) {
             if (token_str == word) return true;
@@ -757,6 +811,7 @@ public:
         logit_bias_strings_display = "";
         logit_bias_strings_ext_display = "";
         logit_bias_strings_start_display = "";
+        logit_bias_strings_manual_display = "";
 
         for (auto l : params.sparams.logit_bias) {
             if (l.bias == -INFINITY) { 
@@ -769,6 +824,10 @@ public:
         for (auto l : logit_bias_tokens_start) {
             logit_bias_strings_start_display += std::format(" '{}';", common_token_to_piece(ctx, l));
         }
+
+        for (auto l : params.sparams.logit_bias_tokens_manual) {
+            logit_bias_strings_manual_display += std::format(" '{}';", common_token_to_piece(ctx, l));
+        }
     }
 
     void get_last_candidates_logits_display() {
@@ -776,6 +835,14 @@ public:
 
         for (auto logit : last_candidates_logits) {
             last_candidates_logits_display += std::format("{}; ", common_token_to_piece(ctx, logit));
+        }
+    }
+
+    void get_dry_sequence_breakers_display() {
+        dry_sequence_breakers_display.clear();
+
+        for (auto breaker : params.sparams.dry_sequence_breakers) {
+            dry_sequence_breakers_display += std::format("{}; ", breaker);
         }
     }
 
@@ -1296,11 +1363,12 @@ public:
         printf("%s: llama_n_ctx = %d\n", __func__, n_ctx);
 
         // processing restricted words into logit_bias
-        // sparams_postfill();
+        sparams_postfill2();
         //sparams_postfill_ext();
         // get_safeguard_token("Title");
         processByVocab("Title");
-
+        get_logit_bias_str();
+        get_dry_sequence_breakers_display();
 
         smpl = common_sampler_init(model, sparams);
         printf("%s: common_sampler_init\n", __func__);
@@ -1611,6 +1679,7 @@ public:
     void check_antiprompt_tkns() {
         // check for reverse prompt using special tokens
         llama_token last_token = common_sampler_last(smpl);
+
         for (std::vector<llama_token> ids : antiprompt_ids) {
             if (std::size(ids) == 1 && last_token == ids[0]) {
                 if (params.interactive) {
@@ -1621,6 +1690,24 @@ public:
                 break;
             }
         }
+    }
+
+    bool check_antiprompt_tkns_bool() {
+        // check for reverse prompt using special tokens
+        llama_token last_token = common_sampler_last(smpl);
+
+        for (std::vector<llama_token> ids : antiprompt_ids) {
+            if (std::size(ids) == 1 && last_token == ids[0]) {
+                if (params.interactive) {
+                    is_interacting = true;
+                    has_antiprompt = std::format("{}: already has antiprompt", __func__);
+                }
+                is_antiprompt = true;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     //checking already existing contex
@@ -1678,15 +1765,19 @@ public:
             id = common_sampler_shift(smpl, ctx, -1, id);
         }
 
-        for (auto l_b : params.sparams.logit_bias) {
-            if (l_b.bias < -99 && id == l_b.token) {
-                std::string c_bias_tkn_string = common_token_to_piece(ctx, id);
-                writeTextFile("logit_biasing.txt", std::format("Restricted: '{}';", c_bias_tkn_string));
+        int checks = 0;
+        while (checks < params.sparams.logit_bias_tokens_manual.size()) {
+            for (auto tkn : params.sparams.logit_bias_tokens_manual) {
+                ++checks;
+                if (id == tkn) {
+                    std::string c_bias_tkn_string = common_token_to_piece(ctx, id);
+                    writeTextFile("logit_biasing.txt", std::format("{}: Restricted: '{}';", params.sparams.seed, c_bias_tkn_string));
 
-                id = common_sampler_shift(smpl, ctx, -1, id);
+                    id = common_sampler_shift(smpl, ctx, -1, id);
 
-                c_bias_tkn_string = common_token_to_piece(ctx, id);
-                writeTextFile("logit_biasing.txt", std::format(" replaced with: '{}'\n", c_bias_tkn_string));
+                    c_bias_tkn_string = common_token_to_piece(ctx, id);
+                    writeTextFile("logit_biasing.txt", std::format(" replaced with: '{}'\n", c_bias_tkn_string));
+                }
             }
         }
 
@@ -2009,8 +2100,6 @@ public:
 
         if (debug) printf("Starting initial prompt processing...\n");
 
-        get_logit_bias_str();
-
 
         std::string result;
         //std::cout << " * " << std::endl;
@@ -2075,9 +2164,9 @@ public:
     const std::string getTknFromEmbd(){
         if (debug) printf("-gp");
         
-        for (auto id : embd) { 
-            //return llama_token_to_string(ctx, id); 
-            return common_token_to_piece(ctx, id); 
+        for (auto id : embd) {
+            //return llama_token_to_string(ctx, id);
+            return common_token_to_piece(ctx, id);
         }
     }
 
@@ -2224,6 +2313,27 @@ public:
         return getTknFromEmbd();
     }
 
+    std::string getMultiBit(int numTkns = 2, bool emptyMessage = false, bool shortMessage = false) { // 1 2 3 4
+        std::string result = "";
+
+        for (int i = 0; i < numTkns; i++) {
+            if (checkAndClearEmbd() == 0) {
+                finished = true;
+                return txt_vocab_eos;
+            }
+
+            if (!is_interacting) sampleTknIntoEmbd(emptyMessage, shortMessage); // 2
+
+            result += getTknFromEmbd();
+
+            if (llama_token_is_eog(vocab, common_sampler_last(smpl))) {
+                return result;
+            }
+        }
+
+        return result;
+    }
+
     // token by token generation and pushing
     std::string cycleStringsOnly(bool emptyMessage = false, bool shortMessage = false) {
 
@@ -2231,7 +2341,8 @@ public:
         //process_prompt(false);  // do not forget to include it elsewhere after loading the model  
         //inputOnly(input); // MOVED
 
-        std::string bit = getBit(emptyMessage, shortMessage);
+        // std::string bit = getBit(emptyMessage, shortMessage);
+        std::string bit = getMultiBit(2, emptyMessage, shortMessage);
 
         if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");
