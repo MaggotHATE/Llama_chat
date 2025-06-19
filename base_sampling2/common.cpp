@@ -705,6 +705,8 @@ bool fs_validate_filename(const std::string & filename) {
     return true;
 }
 
+#include <iostream>
+
 // returns true if successful, false otherwise
 bool fs_create_directory_with_parents(const std::string & path) {
 #ifdef _WIN32
@@ -722,9 +724,16 @@ bool fs_create_directory_with_parents(const std::string & path) {
     // process path from front to back, procedurally creating directories
     while ((pos_slash = path.find('\\', pos_slash)) != std::string::npos) {
         const std::wstring subpath = wpath.substr(0, pos_slash);
-        const wchar_t * test = subpath.c_str();
 
-        const bool success = CreateDirectoryW(test, NULL);
+        pos_slash += 1;
+
+        // skip the drive letter, in some systems it can return an access denied error
+        if (subpath.length() == 2 && subpath[1] == ':') {
+            continue;
+        }
+
+        const bool success = CreateDirectoryW(subpath.c_str(), NULL);
+
         if (!success) {
             const DWORD error = GetLastError();
 
@@ -739,7 +748,6 @@ bool fs_create_directory_with_parents(const std::string & path) {
             }
         }
 
-        pos_slash += 1;
     }
 
     return true;
@@ -841,31 +849,6 @@ struct common_init_result common_init_from_params(common_params & params) {
 
     const llama_vocab * vocab = llama_model_get_vocab(model);
 
-    if (params.reranking) {
-        bool ok = true;
-
-        if (llama_vocab_bos(vocab) == LLAMA_TOKEN_NULL) {
-            printf("%s: warning: vocab does not have a  BOS token, reranking will not work\n", __func__);
-            ok = false;
-        }
-
-        if (llama_vocab_eos(vocab) == LLAMA_TOKEN_NULL) {
-            printf("%s: warning: vocab does not have an EOS token, reranking will not work\n", __func__);
-            ok = false;
-        }
-
-        if (llama_vocab_sep(vocab) == LLAMA_TOKEN_NULL) {
-            printf("%s: warning: vocab does not have a  SEP token, reranking will not work\n", __func__);
-            ok = false;
-        }
-
-        if (!ok) {
-            llama_model_free(model);
-
-            return iparams;
-        }
-    }
-
     auto cparams = common_context_params_to_llama(params);
 
     llama_context * lctx = llama_new_context_with_model(model, cparams);
@@ -906,6 +889,35 @@ struct common_init_result common_init_from_params(common_params & params) {
 
             return iparams;
         } else printf("%s: vectors applied \n", __func__);
+    }
+
+    if (llama_pooling_type(lctx) == LLAMA_POOLING_TYPE_RANK) {
+        bool ok = true;
+
+        if (llama_vocab_bos(vocab) == LLAMA_TOKEN_NULL) {
+            printf("%s: warning: vocab does not have a  BOS token, reranking will not work\n", __func__);
+            ok = false;
+        }
+
+        bool has_eos = llama_vocab_eos(vocab) != LLAMA_TOKEN_NULL;
+        bool has_sep = llama_vocab_sep(vocab) != LLAMA_TOKEN_NULL;
+
+        if (!has_eos && !has_sep) {
+            printf("%s: warning: vocab does not have an EOS token or SEP token, reranking will not work\n", __func__);
+            ok = false;
+        } else if (!has_eos) {
+            printf("%s: warning: vocab does not have an EOS token, using SEP token as fallback\n", __func__);
+        } else if (!has_sep) {
+            printf("%s: warning: vocab does not have a SEP token, reranking will not work\n", __func__);
+            ok = false;
+        }
+
+        if (!ok) {
+            llama_free(lctx);
+            llama_model_free(model);
+
+            return iparams;
+        }
     }
 
     // load and optionally apply lora adapters
@@ -1159,11 +1171,6 @@ struct llama_context_params common_context_params_to_llama(const common_params &
     cparams.flash_attn        = params.flash_attn;
     cparams.no_perf           = params.no_perf;
     cparams.swa_full          = params.swa_full;
-
-    if (params.reranking) {
-        cparams.embeddings    = true;
-        cparams.pooling_type  = LLAMA_POOLING_TYPE_RANK;
-    }
 
     cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);

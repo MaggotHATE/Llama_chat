@@ -34,8 +34,7 @@ public:
     llama_memory_state_ptr init_batch(
             const llama_batch & batch,
             uint32_t n_ubatch,
-            bool embd_pooled,
-            bool logits_all) override;
+            bool embd_all) override;
 
     llama_memory_state_ptr init_full() override;
 
@@ -118,8 +117,6 @@ public:
     const llama_kv_cache_unified_state * get_swa()  const;
 
 private:
-    llama_memory_status status;
-
     //llama_kv_cache_unified_iswa * kv;
 
     llama_sbatch sbatch;
@@ -129,6 +126,8 @@ private:
 
     std::vector<llama_ubatch> ubatches;
 
-    llama_memory_state_ptr state_base;
-    llama_memory_state_ptr state_swa;
+    const llama_memory_state_ptr state_base;
+    const llama_memory_state_ptr state_swa;
+
+    const llama_memory_status status;
 };

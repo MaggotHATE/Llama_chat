@@ -486,8 +486,9 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-io.o \
     $(TMP)$(PREFIX)_llama-kv-cache-unified.o \
     $(TMP)$(PREFIX)_llama-kv-cache-unified-iswa.o \
-    $(TMP)$(PREFIX)_llama-kv-cache-recurrent.o \
     $(TMP)$(PREFIX)_llama-memory.o \
+    $(TMP)$(PREFIX)_llama-memory-hybrid.o \
+    $(TMP)$(PREFIX)_llama-memory-recurrent.o \
     $(TMP)$(PREFIX)_llama-mmap.o \
     $(TMP)$(PREFIX)_llama-model-loader.o \
     $(TMP)$(PREFIX)_llama-model-saver.o \

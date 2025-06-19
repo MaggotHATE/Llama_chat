@@ -1790,7 +1790,7 @@ public:
                     for (auto l : logit_bias_tokens_start) {
                         ++checks;
                         if (id == l) {
-                            checks = 0;
+                            //checks = 0;
                             std::string c_restricted_tkn_string = common_token_to_piece(ctx, id);
                             writeTextFile("logit_biasing.txt", std::format("{}: Found '{}';", params.sparams.seed, c_restricted_tkn_string));
 
@@ -2341,8 +2341,8 @@ public:
         //process_prompt(false);  // do not forget to include it elsewhere after loading the model  
         //inputOnly(input); // MOVED
 
-        // std::string bit = getBit(emptyMessage, shortMessage);
-        std::string bit = getMultiBit(2, emptyMessage, shortMessage);
+        std::string bit = getBit(emptyMessage, shortMessage);
+        // std::string bit = getMultiBit(2, emptyMessage, shortMessage);
 
         if ((int) std::size(embd_inp) <= n_consumed) {
             if (debug) printf("-cso");

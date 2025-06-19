@@ -155,3 +155,8 @@ void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sam
                              int32_t   n_vocab,
                              int32_t   n_logit_bias,
               const llama_logit_bias * logit_bias);
+
+              LLAMA_API struct llama_sampler * llama_sampler_init_logit_bias_start_addon(
+                             int32_t   n_vocab,
+                             int32_t   n_logit_bias,
+              const llama_logit_bias * logit_bias);

@@ -828,7 +828,7 @@ struct modelThread{
                     getTimigsBoth();
                     getSparamsList();
 
-                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 20);
+                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 5);
                     if (isContinue == 'i') {
                         if (isUnload == 'y') {
                             unload();
@@ -870,7 +870,7 @@ struct modelThread{
             while (isContinue != 'i') {
 
 
-                std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 20);
+                std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 5);
                 if (isContinue == 'i') {
                     if (isUnload == 'y') {
                         unload();
@@ -931,7 +931,7 @@ struct modelThread{
             while (isContinue != 'i'){
 
 
-                std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 20);
+                std::string output = newChat.cycleStringsOnly(lastResult.length() < 2, lastResult.length() < 5);
                 if (isContinue == 'i') {
                     if (isUnload == 'y') {
                         unload();
