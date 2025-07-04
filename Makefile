@@ -14,6 +14,9 @@
 # Define the default target now so that it is always the first target
 BUILD_TARGETS = chat chat_cl chat_vk
 
+GGML_VERSION = 0
+GGML_COMMIT = 0
+
 #CXX = g++
 #CXX = clang++
 
@@ -93,6 +96,8 @@ ifdef LLAMA_SHARED
 FLAG_S = shared
 endif
 
+VERSIONS = -DGGML_VERSION -DGGML_COMMIT
+
 ifdef AVX
 ARCH = -march=core-avx-i -mtune=core-avx-i -mavx
 ARCH_NAME = _AVX
@@ -117,7 +122,8 @@ PREFIX_A = master
 # ggml
 # ggmlsrc_f_h = $(base)/ggml
 # ggmlsrc_f_s = $(base)/ggml
-ggmlsrc_f = $(base)/$(PREFIX_A)/ggml
+ggmlsrc = $(base)/$(PREFIX_A)
+ggmlsrc_f = $(ggmlsrc)/ggml
 ggmlsrc_f_h = $(ggmlsrc_f)/include
 ggmlsrc_f_s = $(ggmlsrc_f)/src
 # backends
@@ -260,7 +266,7 @@ C_WARNS = -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Wer
 CPP_WARNS = -Wshadow -Wmissing-declarations -Wmissing-noreturn
 
 #for main ui
-CXXFLAGS_UI += $(OPT_UI) -std=$(CCPP) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
+CXXFLAGS_UI += $(OPT_UI) -std=$(CCPP) -fPIC -DNDEBUG $(ARCH) $(VERSIONS) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w
 CXXFLAGS_UI += -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS_UI += -g -Wall -Wformat -pipe
 
@@ -269,10 +275,10 @@ CXXFLAGS_UI += -DSDL2
 endif
 
 #for general ggml-gguf
-CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w $(WARNS) $(C_WARNS) -pipe
+CFLAGS = $(I_GGUF) $(OPTC) -std=$(CCC) -fPIC $(GNUPDATEC) -DNDEBUG $(ARCH) $(VERSIONS) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w $(WARNS) $(C_WARNS) -pipe
 
 #for all chatTest
-CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w $(WARNS) $(CPP_WARNS) -pipe
+CXXFLAGS = $(I_GGUF) $(OPT) -std=$(CCPP) $(GNUPDATECXX) -fPIC -DNDEBUG $(ARCH) $(VERSIONS) -DGGML_USE_K_QUANTS -DLOG_DISABLE_LOGS -w $(WARNS) $(CPP_WARNS) -pipe
 
 # The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
@@ -839,6 +845,10 @@ chatTest_vk:
 	$(MAKE) chatTest VULKAN=1
 	@echo Using VULKAN
 
+test-vk-ops:
+	$(MAKE) test-backend-ops VULKAN=1
+	@echo Using VULKAN
+
 # aggregates
 
 chats: chat chat_ob chat_cl chat_vk
@@ -877,6 +887,10 @@ $(chatTest_cpu):$(TMP)$(PREFIX)_class_chat.o $(OBJS_GGUF)
 	@echo ARCH = $(ARCH)
 	$(CXX) $(I_GGUF) $(filter-out %.h,$^) $(LDFLAGS) -o $@ $(CXXFLAGS)
 
+test-backend-ops:$(ggmlsrc)/tests/test-backend-ops.cpp $(OBJS_GGUF)
+	@echo ARCH = $(ARCH)
+	$(CXX) $(I_GGUF) $(filter-out %.h,$^) $(LDFLAGS) -o $@ $(CXXFLAGS)
+
 dualTest:$(TMP)$(PREFIX)_dual_chat.o $(OBJS_GGUF)
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(filter-out %.h,$^) $(LDFLAGS) -o $@
 
@@ -894,7 +908,11 @@ $(EXE_VK)_mini:$(MAIN_CPP) llama_chat1.res $(OBJS) $(OBJS_VK)
 
 $(chatTest_vk):$(conapp) $(OBJS_VK)
 	#$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h,$^) $(LDFLAGS_VK) $(LDFLAGS_VK+) -o $@
-	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)
-	$(CXX)  $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE1, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
+	$(CXX) $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)
+	$(CXX) $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE1, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
 #-
+
+$(test-vk-ops):$(ggmlsrc)/tests/test-backend-ops.cpp $(OBJS_VK)
+	$(CXX) $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)
+	$(CXX) $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE1, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
 

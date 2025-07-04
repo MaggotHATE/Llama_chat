@@ -114,6 +114,7 @@ struct llama_hparams {
     uint32_t ssm_d_inner = 0;
     uint32_t ssm_d_state = 0;
     uint32_t ssm_dt_rank = 0;
+    uint32_t ssm_n_group = 0;
 
     // for hybrid state space models
     std::array<bool, LLAMA_MAX_LAYERS> recurrent_layer_arr;
@@ -142,6 +143,12 @@ struct llama_hparams {
     uint32_t n_no_rope_layer_step    = 4;
     uint32_t n_attn_temp_floor_scale = 8192;
     float    f_attn_temp_scale       = 0.1;
+
+    // gemma3n altup
+    uint32_t n_altup      = 4; // altup_num_inputs
+    uint32_t i_altup_act  = 0; // altup_active_idx
+    uint32_t laurel_rank  = 64;
+    uint32_t n_embd_altup = 256;
 
     // needed by encoder-decoder models (e.g. T5, FLAN-T5)
     // ref: https://github.com/ggerganov/llama.cpp/pull/8141
@@ -191,6 +198,8 @@ struct llama_hparams {
 
     // whether or not the given layer is recurrent (for hybrid models)
     bool is_recurrent(uint32_t il) const;
+
+    uint32_t n_pos_per_embd() const;
 
     bool is_swa(uint32_t il) const;
 };

@@ -681,8 +681,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
         if (!filtered_tokens.empty() && filtered_tokens.size() >= ctx->min_keep) {
             memcpy(cur_p->data, filtered_tokens.data(), filtered_tokens.size()*sizeof(llama_token_data));
             cur_p->size = filtered_tokens.size();
-            // Guard against a single choice
-            if (cur_p->size < 2) cur_p->size = 2;
+            // Cannot guard against a single choice here due to memcpy
             min_p_applied = true;
         }
     }
@@ -709,7 +708,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
         }
 
         // Guard against a single choice
-        if (i < 2) i = 2;
+        if (i < ctx->min_keep) i = ctx->min_keep;
 
         // Resize the output vector to keep only the matching tokens
         cur_p->size = i;
@@ -1123,13 +1122,15 @@ void llama_sample_p_step_addon_apply(struct llama_sampler * smpl, llama_token_da
             step_found = true;
         }
 
-        if (step_found && i >= ctx->min_keep) {
+        if (step_found) {
             // Resize the output vector to keep only the tokens before the step
-            candidates->size = i;
+            if (i > ctx->min_keep) candidates->size = i;
+            else candidates->size = ctx->min_keep;
 
             break;
         }
     }
+
     p_step_total = candidates->size;
 }
 
@@ -1661,8 +1662,9 @@ static void llama_sampler_tail_free_apply(struct llama_sampler * smpl, llama_tok
         cum_sum += second_derivatives[i];
 
         // Check if the running sum is greater than z or if we have kept at least min_keep tokens
-        if (cum_sum > ctx->z && i >= ctx->min_keep) {
-            last_idx = i;
+        if (cum_sum > ctx->z) {
+            if (i > ctx->min_keep) last_idx = i;
+            else last_idx = ctx->min_keep;
             break;
         }
     }
