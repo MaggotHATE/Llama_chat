@@ -1318,6 +1318,7 @@ struct configurableChat{
         aChat.params.sparams.top_p = params.sparams.top_p;
         aChat.params.sparams.min_p = params.sparams.min_p;
         aChat.params.sparams.min_p_rand = params.sparams.min_p_rand;
+        aChat.params.sparams.p_step_rand = params.sparams.p_step_rand;
         aChat.params.sparams.noise_min = params.sparams.noise_min;
         aChat.params.sparams.noise_max = params.sparams.noise_max;
         aChat.params.sparams.range_min = params.sparams.range_min;
@@ -1479,6 +1480,7 @@ struct configurableChat{
         if (params.sparams.top_p != paramsDefault.sparams.top_p) modelConfig[model]["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
         if (params.sparams.min_p_rand != paramsDefault.sparams.min_p_rand) modelConfig[model]["min_p_rand"] = params.sparams.min_p_rand;
+        if (params.sparams.p_step_rand != paramsDefault.sparams.p_step_rand) modelConfig[model]["p_step_rand"] = params.sparams.p_step_rand;
         if (params.sparams.noise_min != paramsDefault.sparams.noise_min) modelConfig[model]["noise_min"] = params.sparams.noise_min;
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) modelConfig[model]["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) modelConfig[model]["range_min"] = params.sparams.range_min;
@@ -1597,6 +1599,9 @@ struct configurableChat{
         if (!charName.empty()) modelConfig["name"] = charName;
         
         modelConfig[model]["seed"] = params.sparams.seed;
+
+        modelConfig[model]["cache_type_k"] = params.cache_type_k;
+        modelConfig[model]["cache_type_v"] = params.cache_type_v;
         
     }
     
@@ -1629,6 +1634,7 @@ struct configurableChat{
         if (params.sparams.top_p != paramsDefault.sparams.top_p) newCard["top_p"] = params.sparams.top_p;
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
         if (params.sparams.min_p_rand != paramsDefault.sparams.min_p_rand) newCard["min_p_rand"] = params.sparams.min_p_rand;
+        if (params.sparams.p_step_rand != paramsDefault.sparams.p_step_rand) newCard["p_step_rand"] = params.sparams.p_step_rand;
         if (params.sparams.noise_min != paramsDefault.sparams.noise_min) newCard["noise_min"] = params.sparams.noise_min;
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) newCard["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) newCard["range_min"] = params.sparams.range_min;
@@ -1724,6 +1730,9 @@ struct configurableChat{
 
         if (params.sparams.logit_bias_strings_ext != paramsDefault.sparams.logit_bias_strings_ext) modelConfig["logit_bias_strings_ext"] = params.sparams.logit_bias_strings_ext;
         if (params.sparams.logit_bias_strings_start != paramsDefault.sparams.logit_bias_strings_start) modelConfig["logit_bias_strings_start"] = params.sparams.logit_bias_strings_start;
+
+        modelConfig["cache_type_k"] = params.cache_type_k;
+        modelConfig["cache_type_v"] = params.cache_type_v;
 
         return newCard;
     }

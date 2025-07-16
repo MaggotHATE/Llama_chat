@@ -944,13 +944,20 @@ struct common_init_result common_init_from_params(common_params & params) {
         params.sparams.ignore_eos = false;
     }
 
-    if (params.sparams.ignore_eos) {
-        for (llama_token i = 0; i < llama_vocab_n_tokens(vocab); i++) {
-            if (llama_vocab_is_eog(vocab, i)) {
-                printf("%s: added %s logit bias = %f\n", __func__, common_token_to_piece(lctx, i).c_str(), -INFINITY);
-                params.sparams.logit_bias.push_back({i, -INFINITY});
-            }
+
+    // initialize once
+    for (llama_token i = 0; i < llama_vocab_n_tokens(vocab); i++) {
+        if (llama_vocab_is_eog(vocab, i)) {
+            printf("%s: added %s logit bias = %f\n", __func__, common_token_to_piece(lctx, i).c_str(), -INFINITY);
+            params.sparams.logit_bias_eog.push_back({i, -INFINITY});
         }
+    }
+
+    if (params.sparams.ignore_eos) {
+        // add EOG biases to the active set of logit biases
+        params.sparams.logit_bias.insert(
+                params.sparams.logit_bias.end(),
+                params.sparams.logit_bias_eog.begin(), params.sparams.logit_bias_eog.end());
     }
 
     if (params.sparams.penalty_last_n == -1) {
@@ -1171,6 +1178,7 @@ struct llama_context_params common_context_params_to_llama(const common_params &
     cparams.flash_attn        = params.flash_attn;
     cparams.no_perf           = params.no_perf;
     cparams.swa_full          = params.swa_full;
+    cparams.kv_unified        = params.kv_unified;
 
     cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);

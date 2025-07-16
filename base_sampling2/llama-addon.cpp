@@ -1102,6 +1102,7 @@ struct llama_sampler * llama_sampler_init_xtc_addon(float probability, float thr
 
 struct llama_sampler_p_step_addon {
     const float  step;
+    const float  rand;
     const size_t min_keep;
 };
 
@@ -1111,7 +1112,9 @@ void llama_sample_p_step_addon_apply(struct llama_sampler * smpl, llama_token_da
         return;
     }
 
-    llama_sampler_noise_impl(candidates, candidates->size, 0.0f, 1.0f);
+    if (ctx->rand > 0.0f) {
+        llama_sampler_noise_impl(candidates, candidates->size, 0.0f, 1.0f);
+    }
 
     llama_sampler_softmax_impl(candidates);
 
@@ -1140,7 +1143,7 @@ static const char * llama_sampler_p_step_addon_name(const struct llama_sampler *
 
 static struct llama_sampler * llama_sampler_p_step_addon_clone(const struct llama_sampler * smpl) {
     const auto * ctx = (const llama_sampler_p_step_addon *) smpl->ctx;
-    return llama_sampler_init_p_step_addon(ctx->step, ctx->min_keep);
+    return llama_sampler_init_p_step_addon(ctx->step, ctx->rand, ctx->min_keep);
 }
 
 static void llama_sampler_p_step_addon_free(struct llama_sampler * smpl) {
@@ -1156,11 +1159,12 @@ static struct llama_sampler_i llama_sampler_p_step_addon_i = {
     /* .free   = */ llama_sampler_p_step_addon_free,
 };
 
-struct llama_sampler * llama_sampler_init_p_step_addon(float step, size_t min_keep) {
+struct llama_sampler * llama_sampler_init_p_step_addon(float step, float rand, size_t min_keep) {
     return new llama_sampler {
         /* .iface = */ &llama_sampler_p_step_addon_i,
         /* .ctx   = */ new llama_sampler_p_step_addon {
             /* .step     = */ step,
+            /* .rand     = */ rand,
             /* .min_keep = */ min_keep,
         },
     };

@@ -134,7 +134,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         llama_sampler_chain_add(result->chain, llama_sampler_init_temp_ext (params.temp, params.dynatemp_range, params.dynatemp_exponent));
                         break;
                     case 's':
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_p_step_addon (params.p_step, params.min_keep));
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_p_step_addon (params.p_step, params.min_p_rand, params.min_keep));
                         break;
                     case 'o':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));

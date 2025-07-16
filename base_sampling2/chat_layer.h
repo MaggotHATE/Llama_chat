@@ -804,7 +804,7 @@ public:
             if (safeguard_token < 0) get_safeguard_token(id, token_str, safeguard_string);
         }
 
-        printf("%s: finihsed...\n", __func__);
+        printf("%s: finished...\n", __func__);
     }
 
     void get_logit_bias_str() {
@@ -976,7 +976,7 @@ public:
                         case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += std::format("={}",params.sparams.top_k); break;
                         case 'f': result += name_tfs_z; if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) result += std::format("={:.2f}",params.sparams.tfs_z); break;
                         case 'y': result += name_typical_p; if (params.sparams.typical_p != paramsDefault.sparams.typical_p) result += std::format("={:.2f}",params.sparams.typical_p); break;
-                        case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}",params.sparams.p_step); result += std::format("({})", p_step_total); break;
+                        case 's': result += name_p_step; if (params.sparams.p_step != paramsDefault.sparams.p_step) result += std::format("={:.2f}%{:.2f}",params.sparams.p_step,params.sparams.p_step_rand); result += std::format("({})", p_step_total); break;
                         // case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}/{:.2f}%",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100); result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
@@ -1271,6 +1271,8 @@ public:
     int load(bool soft = false){
 
         printf("Load start \n");
+
+        putenv("LLAMA_SET_ROWS");
 
         auto & sparams = params.sparams;
         // this function is only needed if backends are compiled as dynamic libraries

@@ -142,12 +142,13 @@ struct common_params_sampling {
     float   min_p_rand        = 1.00f; // randomization factor for noise
     float   tfs_z             = 1.00f; // 1.0 = disabled
     float   typical_p         = 1.00f; // typical_p, 1.0 = disabled
-    float   p_step            = 0.00f;    // 0.0 = disabled
+    float   p_step            = 0.00f; // 0.0 = disabled
+    float   p_step_rand       = 0.00f; // 0.0 = disabled
     float   temp              = 0.80f; // <= 0.0 to sample greedily, 0.0 to not output probabilities
     float   dynatemp_range    = 0.00f; // 0.0 = disabled
     float   dynatemp_exponent = 1.00f; // controls how entropy maps to temperature in dynamic temperature sampler
-    float   smoothing_factor  = 0.00f;    // 0.0 = disabled
-    float   smoothing_curve   = 1.00f;    // 1.0 = flat
+    float   smoothing_factor  = 0.00f; // 0.0 = disabled
+    float   smoothing_curve   = 1.00f; // 1.0 = flat
     bool    temp_adaptive     = false; // enables automatic adaptive setting of temperature
     int32_t penalty_last_n    = 64;    // last n tokens to penalize (0 = disable penalty, -1 = context size)
     float   penalty_repeat    = 1.00f; // 1.0 = disabled
@@ -194,6 +195,7 @@ struct common_params_sampling {
     std::vector<llama_token>            grammar_trigger_tokens; // optional trigger tokens to trigger lazy grammar and print trigger special tokens.
 
     std::vector<llama_logit_bias> logit_bias; // logit biases to apply
+    std::vector<llama_logit_bias> logit_bias_eog; // pre-calculated logit biases for EOG tokens
 
     std::vector<std::string> logit_bias_strings; // words for logit biases, all matches
     std::vector<std::string> logit_bias_strings_exact; // words for logit biases, exact matches
@@ -221,6 +223,17 @@ struct common_params_speculative {
     struct cpu_params cpuparams;
     struct cpu_params cpuparams_batch;
     std::string model = ""; // draft model for speculative decoding                          // NOLINT
+};
+
+
+
+
+struct common_params_diffusion {
+    int32_t steps       = 64;     // number of diffusion steps
+    float   eps         = 1e-3f;  // epsilon for timesteps
+    int32_t algorithm   = 0;      // diffusion algorithm (0=ORIGIN, 1=MASKGIT_PLUS, 2=TOPK_MARGIN, 3=ENTROPY)
+    float   alg_temp    = 0.0f;   // algorithm temperature
+    bool    visual_mode = false;  // show progressive diffusion on screen
 };
 
 struct common_params {
@@ -343,6 +356,7 @@ struct common_params {
     bool flash_attn        = false; // flash attention
     bool no_perf           = false; // disable performance metrics
     bool swa_full          = false; // use full-size SWA cache (https://github.com/ggml-org/llama.cpp/pull/13194#issuecomment-2868343055)
+    bool kv_unified        = false; // enable unified KV cache
     bool input_prefix_bos  = false; // prefix BOS to user inputs, preceding input_prefix
     bool logits_all        = false; // return logits for all tokens in the batch
     bool use_mmap          = true;  // use mmap for faster loads

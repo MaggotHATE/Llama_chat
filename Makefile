@@ -771,7 +771,7 @@ $(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(json_layer) $(chat_layer) $(settings_la
 	@echo ------------------------------------------------------------------------
 
 # Final parts UI
-$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(HEADERS_GGUF_BASE) $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)
+$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(HEADERS_GGUF_BASE) $(COMMON_H_DEPS)  $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) $(LDFLAGS) -DUI_SIMPLE -c $< -o $@
 	@echo ------------------------------------------------------------------------
 	@echo UI CHAT COMPILED with: $(PREFIX) + $(MAIN)
