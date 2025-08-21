@@ -430,6 +430,8 @@ public:
             llama_backend_free();
             ggml_threadpool_free(threadpool);
             ggml_threadpool_free(threadpool_batch);
+            // since it belongs to this struct
+            logit_bias_tokens_start.clear();
 
             clearSoft();
         }
@@ -1272,8 +1274,6 @@ public:
 
         printf("Load start \n");
 
-        putenv("LLAMA_SET_ROWS");
-
         auto & sparams = params.sparams;
         // this function is only needed if backends are compiled as dynamic libraries
         // there might be buffer problems for now
@@ -1871,20 +1871,23 @@ public:
     }
 
     void rewindBack() {
-    // sampling
-        common_sampler_reset(smpl);
-        restore_smpl();
-        //common_sampler_reset(smpl);
     // context
         // llama_kv_self_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
+        // llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
+        llama_memory_seq_rm(mem, -1, rewind_state.kv_cache_pos, -1);
+        //                   ctx, seq_id, p0, p1, delta
+        // llama_memory_seq_add(mem, 0, rewind_state.kv_cache_pos, n_past, -rewind_state.kv_cache_pos);
+
+    // sampling
+        // common_sampler_reset(smpl);
+        restore_smpl();
+        //common_sampler_reset(smpl);
+
     // chat parameters
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());
         n_past = rewind_state.n_past_size - 1;
         n_consumed = rewind_state.n_consumed_size;
-
-        llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
-        llama_memory_seq_add(mem, 0, rewind_state.kv_cache_pos, n_past, -rewind_state.kv_cache_pos);
     }
 
     int resetGrammar(){

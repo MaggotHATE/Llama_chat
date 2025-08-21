@@ -377,7 +377,7 @@ struct modelThread{
         text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
         text +=  std::format("\n-logit_bias_strings_manual_display: {}", newChat.logit_bias_strings_manual_display);
         // text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
-        // text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
+        text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
 
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
         text +=  std::format("\n-add_eos: {}", newChat.add_eos);

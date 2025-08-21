@@ -36,8 +36,8 @@ bool llama_memory_status_is_fail(llama_memory_status status);
 
 // the interface for managing the memory context during batch processing
 // this interface is implemented per memory type. see:
-//   - llama_kv_cache_unified_context
-//   - llama_kv_cache_unified_iswa_context
+//   - llama_kv_cache_context
+//   - llama_kv_cache_iswa_context
 //   ...
 //
 // the only method that should mutate the memory and the memory context is llama_memory_i::apply()
@@ -104,13 +104,8 @@ struct llama_memory_i {
     // state write/read
     //
 
-    virtual void state_write(llama_io_write_i & io, llama_seq_id seq_id = -1) const = 0;
-    virtual void state_read (llama_io_read_i  & io, llama_seq_id seq_id = -1) = 0;
+    virtual void state_write(llama_io_write_i & io, llama_seq_id seq_id = -1, llama_state_seq_flags flags = 0) const = 0;
+    virtual void state_read (llama_io_read_i  & io, llama_seq_id seq_id = -1, llama_state_seq_flags flags = 0) = 0;
 };
 
 using llama_memory_ptr = std::unique_ptr<llama_memory_i>;
-
-// TODO: temporary until the llama_kv_cache is removed from the public API
-struct llama_kv_cache : public llama_memory_i {
-    virtual ~llama_kv_cache() = default;
-};

@@ -176,13 +176,13 @@ EXE_CL_GGML = $(EXE_GGML)_clblast
 SOURCES += $(IMGUI_DIR)/misc/cpp/imgui_stdlib.cpp
 OBJS0 = $(addprefix $(TMP)imgui/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 ifndef SDL2
-OBJS = $(subst $(TMP)imgui/main.o,,$(OBJS0))
+OBJS_IMGUI = $(subst $(TMP)imgui/main.o,,$(OBJS0))
 else
-OBJS = $(subst $(TMP)imgui/main.o,,$(OBJS0))
+OBJS_IMGUI = $(subst $(TMP)imgui/main.o,,$(OBJS0))
 endif
-OBJS += $(TMP)tinyfiledialogs/tinyfiledialogs.o
+OBJS_IMGUI += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 
-# OBJS_UI_VK = $(subst main_vk2.cpp,VULKAN/main_vk.cpp,$(OBJS))
+# OBJS_UI_VK = $(subst main_vk2.cpp,VULKAN/main_vk.cpp,$(OBJS_IMGUI))
 
 # vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
 
@@ -191,11 +191,11 @@ I_GGUF = -I$(common_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
-#OBJS_OB = $(subst main.o,main_ob.o,$(OBJS))
-#OBJS_CL = $(subst main.o,cl_main.o,$(OBJS))
-#OBJS_GGML = $(subst main.o,old_main.o,$(OBJS))
-#OBJS_CL_GGML = $(subst main.o,old_cl_main.o,$(OBJS))
-#OBJS_GGML = $(subst $(TMP)main.o, ,$(OBJS))
+#OBJS_OB = $(subst main.o,main_ob.o,$(OBJS_IMGUI))
+#OBJS_CL = $(subst main.o,cl_main.o,$(OBJS_IMGUI))
+#OBJS_GGML = $(subst main.o,old_main.o,$(OBJS_IMGUI))
+#OBJS_CL_GGML = $(subst main.o,old_cl_main.o,$(OBJS_IMGUI))
+#OBJS_GGML = $(subst $(TMP)main.o, ,$(OBJS_IMGUI))
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
 
@@ -490,8 +490,8 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-hparams.o \
     $(TMP)$(PREFIX)_llama-impl.o \
     $(TMP)$(PREFIX)_llama-io.o \
-    $(TMP)$(PREFIX)_llama-kv-cache-unified.o \
-    $(TMP)$(PREFIX)_llama-kv-cache-unified-iswa.o \
+    $(TMP)$(PREFIX)_llama-kv-cache.o \
+    $(TMP)$(PREFIX)_llama-kv-cache-iswa.o \
     $(TMP)$(PREFIX)_llama-memory.o \
     $(TMP)$(PREFIX)_llama-memory-hybrid.o \
     $(TMP)$(PREFIX)_llama-memory-recurrent.o \
@@ -758,20 +758,29 @@ ui_simple = $(uibackend_f)/UI_simple.h
 endif
 
 # Final parts
-$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(HEADERS_GGUF_BASE) $(COMMON_H_DEPS) $(json_layer) $(chat_layer) $(settings_layer) $(OBJS_GGUF)
+$(TMP)$(PREFIX)_class.o: $(chat_layer) $(settings_layer) $(HEADERS_GGUF_BASE) $(COMMON_H_DEPS) $(json_layer) $(OBJS_GGUF)
+	@echo ------------------------------------------------------------------------
+	# $(CXX) $(I_GGUF) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+	$(CXX) $(I_GGUF) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo ---------------CLASS COMPILED with: $(PREFIX)
+	@echo ------------------------------------------------------------------------
+
+
+# Final parts
+$(TMP)$(PREFIX)_class_chat.o:$(conapp) $(TMP)$(PREFIX)_class.o $(OBJS_GGUF)
 	@echo ------------------------------------------------------------------------
 	$(CXX) $(I_GGUF) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo ---------------CHAT COMPILED with: $(PREFIX)
 	@echo ------------------------------------------------------------------------
 
-$(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(json_layer) $(chat_layer) $(settings_layer)
+$(TMP)$(PREFIX)_dual_chat.o:$(dualapp) $(TMP)$(PREFIX)_class.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 	@echo ------------------------------------------------------------------------
 	@echo ---------------DUAL CHAT COMPILED with: $(PREFIX)
 	@echo ------------------------------------------------------------------------
 
 # Final parts UI
-$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(HEADERS_GGUF_BASE) $(COMMON_H_DEPS)  $(json_layer) $(chat_layer) $(settings_layer) $(ui_simple)
+$(TMP)$(PREFIX)_main_$(MAIN).o:$(MAIN_CPP) $(TMP)$(PREFIX)_class.o $(ui_simple)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI) $(LDFLAGS) -DUI_SIMPLE -c $< -o $@
 	@echo ------------------------------------------------------------------------
 	@echo UI CHAT COMPILED with: $(PREFIX) + $(MAIN)
@@ -877,10 +886,10 @@ blas_dll: ggml-blas$(DSO_EXT)
 # MAIN EXE's
 # universal recipes
 
-$(EXE): $(OBJS) $(OBJS_GGUF) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
+$(EXE): $(OBJS_IMGUI) $(OBJS_GGUF) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) $(CONFLAG) $(LDFLAGS) $(LIBS)
 
-$(EXE)_mini:$(TMP)$(PREFIX)_main_$(MAIN).o llama_chat1.res $(OBJS) $(OBJS_GGUF)
+$(EXE)_mini:$(TMP)$(PREFIX)_main_$(MAIN).o llama_chat1.res $(OBJS_GGUF) $(OBJS_IMGUI)
 	$(CXX) $(I_GGUF) $(FILE_D) -o $@ $^ $(CXXFLAGS_UI) -DUI_SIMPLE $(CONFLAG) $(LDFLAGS) $(LIBS)
 
 $(chatTest_cpu):$(TMP)$(PREFIX)_class_chat.o $(OBJS_GGUF)
@@ -898,10 +907,10 @@ dualTest:$(TMP)$(PREFIX)_dual_chat.o $(OBJS_GGUF)
 
 #chatTest_vk: $(chatTest_vk)
 
-$(EXE_VK): $(OBJS) $(OBJS_VK) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
+$(EXE_VK): $(OBJS_IMGUI) $(OBJS_VK) $(chat_layer) $(settings_layer) UI.h llama_chat1.res
 	 $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
 
-$(EXE_VK)_mini:$(MAIN_CPP) llama_chat1.res $(OBJS) $(OBJS_VK)
+$(EXE_VK)_mini:$(MAIN_CPP) llama_chat1.res $(OBJS_IMGUI) $(OBJS_VK)
 	# $(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -o $@ $^ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE -c $< -o $(call GET_OBJ_FILE2, $<)
 	$(CXX) $(I_GGUF) $(FILE_D) $(CXXFLAGS_UI_VK) -DUI_SIMPLE $(filter-out %.h $<,$^) $(call GET_OBJ_FILE2, $<) -o $@ $(CONFLAG) $(LIBS) $(LDFLAGS_VK+)
