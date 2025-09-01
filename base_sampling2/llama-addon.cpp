@@ -363,16 +363,118 @@ static void llama_sampler_calculate_impl(llama_token_data_array * cur_p) {
     }
 }
 
-static void llama_sampler_softmax_impl(llama_token_data_array * cur_p) {
-    GGML_ASSERT(cur_p->size > 0);
+// writes result in res, does not mutate cur
+static void llama_token_data_array_partial_sort(const llama_token_data_array & cur, int npartial, std::vector<llama_token_data> & res) {
+    static const auto comp = [](const llama_token_data & a, const llama_token_data & b) {
+        return a.logit > b.logit;
+    };
 
-    // Sort the logits in descending order
-    if (!cur_p->sorted) {
-        llama_sampler_sort_only_impl(cur_p);
-        cur_p->sorted = true;
+    constexpr int   nbuckets     = 128;
+    constexpr float bucket_low   = -10.0f;
+    constexpr float bucket_high  =  10.0f;
+    constexpr float bucket_scale = nbuckets/(bucket_high - bucket_low);
+    constexpr float bucket_inter = -bucket_low * bucket_scale;
+
+    std::vector<int> bucket_idx;
+    std::vector<int> histo(nbuckets, 0);
+
+    std::vector<llama_token_data*> bucket_ptrs;
+
+    bucket_idx.reserve(cur.size);
+
+    for (int i = 0; i < (int)cur.size; ++i) {
+        const float val = cur.data[i].logit;
+        int ib = int(bucket_scale * val + bucket_inter); //nbuckets * (val - bucket_low) / (bucket_high - bucket_low);
+        ib = std::max(0, std::min(nbuckets - 1, ib));
+        bucket_idx.push_back(ib);
+        ++histo[ib];
+    }
+    int nhave = 0;
+    int ib = nbuckets - 1;
+    for ( ; ib >= 0; --ib) {
+        nhave += histo[ib];
+        if (nhave >= npartial) {
+            break;
+        }
+    }
+    res.resize(nhave);
+    auto * ptr = res.data();
+    bucket_ptrs.reserve(nbuckets - ib);
+    for (int j = nbuckets - 1; j >= ib; --j) {
+        bucket_ptrs.push_back(ptr);
+        ptr += histo[j];
+    }
+    for (int i = 0; i < (int)cur.size; ++i) {
+        int j = bucket_idx[i];
+        if (j >= ib) {
+            *bucket_ptrs[nbuckets - 1 - j]++ = cur.data[i];
+        }
     }
 
-    llama_sampler_calculate_impl(cur_p);
+    ptr = res.data();
+    int ndone = 0;
+    for (int j = nbuckets - 1; j > ib; --j) {
+        std::sort(ptr, ptr + histo[j], comp);
+        ptr += histo[j];
+        ndone += histo[j];
+    }
+    std::partial_sort(ptr, ptr + npartial - ndone, ptr + histo[ib], comp);
+}
+
+// reduces the size of cur_p to npartial, keeping only the top npartial elements
+static void llama_token_data_array_partial_sort_inplace(llama_token_data_array * cur_p, int npartial) {
+    static const auto comp = [](const llama_token_data & a, const llama_token_data & b) {
+        return a.logit > b.logit;
+    };
+
+    if (npartial <= 128) {
+        std::partial_sort(cur_p->data, cur_p->data + npartial, cur_p->data + cur_p->size, comp);
+
+        cur_p->size = npartial;
+        cur_p->sorted = true;
+
+        return;
+    }
+
+    std::vector<llama_token_data> tmp;
+
+    llama_token_data_array_partial_sort(*cur_p, npartial, tmp);
+
+    std::copy(tmp.data(), tmp.data() + npartial, cur_p->data);
+
+    cur_p->size = npartial;
+    cur_p->sorted = true;
+}
+
+static void llama_sampler_softmax_impl(llama_token_data_array * cur_p, bool do_sort = true) {
+    GGML_ASSERT(cur_p->size > 0);
+
+    // Sort the logits in descending order if requested
+    if (do_sort && !cur_p->sorted) {
+        llama_token_data_array_partial_sort_inplace(cur_p, cur_p->size);
+    }
+
+    float max_l = cur_p->data[0].logit;
+    if (!cur_p->sorted) {
+        for (size_t i = 1; i < cur_p->size; ++i) {
+            max_l = std::max(max_l, cur_p->data[i].logit);
+        }
+    }
+
+    float cum_sum = 0.0f;
+
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        float p = expf(cur_p->data[i].logit - max_l);
+        cur_p->data[i].p = p;
+        cum_sum += p;
+    }
+
+    for (size_t i = 0; i < cur_p->size; ++i) {
+        cur_p->data[i].p /= cum_sum;
+    }
+
+    // not going to separate it for now
+    // llama_sampler_calculate_impl(cur_p);
 }
 
 static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t range, float min = 0.0f, float max = 1.0f, unsigned int rngSeed = 123456789, bool isTrueRNG = true) {
@@ -679,7 +781,7 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
 
         // if we have enough values the operation was a success
         if (!filtered_tokens.empty() && filtered_tokens.size() >= ctx->min_keep) {
-            memcpy(cur_p->data, filtered_tokens.data(), filtered_tokens.size()*sizeof(llama_token_data));
+            std::copy(filtered_tokens.begin(), filtered_tokens.end(), cur_p->data);
             cur_p->size = filtered_tokens.size();
             // Cannot guard against a single choice here due to memcpy
             min_p_applied = true;
@@ -695,8 +797,9 @@ static void llama_sampler_min_p_addon_apply(struct llama_sampler * smpl, llama_t
     // if the cur_p are sorted or the unsorted implementation failed, use this implementation
     if (!min_p_applied) {
         // Sort the logits in descending order
-        llama_sampler_sort_only_impl(cur_p);
-        cur_p->sorted = true;
+        // llama_sampler_sort_only_impl(cur_p);
+        llama_token_data_array_partial_sort_inplace(cur_p, cur_p->size);
+        // cur_p->sorted = true;
 
         const float min_logit = cur_p->data[0].logit + logf(ctx->p); // min logit for p_i >= p * p_max
         size_t i = 1; // first token always matches

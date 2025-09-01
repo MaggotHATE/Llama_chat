@@ -376,7 +376,7 @@ struct modelThread{
         text +=  std::format("\n-dry_sequence_breakers_display: {}", newChat.dry_sequence_breakers_display);
         text +=  std::format("\n-logit_bias_strings_display: {}", newChat.logit_bias_strings_display);
         text +=  std::format("\n-logit_bias_strings_manual_display: {}", newChat.logit_bias_strings_manual_display);
-        // text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
+        text +=  std::format("\n-logit_bias_strings_ext_display: {}", newChat.logit_bias_strings_ext_display);
         text +=  std::format("\n-logit_bias_strings_start: {}", newChat.logit_bias_strings_start_display);
 
         text +=  std::format("\n-add_bos: {}", newChat.add_bos);
@@ -402,15 +402,15 @@ struct modelThread{
 
         text +=  std::format("\n-STATUS           : {}\n-WAITING          : {}\n-isContinue       : {}\n-Past             : {}\n-Consumed         : {}\n-Remain           : {}\n-embd_inp.size    : {}\n-embd.size        : {}\n-kv_cache_pos    : {}\n-State  : {}\n", (newChat.finished ? "READY" : "BUSY"), (is_interacting ? "YES" : "NO"), std::to_string(isContinue), newChat.getPastTokens(), newChat.getConsumedTokens(), newChat.getRemainTokens(), newChat.getEmbInpSize(), newChat.getEmbSize(), newChat.get_kv_cache_seq_pos_max(), newChat.get_state_descr());
 
-        text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
+        text += std::format("\n-TG: {}; {}; {}\n-PP: {}; {}; {}\n", newChat.params.cpuparams.n_threads, newChat.params.cpuparams.poll, std::to_string(newChat.params.cpuparams.priority), newChat.params.cpuparams_batch.n_threads, newChat.params.cpuparams_batch.poll, std::to_string(newChat.params.cpuparams_batch.priority));
 
-        if (penalize_nl) text += "-penalize_nl = true\n";
-        if (newChat.params.use_mmap) text += "-use_mmap = true\n";
-        if (newChat.params.no_kv_offload) text += "-no_kv_offload = true\n";
-        if (newChat.params.flash_attn) text += "-flash_attn = true\n";
+        if (penalize_nl) text += "\n-penalize_nl = true";
+        if (newChat.params.use_mmap) text += "\n-use_mmap = true";
+        if (newChat.params.no_kv_offload) text += "\n-no_kv_offload = true";
+        text += std::format("\n-flash_attn_type = {}", std::to_string(newChat.params.flash_attn_type));
 
         //std::cout << lastTimings << std::endl;
-        text += std::format("{}\n{}\n-Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n{}\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed, separator_bottom);
+        text += std::format("\n{}\n{}\n-Eval speed: {:.3f} t/s | Gen speed: {:.3f} t/s\n{}\n", externalData, sparamsList, lastSpeedPrompt, lastSpeed, separator_bottom);
         std::cout << text;
     }
 
@@ -1451,7 +1451,7 @@ struct configurableChat{
         
         if (params.sparams.penalize_nl != paramsDefault.sparams.penalize_nl) modelConfig[model]["penalize_nl"] = params.sparams.penalize_nl;
         if (params.use_mmap != paramsDefault.use_mmap) modelConfig[model]["use_mmap"] = params.use_mmap;
-        if (params.flash_attn != paramsDefault.flash_attn) modelConfig[model]["flash_attn"] = params.flash_attn;
+        if (params.flash_attn_type != paramsDefault.flash_attn_type) modelConfig[model]["flash_attn_type"] = params.flash_attn_type;
         if (params.no_kv_offload != paramsDefault.no_kv_offload) modelConfig[model]["no_kv_offload"] = params.no_kv_offload;
         if (params.sparams.temp_func != paramsDefault.sparams.temp_func) {
             std::cout << "Need to create an object: temp" << std::endl;
