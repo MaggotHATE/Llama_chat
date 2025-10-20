@@ -139,11 +139,11 @@ struct common_params_sampling {
     int32_t top_k             = 40;    // <= 0 to use vocab size
     float   top_p             = 1.00f; // 1.0 = disabled
     float   min_p             = 0.05f; // 0.0 = disabled
-    float   min_p_rand        = 1.00f; // randomization factor for noise
+    float   min_p_rand        = 1.00f; // randomization factor for Gaussian noise
     float   tfs_z             = 1.00f; // 1.0 = disabled
     float   typical_p         = 1.00f; // typical_p, 1.0 = disabled
     float   p_step            = 0.00f; // 0.0 = disabled
-    float   p_step_rand       = 0.00f; // 0.0 = disabled
+    float   p_step_rand       = 1.00f; // 0.0 = disabled
     float   temp              = 0.80f; // <= 0.0 to sample greedily, 0.0 to not output probabilities
     float   dynatemp_range    = 0.00f; // 0.0 = disabled
     float   dynatemp_exponent = 1.00f; // controls how entropy maps to temperature in dynamic temperature sampler
@@ -171,8 +171,8 @@ struct common_params_sampling {
     float    xtc_threshold_max     = 1.0; // maximum tokens probablitity for this to run
     bool     xtc_probability_once  = false; // should we calculate chances one or for each token
     int      xtc_min               = 2; // minimum number of penalizeable tokens
-    float    noise_min             = 0.0f; // minimum in randomization range
-    float    noise_max             = 1.0f; // maximum in randomization range
+    float    noise_mean            = 0.0f; // mean in Gaussian randomization
+    float    noise_max             = 1.0f; // maximum (deviation) in Gaussian randomization
     float    range_max             = 1.0; // maximum tokens probablitity in range
     float    range_min             = 1.0; // minimum tokens probablitity in range
     int32_t  k_shift               = 0; // token shift for the first greedy sampling

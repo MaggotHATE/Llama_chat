@@ -174,10 +174,10 @@ static std::string getFormattedCandidates(llama_token_data_array * candidates) {
 static std::string getFormattedCandidatesFull(llama_token_data_array * candidates) {
     std::string text = "(" + std::to_string(candidates->size) + "): ";
     for (size_t i = 0; i < candidates->size; ++i) {
-        int chance = candidates->data[i].p * 100;
-        int logit = candidates->data[i].logit;
+        float chance = candidates->data[i].p * 100;
+        float logit = candidates->data[i].logit;
         if (logit > 0 || candidates->size == 1) { 
-            text += " #" + std::to_string(i) +"[" + std::to_string(chance) + "%|" + std::to_string(logit) + "]"; 
+            text += " #" + std::to_string(i) +"[" + std::to_string(logit) + "|" + std::to_string(chance) + "%]"; 
         }
     }
     //if (zeroes > 0) text += "~" + std::to_string(zeroes);
@@ -477,7 +477,7 @@ static void llama_sampler_softmax_impl(llama_token_data_array * cur_p, bool do_s
     // llama_sampler_calculate_impl(cur_p);
 }
 
-static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t range, float min = 0.0f, float max = 1.0f, unsigned int rngSeed = 123456789, bool isTrueRNG = true) {
+static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t range, float mean = 0.0f, float max = 1.0f, unsigned int rngSeed = 123456789, bool isTrueRNG = true) {
     // Create a random number generator
     std::default_random_engine generator;
     if (isTrueRNG) {
@@ -490,8 +490,11 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t rang
     }
 
     // Create a Gaussian distribution with mean 0 and standard deviation of your choice
-    std::normal_distribution<float> distribution(min, max); // Replace 1.0f with the desired standard deviation
-// std::string cur_p_disp = "\n" + std::to_string(cur_p->selected) + getFormattedCandidatesFull(cur_p);
+    std::normal_distribution<float> distribution(mean, max); // Replace 1.0f with the desired standard deviation
+
+    llama_sampler_softmax_impl(cur_p);
+
+// std::string cur_p_disp = "\n>" + getFormattedCandidatesFull(cur_p);
     // Apply Gaussian noise to each logit
     for (size_t i = 0; i < range; ++i) {
         // Add Gaussian noise to the logit
@@ -499,10 +502,9 @@ static void llama_sampler_noise_impl(llama_token_data_array * cur_p, size_t rang
     }
 
     cur_p->sorted = false;
-
     llama_sampler_softmax_impl(cur_p);
 
-// cur_p_disp += "\n" + getFormattedCandidatesFull(cur_p) + "\n";
+// cur_p_disp += "\n<" + getFormattedCandidatesFull(cur_p) + "\n";
 // writeToFile("randomization.txt", cur_p_disp);
     // cur_p->sorted = false;
 }
@@ -936,7 +938,7 @@ struct llama_sampler * llama_sampler_init_rx_addon(float max, float min, size_t 
 //-------------------NOISE SAMPLING--------------------------
 
 struct llama_sampler_noise_addon {
-    const float  min;
+    const float  mean;
     const float  max;
 
     const uint32_t seed;
@@ -947,7 +949,7 @@ struct llama_sampler_noise_addon {
 
 static void llama_sampler_noise_impl(llama_token_data_array * cur_p, llama_sampler_noise_addon * ctx) {
     // Create a Gaussian distribution
-    std::normal_distribution<float> distribution(ctx->min, ctx->max);
+    std::normal_distribution<float> distribution(ctx->mean, ctx->max);
 
     // Apply Gaussian noise to each logit
     for (size_t i = 0; i < cur_p->size; ++i) {
@@ -961,11 +963,11 @@ static void llama_sampler_noise_addon_apply(struct llama_sampler * smpl, llama_t
     auto * ctx = (llama_sampler_noise_addon *) smpl->ctx;
 
     // Check the range
-    if (ctx->min > ctx->max) return;
+    if (ctx->mean > ctx->max) return;
 // std::string data = "\n\nINPUT: " + std::to_string(cur_p->selected) + getFormattedCandidates(cur_p);
 
     //llama_sampler_noise_impl(cur_p, ctx);
-    llama_sampler_noise_impl(cur_p, cur_p->size, ctx->min, ctx->max, ctx->seed_cur);
+    llama_sampler_noise_impl(cur_p, cur_p->size, ctx->mean, ctx->max, ctx->seed_cur);
 
 // data += "\nRESULT: ";
 // writeCandidatesToFile2("noise_addon.txt", cur_p, data);
@@ -981,7 +983,7 @@ static const char * llama_sampler_noise_addon_name(const struct llama_sampler * 
 
 static struct llama_sampler * llama_sampler_noise_addon_clone(const struct llama_sampler * smpl) {
     const auto * ctx = (const llama_sampler_noise_addon *) smpl->ctx;
-    auto * result = llama_sampler_init_noise_addon(ctx->min, ctx->max, ctx->seed);
+    auto * result = llama_sampler_init_noise_addon(ctx->mean, ctx->max, ctx->seed);
 
     // copy the state
     {
@@ -1012,16 +1014,16 @@ static struct llama_sampler_i llama_sampler_noise_addon_i = {
     /* .free   = */ llama_sampler_noise_addon_free,
 };
 
-struct llama_sampler * llama_sampler_init_noise_addon(float min, float max, uint32_t seed) {
+struct llama_sampler * llama_sampler_init_noise_addon(float mean, float max, uint32_t seed) {
     auto seed_cur = get_rng_seed(seed);
     return new llama_sampler {
         /* .iface = */ &llama_sampler_noise_addon_i,
         /* .ctx   = */ new llama_sampler_noise_addon {
-            /* .min        = */ min,
-            /* .max = */ max,
-            /* .seed = */ seed,
+            /* .mean     = */ mean,
+            /* .max =      */ max,
+            /* .seed =     */ seed,
             /* .seed_cur = */ seed_cur,
-            /* .rng = */ std::mt19937(seed_cur),
+            /* .rng =      */ std::mt19937(seed_cur),
         },
     };
 }

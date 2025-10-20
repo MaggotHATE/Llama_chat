@@ -187,7 +187,7 @@ OBJS_IMGUI += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 # vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
 
 FILE_D = -Itinyfiledialogs
-I_GGUF = -I$(common_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_cpu_86_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(uibackend_f) -I$(include_f)
+I_GGUF = -I$(common_f) -I$(ggmlsrc_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_cpu_86_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(uibackend_f) -I$(include_f)
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -596,7 +596,7 @@ $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-blas/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 	@echo 
 
-$(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/ggml-vulkan/%.cpp
+$(TMP)$(PREFIX)_%.o: $(ggmlsrc_vulkan_f)/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 	@echo 
 
@@ -616,7 +616,7 @@ $(TMP)$(PREFIX)_%.o: $(llamacpp_f_s)/%.cpp
 COMMON_H_DEPS = $(common_f)/common.h $(common_f)/sampling.h $(common_f)/llama-addon.h $(llamacpp_f_h)/llama.h
 COMMON_DEPS   = $(TMP)$(PREFIX)_common.o $(TMP)$(PREFIX)_sampling.o
 
-$(TMP)$(PREFIX)_%.o: $(common_f)/%.cpp
+$(TMP)$(PREFIX)_%.o: $(common_f)/%.cpp $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -MMD -c $< -o $@
 
 # cpu dynamic
@@ -638,16 +638,24 @@ $(TMP)$(PREFIX)_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/gg
 # vulkan
 GLSLC_CMD  = glslc
 _ggml_vk_genshaders_cmd = $(shell pwd)/$(TMP)vkt-shaders-gen
-_ggml_vk_header = $(ggmlsrc_f_s)/ggml-vulkan-shaders.hpp
-_ggml_vk_source = $(ggmlsrc_f_s)/ggml-vulkan-shaders.cpp
-_ggml_vk_input_dir = $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders
-_ggml_vk_shader_deps = $(echo $(_ggml_vk_input_dir)/*.comp)
+_ggml_vk_genshaders_new_cmd = $(shell pwd)/$(TMP)vkt-shaders-gen-new
+_ggml_vk_header = $(ggmlsrc_f)/ggml-vulkan-shaders.hpp
+_ggml_vk_source = $(ggmlsrc_f)/ggml-vulkan-shaders.cpp
+_ggml_vk_shaders_dir = $(ggmlsrc_vulkan_f)/vulkan-shaders
+_ggml_vk_output_dir = $(ggmlsrc_vulkan_f)
+_ggml_vk_shader_deps = $(echo $(_ggml_vk_shaders_dir)/*.comp)
+
+_ggml_vk_shader_deps_comp = $(shell find $(_ggml_vk_shaders_dir) -name *.comp)
+_ggml_vk_shader_deps_comp_names = $(basename $(notdir $(_ggml_vk_shader_deps_comp)))
+
+_ggml_vk_shader_deps_cpp = $(addprefix $(ggmlsrc_vulkan_f)/, $(addsuffix _shdr.cpp, $(basename $(notdir $(_ggml_vk_shader_deps_comp)))))
 
 $(TMP)$(PREFIX)_ggml-vulkan.o: \
-	$(ggmlsrc_f_s)/ggml-vulkan/ggml-vulkan.cpp \
+	$(ggmlsrc_vulkan_f)/ggml-vulkan.cpp \
 	$(ggmlsrc_f_h)/ggml-vulkan.h \
 	$(_ggml_vk_header) \
-	$(_ggml_vk_source)
+	$(_ggml_vk_shaders_dir)/*.cpp
+	# $(_ggml_vk_source)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(_ggml_vk_header): $(_ggml_vk_source)
@@ -664,31 +672,54 @@ ifeq (,$(wildcard $(_ggml_vk_header)))
     hasfiles = 0
 endif
 
-ifeq (,$(wildcard $(_ggml_vk_source)))
-    hasfiles = 0
-endif
+# ifeq (,$(wildcard $(_ggml_vk_source)))
+    # hasfiles = 0
+# endif
 
 ifeq (0,$(hascompiler))
     vkt-compiler = $(TMP)/vkt-shaders-gen
+    vkt-compiler-new = $(TMP)/vkt-shaders-gen-new
 endif
 
 ifeq (0,$(hasfiles))
 
-$(_ggml_vk_source): $(_ggml_vk_shader_deps) $(vkt-compiler)
+$(_ggml_vk_source): $(_ggml_vk_shader_deps_comp) $(vkt-compiler)
 	$(_ggml_vk_genshaders_cmd) \
 		--glslc      $(GLSLC_CMD) \
-		--input-dir  $(_ggml_vk_input_dir) \
+		--input-dir  $(_ggml_vk_shaders_dir) \
+		--output-dir $(_ggml_vk_output_dir) \
 		--target-hpp $(_ggml_vk_header) \
 		--target-cpp $(_ggml_vk_source)
 
+define vk_compile
+$(ggmlsrc_vulkan_f)/$(1)_shdr.cpp: $(_ggml_vk_shaders_dir)/$(1).comp $(vkt-compiler)
+	$(_ggml_vk_genshaders_cmd_new) \
+		--glslc      $(GLSLC_CMD) \
+		--source     $(_ggml_vk_shaders_dir)/$(1).comp \
+		--output-dir $(_ggml_vk_shaders_dir) \
+		--target-hpp $(_ggml_vk_header) \
+		--target-cpp $(ggmlsrc_vulkan_f)/$(1)_shdr.cpp
+endef
+
+# $(foreach shader,$(_ggml_vk_shader_deps_comp_names),$(call vk_compile,$(shader)))
+
 endif
 
-$(TMP)/vkt-shaders-gen: $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_f_s)/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+$(TMP)/vkt-shaders-gen-new: $(ggmlsrc_vulkan_f)/vulkan-shaders/vulkan-shaders-gen.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(ggmlsrc_vulkan_f)/vulkan-shaders/vulkan-shaders-gen.cpp
+
+$(TMP)/vkt-shaders-gen: $(common_f)/vulkan-shaders-gen.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $(common_f)/vulkan-shaders-gen.cpp
+
 
 $(TMP)$(PREFIX)_ggml-vulkan-shaders.o: $(_ggml_vk_source) $(_ggml_vk_header)
+# $(TMP)$(PREFIX)_ggml-vulkan-shaders.o: $(_ggml_vk_shader_deps_cpp) $(_ggml_vk_header)
+	@echo ------------------------------------------------------------------------
+	@echo VULKAN SHADERS COMPILED from: $(_ggml_vk_shader_deps_comp_names)
+	@echo ------------------------------------------------------------------------
+	@echo VULKAN SHADERS COMPILED INTO: $(_ggml_vk_shader_deps_cpp)
+	@echo ------------------------------------------------------------------------
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
-
 
 ifdef VK_DEBUG
 	CXXFLAGS += -DGGML_VULKAN_DEBUG

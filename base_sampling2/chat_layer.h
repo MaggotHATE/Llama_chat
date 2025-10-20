@@ -928,7 +928,7 @@ public:
             std::string name_xtc_threshold = fullnames ? "xtc_threshold" : "x_t";
             std::string name_top_p = fullnames ? "top_p" : "P";
             std::string name_min_p = fullnames ? "min_p" : "M";
-            std::string name_noise = fullnames ? "noise" : "O";
+            std::string name_noise = fullnames ? "gauss" : "O";
             std::string name_k_shift = fullnames ? "k_shift" : "k_s";
 
             // mirostat is special 
@@ -959,7 +959,7 @@ public:
                 result += std::format("->{}={:.2f}", name_temp, params.sparams.temp);
                 // result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
                 result += std::format("->{}={:.2f}", name_top_n_sigma, params.sparams.top_n_sigma);
-                result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
+                result += std::format("->{}={:.2f}d{:.2f}", name_noise, params.sparams.noise_mean, params.sparams.noise_max);
             } else {
                 //DRY
                 if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
@@ -982,7 +982,7 @@ public:
                         // case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}/{:.2f}%",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100); result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
-                        case 'o': result += std::format("{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max); break;
+                        case 'o': result += std::format("{}=m{:.2f}d{:.2f}", name_noise, params.sparams.noise_mean, params.sparams.noise_max); break;
                         case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({}/{})", min_p_total, candidates_max_min_p); break;
                         case 'l': result += std::format("{}:{}({} max)", name_k_shift, params.sparams.confidence_shift, params.sparams.k_shift); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
@@ -1875,9 +1875,9 @@ public:
         // llama_kv_self_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
         // llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
-        llama_memory_seq_rm(mem, -1, rewind_state.kv_cache_pos, -1);
+        llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
         //                   ctx, seq_id, p0, p1, delta
-        // llama_memory_seq_add(mem, 0, rewind_state.kv_cache_pos, n_past, -rewind_state.kv_cache_pos);
+        llama_memory_seq_add(mem, 0, rewind_state.kv_cache_pos, n_past, -rewind_state.kv_cache_pos);
 
     // sampling
         // common_sampler_reset(smpl);

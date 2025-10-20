@@ -137,7 +137,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
                         llama_sampler_chain_add(result->chain, llama_sampler_init_p_step_addon (params.p_step, params.min_p_rand, params.min_keep));
                         break;
                     case 'o':
-                        llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));
+                        llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_mean, params.noise_max, params.seed));
                         break;
                     case 'r':
                         llama_sampler_chain_add(result->chain, llama_sampler_init_rx_addon (params.range_max, params.range_min, params.min_keep));
@@ -178,7 +178,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
             }
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp       (params.temp));
             llama_sampler_chain_add(result->chain, llama_sampler_init_top_n_sigma_addon(params.top_n_sigma));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));
+            llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_mean, params.noise_max, params.seed));
             // llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus  (params.seed, params.confidence_top, params.confidence_bottom));
             llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus1 (params.seed, params.confidence_top, params.confidence_bottom, params.logit_bias));
         } else {
@@ -198,7 +198,7 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
 
         // if (params.range_min < 1.0f && params.range_max == 1.0f) llama_sampler_chain_add(result->chain, llama_sampler_init_rx_addon (params.range_max, params.range_min, 2));
 
-        // if (params.noise_min > 0.0f) llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_min, params.noise_max, params.seed));
+        // if (params.noise_mean > 0.0f) llama_sampler_chain_add(result->chain, llama_sampler_init_noise_addon (params.noise_mean, params.noise_max, params.seed));
 
     //    llama_sampler_chain_add(result->chain, llama_sampler_init_greedy());
     //}
@@ -251,6 +251,7 @@ void common_perf_print(const struct llama_context * ctx, const struct common_sam
     }
     if (ctx) {
         llama_perf_context_print(ctx);
+        llama_memory_breakdown_print(ctx);
     }
 }
 

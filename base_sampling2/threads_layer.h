@@ -697,6 +697,7 @@ struct modelThread{
     void rewind() {
         resultsStringPairs.pop_back();
         newChat.rewindBack();
+        lastSpeed = 0.0f;
         // if (resultsStringPairs.size() == 1) common_sampler_reset_shift(newChat.params.sparams);
     }
 
@@ -1319,7 +1320,7 @@ struct configurableChat{
         aChat.params.sparams.min_p = params.sparams.min_p;
         aChat.params.sparams.min_p_rand = params.sparams.min_p_rand;
         aChat.params.sparams.p_step_rand = params.sparams.p_step_rand;
-        aChat.params.sparams.noise_min = params.sparams.noise_min;
+        aChat.params.sparams.noise_mean = params.sparams.noise_mean;
         aChat.params.sparams.noise_max = params.sparams.noise_max;
         aChat.params.sparams.range_min = params.sparams.range_min;
         aChat.params.sparams.range_max = params.sparams.range_max;
@@ -1481,7 +1482,7 @@ struct configurableChat{
         if (params.sparams.min_p != paramsDefault.sparams.min_p) modelConfig[model]["min_p"] = params.sparams.min_p;
         if (params.sparams.min_p_rand != paramsDefault.sparams.min_p_rand) modelConfig[model]["min_p_rand"] = params.sparams.min_p_rand;
         if (params.sparams.p_step_rand != paramsDefault.sparams.p_step_rand) modelConfig[model]["p_step_rand"] = params.sparams.p_step_rand;
-        if (params.sparams.noise_min != paramsDefault.sparams.noise_min) modelConfig[model]["noise_min"] = params.sparams.noise_min;
+        if (params.sparams.noise_mean != paramsDefault.sparams.noise_mean) modelConfig[model]["noise_mean"] = params.sparams.noise_mean;
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) modelConfig[model]["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) modelConfig[model]["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) modelConfig[model]["range_max"] = params.sparams.range_max;
@@ -1635,7 +1636,7 @@ struct configurableChat{
         if (params.sparams.min_p != paramsDefault.sparams.min_p) newCard["min_p"] = params.sparams.min_p;
         if (params.sparams.min_p_rand != paramsDefault.sparams.min_p_rand) newCard["min_p_rand"] = params.sparams.min_p_rand;
         if (params.sparams.p_step_rand != paramsDefault.sparams.p_step_rand) newCard["p_step_rand"] = params.sparams.p_step_rand;
-        if (params.sparams.noise_min != paramsDefault.sparams.noise_min) newCard["noise_min"] = params.sparams.noise_min;
+        if (params.sparams.noise_mean != paramsDefault.sparams.noise_mean) newCard["noise_mean"] = params.sparams.noise_mean;
         if (params.sparams.noise_max != paramsDefault.sparams.noise_max) newCard["noise_max"] = params.sparams.noise_max;
         if (params.sparams.range_min != paramsDefault.sparams.range_min) newCard["range_min"] = params.sparams.range_min;
         if (params.sparams.range_max != paramsDefault.sparams.range_max) newCard["range_max"] = params.sparams.range_max;
