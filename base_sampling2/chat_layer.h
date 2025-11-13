@@ -947,7 +947,7 @@ public:
             } else if (params.sparams.top_n_sigma >= 0) {
                 result += std::format("->{}={}",name_top_k,params.sparams.top_k);
                 if (params.sparams.penalty_repeat > 1.0f) {
-                    result += std::format("->{}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
+                    result += std::format("->{}={:.2f}|{}", name_penalty_repeat, params.sparams.penalty_repeat, params.sparams.penalty_last_n);
                     if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format(";{}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
                     if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
                     if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
@@ -969,7 +969,7 @@ public:
                     result += "->";
                     switch (s) {
                         case 'e': {
-                            result += std::format("{}={:.2f}", name_penalty_repeat, params.sparams.penalty_repeat);
+                            result += std::format("{}={:.2f}|{}", name_penalty_repeat, params.sparams.penalty_repeat, params.sparams.penalty_last_n);
                             if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format(";{}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
                             if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
                             if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
@@ -1489,7 +1489,12 @@ public:
 
             // remove any "future" tokens that we might have inherited from the previous session
             //llama_kv_cache_tokens_rm(ctx, n_matching_session_tokens, -1);
-            llama_memory_seq_rm(mem, -1, n_matching_session_tokens, -1);
+            // llama_memory_seq_rm(mem, -1, n_matching_session_tokens, -1);
+            if (!llama_memory_seq_rm(mem, -1, n_matching_session_tokens, -1)) {
+                fprintf(stderr, "%s: unable to resuse common prefix\n", __func__);
+                n_matching_session_tokens = 0;
+                llama_memory_seq_rm(mem, -1, -1, -1);
+            }
         }
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
@@ -1882,7 +1887,7 @@ public:
     // sampling
         // common_sampler_reset(smpl);
         restore_smpl();
-        //common_sampler_reset(smpl);
+        common_sampler_reset(smpl);
 
     // chat parameters
         embd_inp.erase(embd_inp.begin() + rewind_state.embd_inp_size, embd_inp.end());

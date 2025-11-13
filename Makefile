@@ -136,6 +136,7 @@ ggmlsrc_vulkan_f = $(ggmlsrc_f_s)/ggml-vulkan
 # llamacpp_f_s = $(base)/llama
 llamacpp_f_h = $(base)/$(PREFIX_A)/include
 llamacpp_f_s = $(base)/$(PREFIX_A)/src
+llamacpp_f_s_m = $(base)/$(PREFIX_A)/src/models
 # other
 uibackend_f = $(base)/UI
 include_f = $(base)/include
@@ -187,7 +188,7 @@ OBJS_IMGUI += $(TMP)tinyfiledialogs/tinyfiledialogs.o
 # vpath=$(ggmlsrc_f):$(llamacpp_f):$(common_f)
 
 FILE_D = -Itinyfiledialogs
-I_GGUF = -I$(common_f) -I$(ggmlsrc_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_cpu_86_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(uibackend_f) -I$(include_f)
+I_GGUF = -I$(common_f) -I$(ggmlsrc_f) -I$(ggmlsrc_f_h) -I$(ggmlsrc_f_s) -I$(ggmlsrc_cpu_f) -I$(ggmlsrc_cpu_86_f) -I$(ggmlsrc_blas_f) -I$(ggmlsrc_vulkan_f) -I$(llamacpp_f_s) -I$(llamacpp_f_h) -I$(llamacpp_f_s_m) -I$(uibackend_f) -I$(include_f)
 I_GGUF_PRE = -I. -Ipre_backend -Iinclude
 I_GGML = -Iggml -Iinclude
 
@@ -505,8 +506,106 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_unicode-data.o \
     $(TMP)$(PREFIX)_unicode.o
 
+OBJS_GGUF_LLAMA_MODELS = \
+    $(TMP)$(PREFIX)_m_apertus.o \
+    $(TMP)$(PREFIX)_m_arcee.o \
+    $(TMP)$(PREFIX)_m_arctic.o \
+    $(TMP)$(PREFIX)_m_arwkv7.o \
+    $(TMP)$(PREFIX)_m_baichuan.o \
+    $(TMP)$(PREFIX)_m_bailingmoe.o \
+    $(TMP)$(PREFIX)_m_bailingmoe2.o \
+    $(TMP)$(PREFIX)_m_bert.o \
+    $(TMP)$(PREFIX)_m_bitnet.o \
+    $(TMP)$(PREFIX)_m_bloom.o \
+    $(TMP)$(PREFIX)_m_chameleon.o \
+    $(TMP)$(PREFIX)_m_chatglm.o \
+    $(TMP)$(PREFIX)_m_codeshell.o \
+    $(TMP)$(PREFIX)_m_cogvlm.o \
+    $(TMP)$(PREFIX)_m_cohere2-iswa.o \
+    $(TMP)$(PREFIX)_m_command-r.o \
+    $(TMP)$(PREFIX)_m_dbrx.o \
+    $(TMP)$(PREFIX)_m_deci.o \
+    $(TMP)$(PREFIX)_m_deepseek.o \
+    $(TMP)$(PREFIX)_m_deepseek2.o \
+    $(TMP)$(PREFIX)_m_dots1.o \
+    $(TMP)$(PREFIX)_m_dream.o \
+    $(TMP)$(PREFIX)_m_ernie4-5-moe.o \
+    $(TMP)$(PREFIX)_m_ernie4-5.o \
+    $(TMP)$(PREFIX)_m_exaone.o \
+    $(TMP)$(PREFIX)_m_exaone4.o \
+    $(TMP)$(PREFIX)_m_falcon-h1.o \
+    $(TMP)$(PREFIX)_m_falcon.o \
+    $(TMP)$(PREFIX)_m_gemma-embedding.o \
+    $(TMP)$(PREFIX)_m_gemma.o \
+    $(TMP)$(PREFIX)_m_gemma2-iswa.o \
+    $(TMP)$(PREFIX)_m_gemma3-iswa.o \
+    $(TMP)$(PREFIX)_m_gemma3n-iswa.o \
+    $(TMP)$(PREFIX)_m_glm4-moe.o \
+    $(TMP)$(PREFIX)_m_glm4.o \
+    $(TMP)$(PREFIX)_m_gpt2.o \
+    $(TMP)$(PREFIX)_m_gptneox.o \
+    $(TMP)$(PREFIX)_m_granite-hybrid.o \
+    $(TMP)$(PREFIX)_m_granite.o \
+    $(TMP)$(PREFIX)_m_grok.o \
+    $(TMP)$(PREFIX)_m_grovemoe.o \
+    $(TMP)$(PREFIX)_m_hunyuan-dense.o \
+    $(TMP)$(PREFIX)_m_hunyuan-moe.o \
+    $(TMP)$(PREFIX)_m_internlm2.o \
+    $(TMP)$(PREFIX)_m_jais.o \
+    $(TMP)$(PREFIX)_m_jamba.o \
+    $(TMP)$(PREFIX)_m_lfm2.o \
+    $(TMP)$(PREFIX)_m_llada-moe.o \
+    $(TMP)$(PREFIX)_m_llada.o \
+    $(TMP)$(PREFIX)_m_llama-iswa.o \
+    $(TMP)$(PREFIX)_m_llama.o \
+    $(TMP)$(PREFIX)_m_mamba.o \
+    $(TMP)$(PREFIX)_m_minicpm3.o \
+    $(TMP)$(PREFIX)_m_minimax-m2.o \
+    $(TMP)$(PREFIX)_m_mpt.o \
+    $(TMP)$(PREFIX)_m_nemotron-h.o \
+    $(TMP)$(PREFIX)_m_nemotron.o \
+    $(TMP)$(PREFIX)_m_neo-bert.o \
+    $(TMP)$(PREFIX)_m_olmo.o \
+    $(TMP)$(PREFIX)_m_olmo2.o \
+    $(TMP)$(PREFIX)_m_olmoe.o \
+    $(TMP)$(PREFIX)_m_openai-moe-iswa.o \
+    $(TMP)$(PREFIX)_m_openelm.o \
+    $(TMP)$(PREFIX)_m_orion.o \
+    $(TMP)$(PREFIX)_m_pangu-embedded.o \
+    $(TMP)$(PREFIX)_m_phi2.o \
+    $(TMP)$(PREFIX)_m_phi3.o \
+    $(TMP)$(PREFIX)_m_plamo.o \
+    $(TMP)$(PREFIX)_m_plamo2.o \
+    $(TMP)$(PREFIX)_m_plm.o \
+    $(TMP)$(PREFIX)_m_qwen.o \
+    $(TMP)$(PREFIX)_m_qwen2.o \
+    $(TMP)$(PREFIX)_m_qwen2moe.o \
+    $(TMP)$(PREFIX)_m_qwen2vl.o \
+    $(TMP)$(PREFIX)_m_qwen3.o \
+    $(TMP)$(PREFIX)_m_qwen3vl.o \
+    $(TMP)$(PREFIX)_m_qwen3vl-moe.o \
+    $(TMP)$(PREFIX)_m_qwen3moe.o \
+    $(TMP)$(PREFIX)_m_refact.o \
+    $(TMP)$(PREFIX)_m_rwkv6-base.o \
+    $(TMP)$(PREFIX)_m_rwkv6.o \
+    $(TMP)$(PREFIX)_m_rwkv6qwen2.o \
+    $(TMP)$(PREFIX)_m_rwkv7-base.o \
+    $(TMP)$(PREFIX)_m_rwkv7.o \
+    $(TMP)$(PREFIX)_m_seed-oss.o \
+    $(TMP)$(PREFIX)_m_smallthinker.o \
+    $(TMP)$(PREFIX)_m_smollm3.o \
+    $(TMP)$(PREFIX)_m_stablelm.o \
+    $(TMP)$(PREFIX)_m_starcoder.o \
+    $(TMP)$(PREFIX)_m_starcoder2.o \
+    $(TMP)$(PREFIX)_m_t5-dec.o \
+    $(TMP)$(PREFIX)_m_t5-enc.o \
+    $(TMP)$(PREFIX)_m_wavtokenizer-dec.o \
+    $(TMP)$(PREFIX)_m_xverse.o \
+    $(TMP)$(PREFIX)_m_graph-context-mamba.o
+
 OBJS_GGUF += \
     $(OBJS_GGUF_LLAMA) \
+    $(OBJS_GGUF_LLAMA_MODELS) \
     $(TMP)$(PREFIX)_llama-addon.o \
     $(TMP)$(PREFIX)_sampling.o \
     $(TMP)$(PREFIX)_common.o
@@ -569,6 +668,10 @@ $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/%.c
 	@echo 
 
 $(TMP)$(PREFIX)_%.o: $(ggmlsrc_f_s)/%.cpp
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@echo 
+
+$(TMP)$(PREFIX)_m_%.o: $(llamacpp_f_s_m)/%.cpp
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 	@echo 
 
@@ -637,6 +740,7 @@ $(TMP)$(PREFIX)_ggml-opencl-gguf.o: $(ggmlsrc_f)/ggml-opencl.cpp $(ggmlsrc_f)/gg
 
 # vulkan
 GLSLC_CMD  = glslc
+# GLSLC_CMD  = w64devkit/x86_64-w64-mingw32/bin/glslc
 _ggml_vk_genshaders_cmd = $(shell pwd)/$(TMP)vkt-shaders-gen
 _ggml_vk_genshaders_new_cmd = $(shell pwd)/$(TMP)vkt-shaders-gen-new
 _ggml_vk_header = $(ggmlsrc_f)/ggml-vulkan-shaders.hpp

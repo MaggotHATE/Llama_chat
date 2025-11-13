@@ -15,13 +15,12 @@
 
 #include <CL/cl.h>
 
+#include <inttypes.h>
 #include <string.h>
 
 #include <cstddef>
 #include <cstdint>
-#include <atomic>
 #include <fstream>
-#include <limits>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -53,6 +52,37 @@
 //------------------------------------------------------------------------------
 
 bool ggml_cl_compute_forward(ggml_backend_t backend, struct ggml_tensor * tensor);
+
+// See https://gmplib.org/~tege/divcnst-pldi94.pdf figure 4.1.
+// Precompute mp (m' in the paper) and L such that division
+// can be computed using a multiply (high 32b of 64b result)
+// and a shift:
+//
+// n/d = (mulhi(n, mp) + n) >> L;
+struct fastdiv_vals {
+    uint32_t mp;
+    uint32_t L;
+    uint32_t d;
+    uint32_t pad;
+};
+static_assert(sizeof(fastdiv_vals) == 16, "fastdiv_vals size incorrect");
+
+static fastdiv_vals init_fastdiv_values(uint64_t d_64) {
+    GGML_ASSERT(d_64 != 0);
+    GGML_ASSERT(d_64 <= std::numeric_limits<uint32_t>::max());
+
+    uint32_t d = (uint32_t)d_64;
+
+    // compute L = ceil(log2(d));
+    uint32_t L = 0;
+    while (L < 32 && (uint32_t{ 1 } << L) < d) {
+        L++;
+    }
+
+    uint32_t mp = (uint32_t) ((uint64_t{ 1 } << 32) * ((uint64_t{ 1 } << L) - d) / d + 1);
+    // pack divisor as well to reduce error surface
+    return { mp, L, d, 0 };
+}
 
 enum GPU_FAMILY {
     ADRENO,
@@ -533,24 +563,16 @@ struct ggml_backend_opencl_context {
         }
 
         // Dump a csv
-        float total_kernel_time = 0;
-        fprintf(fperf, "op name, kernel name, queued duration (ms), submit duration(ms), exec duration (ms), complete duration (ms), total duration (ms), global size, local size, output size\n");
+        fprintf(fperf, "op name, kernel name, exec duration (ms), global size, local size, output size\n");
         for (const ProfilingInfo & info : profiling_info) {
-            total_kernel_time += info.cmd_duration_ns/1.e6f;
-            fprintf(fperf, "%s,%s,%f,%f,%f,%f,%f,%zux%zux%zu,%zux%zux%zu,%zux%zux%zux%zu\n",
+            fprintf(fperf, "%s,%s,%f,%zux%zux%zu,%zux%zux%zu,%zux%zux%zux%zu\n",
                 info.op_name.c_str(), info.kernel_name.c_str(),
-                info.cmd_queued_duration_ns/1.e6f,
-                info.cmd_submit_duration_ns/1.e6f,
                 info.cmd_duration_ns/1.e6f,
-                info.cmd_complete_duration_ns/1.e6f,
-                info.cmd_total_duration_ns/1.e6f,
                 info.global_size[0], info.global_size[1], info.global_size[2],
                 info.local_size[0], info.local_size[1], info.local_size[2],
                 info.output_size[0], info.output_size[1], info.output_size[2], info.output_size[3]);
         }
         fclose(fperf);
-
-        GGML_LOG_INFO("ggml_opencl: total kernel time: %f\n", total_kernel_time);
 
         // Dump a simple chrome trace
         FILE* ftrace = fopen("cl_trace.json", "w");
@@ -561,14 +583,14 @@ struct ggml_backend_opencl_context {
 
         fprintf(ftrace, "[\n");
         for (const ProfilingInfo & info : profiling_info) {
-            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"B\", \"ts\": %llu, \"pid\": \"\", \"tid\": \"Host\"},\n",
+            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"B\", \"ts\": %" PRIu64 ", \"pid\": \"\", \"tid\": \"Host\"},\n",
                 info.kernel_name.c_str(), info.cmd_queued/1000);
-            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"E\", \"ts\": %llu, \"pid\": \"\", \"tid\": \"Host\"},\n",
+            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"E\", \"ts\": %" PRIu64 ", \"pid\": \"\", \"tid\": \"Host\"},\n",
                 info.kernel_name.c_str(), info.cmd_submit/1000);
 
-            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"B\", \"ts\": %llu, \"pid\": \"\", \"tid\": \"Device\"},\n",
+            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"B\", \"ts\": %" PRIu64 ", \"pid\": \"\", \"tid\": \"Device\"},\n",
                 info.kernel_name.c_str(), info.cmd_start/1000);
-            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"E\", \"ts\": %llu, \"pid\": \"\", \"tid\": \"Device\"},\n",
+            fprintf(ftrace, "{\"name\": \"%s\", \"cat\": \"OpenCL\", \"ph\": \"E\", \"ts\": %" PRIu64 ", \"pid\": \"\", \"tid\": \"Device\"},\n",
                 info.kernel_name.c_str(), info.cmd_end/1000);
         }
         fclose(ftrace);
@@ -2953,8 +2975,11 @@ static bool ggml_opencl_supports_op(ggml_backend_dev_t dev, const struct ggml_te
             return op->src[0]->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32; // Assuming F32 for now, can be expanded
         case GGML_OP_PAD:
             return op->src[0]->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32;
-        case GGML_OP_UPSCALE:
-            return op->src[0]->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32;
+        case GGML_OP_UPSCALE: {
+            ggml_scale_mode mode = (ggml_scale_mode)(ggml_get_op_params_i32(op, 0) & 0xFF);
+            return op->src[0]->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32 &&
+                   (mode == GGML_SCALE_MODE_NEAREST || mode == GGML_SCALE_MODE_BILINEAR);
+        }
         case GGML_OP_CONV_2D:
             return (op->src[0]->type == GGML_TYPE_F16 && op->src[1]->type == GGML_TYPE_F16 && op->type == GGML_TYPE_F16) ||
                    (op->src[0]->type == GGML_TYPE_F32 && op->src[1]->type == GGML_TYPE_F32 && op->type == GGML_TYPE_F32) ||
@@ -4470,6 +4495,9 @@ static void ggml_cl_set_rows(ggml_backend_t backend, const ggml_tensor * src0, c
             GGML_ABORT("not implemented");
     }
 
+    fastdiv_vals ne11_ = init_fastdiv_values(ne11);
+    fastdiv_vals ne12_ = init_fastdiv_values(ne12);
+
     CL_CHECK(clSetKernelArg(kernel,  0, sizeof(cl_mem),   &extra0->data_device));
     CL_CHECK(clSetKernelArg(kernel,  1, sizeof(cl_ulong), &offset0));
     CL_CHECK(clSetKernelArg(kernel,  2, sizeof(cl_mem),   &extra1->data_device));
@@ -4480,8 +4508,8 @@ static void ggml_cl_set_rows(ggml_backend_t backend, const ggml_tensor * src0, c
     CL_CHECK(clSetKernelArg(kernel,  7, sizeof(cl_ulong), &nb01));
     CL_CHECK(clSetKernelArg(kernel,  8, sizeof(cl_ulong), &nb02));
     CL_CHECK(clSetKernelArg(kernel,  9, sizeof(cl_ulong), &nb03));
-    CL_CHECK(clSetKernelArg(kernel, 10, sizeof(int),      &ne11));
-    CL_CHECK(clSetKernelArg(kernel, 11, sizeof(int),      &ne12));
+    CL_CHECK(clSetKernelArg(kernel, 10, sizeof(fastdiv_vals), &ne11_));
+    CL_CHECK(clSetKernelArg(kernel, 11, sizeof(fastdiv_vals), &ne12_));
     CL_CHECK(clSetKernelArg(kernel, 12, sizeof(cl_ulong), &nb10));
     CL_CHECK(clSetKernelArg(kernel, 13, sizeof(cl_ulong), &nb11));
     CL_CHECK(clSetKernelArg(kernel, 14, sizeof(cl_ulong), &nb12));
@@ -6165,8 +6193,8 @@ static void ggml_cl_upscale(ggml_backend_t backend, const ggml_tensor * src0, gg
         CL_CHECK(clSetKernelArg(kernel, 15, sizeof(float),    &sf3));
     } else if (mode == GGML_SCALE_MODE_BILINEAR) {
         if (mode_flags & GGML_SCALE_FLAG_ALIGN_CORNERS) {
-            sf0 = (float)(ne0 - 1) / (ne00 - 1);
-            sf1 = (float)(ne1 - 1) / (ne01 - 1);
+            sf0 = ne0 > 1 && ne00 > 1 ? (float)(ne0 - 1) / (ne00 - 1) : sf0;
+            sf1 = ne1 > 1 && ne01 > 1 ? (float)(ne1 - 1) / (ne01 - 1) : sf1;
             pixel_offset = 0.0f;
         }
 
@@ -7652,6 +7680,8 @@ static void ggml_cl_mul_mat_id(ggml_backend_t backend, const ggml_tensor * src0,
     const cl_ulong nb21 = src2->nb[1];
     const cl_ulong nb20 = src2->nb[0];
 
+    UNUSED(nb20);
+
     const int ne0 = dst->ne[0];
     const int ne1 = dst->ne[1];
 
@@ -8406,6 +8436,7 @@ static void ggml_cl_rope(ggml_backend_t backend, const ggml_tensor * src0, const
     const bool is_neox = mode & 2;
     const bool is_mrope = mode & GGML_ROPE_TYPE_MROPE;
     const bool is_vision = mode == GGML_ROPE_TYPE_VISION;
+    const int  is_imrope = mode == GGML_ROPE_TYPE_IMROPE;
 
     if (is_mrope) {
         GGML_ASSERT(sections[0] > 0 || sections[1] > 0 || sections[2] > 0);
@@ -8496,8 +8527,13 @@ static void ggml_cl_rope(ggml_backend_t backend, const ggml_tensor * src0, const
     CL_CHECK(clSetKernelArg(kernel, 30, sizeof(float),    &attn_factor));
     CL_CHECK(clSetKernelArg(kernel, 31, sizeof(float),    &beta_fast));
     CL_CHECK(clSetKernelArg(kernel, 32, sizeof(float),    &beta_slow));
+    // both mrope and vision kernels have sections
     if (is_mrope || is_vision) {
         CL_CHECK(clSetKernelArg(kernel, 33, sizeof(int32_t)*4, &sections));
+    }
+    // only mrope has is_imrope
+    if (is_mrope && !is_vision) {
+        CL_CHECK(clSetKernelArg(kernel, 34, sizeof(int), &is_imrope));
     }
 
     size_t global_work_size[] = {(size_t)ne01*nth, (size_t)ne02, (size_t)ne03};
