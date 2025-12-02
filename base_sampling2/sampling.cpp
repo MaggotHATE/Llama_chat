@@ -5,6 +5,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <algorithm>
+#include <cstring>
 
 struct common_sampler {
     common_params_sampling params;
@@ -17,6 +18,14 @@ struct common_sampler {
     std::vector<llama_token_data> cur;
 
     llama_token_data_array cur_p;
+
+
+    void reset() {
+        prev.clear();
+
+        llama_sampler_reset(grmr);
+        llama_sampler_reset(chain);
+    }
 
     void set_logits(struct llama_context * ctx, int idx) {
         const auto * logits = llama_get_logits_ith(ctx, idx);
@@ -34,6 +43,13 @@ struct common_sampler {
 
         cur_p = { cur.data(), cur.size(), -1, false };
     }
+
+
+    common_time_meas tm() {
+        return common_time_meas(t_total_us, params.no_perf);
+    }
+
+    mutable int64_t t_total_us = 0;
 };
 
 std::string common_params_sampling::print() const {
@@ -217,6 +233,8 @@ void common_sampler_free(struct common_sampler * gsmpl) {
 }
 
 void common_sampler_accept(struct common_sampler * gsmpl, llama_token token, bool accept_grammar) {
+    const auto tm = gsmpl->tm();
+
     if (accept_grammar) {
         llama_sampler_accept(gsmpl->grmr, token);
     }
@@ -227,9 +245,10 @@ void common_sampler_accept(struct common_sampler * gsmpl, llama_token token, boo
 }
 
 void common_sampler_reset(struct common_sampler * gsmpl) {
-    llama_sampler_reset(gsmpl->grmr);
+    // llama_sampler_reset(gsmpl->grmr);
 
-    llama_sampler_reset(gsmpl->chain);
+    // llama_sampler_reset(gsmpl->chain);
+    gsmpl->reset();
 }
 
 struct common_sampler * common_sampler_clone(common_sampler * gsmpl) {
@@ -256,6 +275,11 @@ void common_perf_print(const struct llama_context * ctx, const struct common_sam
 }
 
 llama_token common_sampler_sample(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, bool grammar_first) {
+    llama_synchronize(ctx);
+
+    // start measuring sampling time after the llama_context synchronization in order to not measure any ongoing async operations
+    const auto tm = gsmpl->tm();
+
     gsmpl->set_logits(ctx, idx);
 
     auto & grmr  = gsmpl->grmr;
@@ -423,6 +447,8 @@ uint32_t common_sampler_get_seed(const struct common_sampler * gsmpl) {
 // helpers
 
 llama_token_data_array * common_sampler_get_candidates(struct common_sampler * gsmpl) {
+    const auto tm = gsmpl->tm();
+
     return &gsmpl->cur_p;
 }
 

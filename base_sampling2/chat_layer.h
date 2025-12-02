@@ -1336,6 +1336,9 @@ public:
             mem = llama_get_memory(ctx);
             printf("..............MEM INITIALIZED (%s)................\n", __func__);
 
+            llama_perf_context_reset(ctx);
+            printf("..............PERF RESET (%s)................\n", __func__);
+
             assignThreads();
             printf("..............THREADS ASSIGNED (%s)................\n", __func__);
 

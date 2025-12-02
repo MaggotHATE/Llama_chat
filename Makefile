@@ -507,6 +507,7 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_unicode.o
 
 OBJS_GGUF_LLAMA_MODELS = \
+    $(TMP)$(PREFIX)_m_afmoe.o \
     $(TMP)$(PREFIX)_m_apertus.o \
     $(TMP)$(PREFIX)_m_arcee.o \
     $(TMP)$(PREFIX)_m_arctic.o \
@@ -561,6 +562,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_mamba.o \
     $(TMP)$(PREFIX)_m_minicpm3.o \
     $(TMP)$(PREFIX)_m_minimax-m2.o \
+    $(TMP)$(PREFIX)_m_mistral3.o \
     $(TMP)$(PREFIX)_m_mpt.o \
     $(TMP)$(PREFIX)_m_nemotron-h.o \
     $(TMP)$(PREFIX)_m_nemotron.o \
@@ -585,7 +587,9 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_qwen3vl.o \
     $(TMP)$(PREFIX)_m_qwen3vl-moe.o \
     $(TMP)$(PREFIX)_m_qwen3moe.o \
+    $(TMP)$(PREFIX)_m_qwen3next.o \
     $(TMP)$(PREFIX)_m_refact.o \
+    $(TMP)$(PREFIX)_m_rnd1.o \
     $(TMP)$(PREFIX)_m_rwkv6-base.o \
     $(TMP)$(PREFIX)_m_rwkv6.o \
     $(TMP)$(PREFIX)_m_rwkv6qwen2.o \

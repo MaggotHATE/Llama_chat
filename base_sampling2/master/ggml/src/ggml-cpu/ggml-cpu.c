@@ -1731,6 +1731,10 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
             {
                 ggml_compute_forward_sum_rows(params, tensor);
             } break;
+        case GGML_OP_CUMSUM:
+            {
+                ggml_compute_forward_cumsum(params, tensor);
+            } break;
         case GGML_OP_MEAN:
             {
                 ggml_compute_forward_mean(params, tensor);
@@ -1923,9 +1927,21 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
             {
                 ggml_compute_forward_argsort(params, tensor);
             } break;
+        case GGML_OP_TOP_K:
+            {
+                ggml_compute_forward_top_k(params, tensor);
+            } break;
         case GGML_OP_LEAKY_RELU:
             {
                 ggml_compute_forward_leaky_relu(params, tensor);
+            } break;
+        case GGML_OP_TRI:
+            {
+                ggml_compute_forward_tri(params, tensor);
+            } break;
+        case GGML_OP_FILL:
+            {
+                ggml_compute_forward_fill(params, tensor);
             } break;
         case GGML_OP_FLASH_ATTN_EXT:
             {
@@ -1981,6 +1997,10 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
         case GGML_OP_RWKV_WKV7:
             {
                 ggml_compute_forward_rwkv_wkv7(params, tensor);
+            } break;
+        case GGML_OP_SOLVE_TRI:
+            {
+                ggml_compute_forward_solve_tri(params, tensor);
             } break;
         case GGML_OP_MAP_CUSTOM1:
             {
@@ -2140,6 +2160,9 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads) {
         case GGML_OP_ADD_ID:
         case GGML_OP_ADD1:
         case GGML_OP_ACC:
+        case GGML_OP_CUMSUM:
+        case GGML_OP_TRI:
+        case GGML_OP_FILL:
             {
                 n_tasks = n_threads;
             } break;
@@ -2157,6 +2180,7 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads) {
                 n_tasks = 1;
             } break;
         case GGML_OP_COUNT_EQUAL:
+        case GGML_OP_SOLVE_TRI:
             {
                 n_tasks = n_threads;
             } break;
@@ -2179,6 +2203,8 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads) {
                 case GGML_UNARY_OP_HARDSWISH:
                 case GGML_UNARY_OP_HARDSIGMOID:
                 case GGML_UNARY_OP_EXP:
+                case GGML_UNARY_OP_SOFTPLUS:
+                case GGML_UNARY_OP_EXPM1:
                 case GGML_UNARY_OP_FLOOR:
                 case GGML_UNARY_OP_CEIL:
                 case GGML_UNARY_OP_ROUND:
@@ -2289,6 +2315,7 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads) {
         case GGML_OP_ARANGE:
         case GGML_OP_TIMESTEP_EMBEDDING:
         case GGML_OP_ARGSORT:
+        case GGML_OP_TOP_K:
         case GGML_OP_FLASH_ATTN_EXT:
         case GGML_OP_FLASH_ATTN_BACK:
         case GGML_OP_SSM_CONV:
@@ -2811,6 +2838,10 @@ struct ggml_cplan ggml_graph_plan(
 
                         cur += sizeof(ggml_fp16_t)*ne00*ne01*ne02*ne03;
                         cur += sizeof(ggml_fp16_t)*ne10*ne11*ne12;
+                    } break;
+                case GGML_OP_TOP_K:
+                    {
+                        cur += sizeof(int32_t)*node->src[0]->ne[0]*n_tasks;
                     } break;
                 case GGML_OP_FLASH_ATTN_EXT:
                     {

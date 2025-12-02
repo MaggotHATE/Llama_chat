@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "ggml-opt.h"
 #include "llama-cpp.h"
 
 #include <string>
@@ -23,6 +24,16 @@
 } while(0)
 
 #define DEFAULT_MODEL_PATH "models/7B/ggml-model-f16.gguf"
+
+
+struct common_time_meas {
+    common_time_meas(int64_t & t_acc, bool disable = false);
+    ~common_time_meas();
+
+    const int64_t t_start_us;
+
+    int64_t & t_acc;
+};
 
 struct common_adapter_lora_info {
     std::string path;
@@ -129,6 +140,21 @@ struct common_grammar_trigger {
     bool at_start;
 };
 
+enum common_params_sampling_config : uint64_t {
+    COMMON_PARAMS_SAMPLING_CONFIG_SAMPLERS        = 1 << 0,
+    COMMON_PARAMS_SAMPLING_CONFIG_TOP_K           = 1 << 1,
+    COMMON_PARAMS_SAMPLING_CONFIG_TOP_P           = 1 << 2,
+    COMMON_PARAMS_SAMPLING_CONFIG_MIN_P           = 1 << 3,
+    COMMON_PARAMS_SAMPLING_CONFIG_XTC_PROBABILITY = 1 << 4,
+    COMMON_PARAMS_SAMPLING_CONFIG_XTC_THRESHOLD   = 1 << 5,
+    COMMON_PARAMS_SAMPLING_CONFIG_TEMP            = 1 << 6,
+    COMMON_PARAMS_SAMPLING_CONFIG_PENALTY_LAST_N  = 1 << 7,
+    COMMON_PARAMS_SAMPLING_CONFIG_PENALTY_REPEAT  = 1 << 8,
+    COMMON_PARAMS_SAMPLING_CONFIG_MIROSTAT        = 1 << 9,
+    COMMON_PARAMS_SAMPLING_CONFIG_MIROSTAT_TAU    = 1 << 10,
+    COMMON_PARAMS_SAMPLING_CONFIG_MIROSTAT_ETA    = 1 << 11,
+};
+
 // sampling parameters
 struct common_params_sampling {
     uint32_t seed = LLAMA_DEFAULT_SEED; // the seed used to initialize llama_sampler
@@ -186,6 +212,8 @@ struct common_params_sampling {
     bool    no_perf           = false; // disable performance metrics
 
     std::string samplers_sequence     = "kfypmts"; // top_k, tail_free, typical_p, top_p, min_p, temp, p_step
+
+    uint64_t user_sampling_config = 0; // bitfield to track user-specified samplers
 
     std::vector<std::string> dry_sequence_breakers = {"\n", ":", "\"", "*"};     // default sequence breakers for DRY
 
