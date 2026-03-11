@@ -883,7 +883,7 @@ public:
     
     std::string getSparamsChanged(bool fullnames = true) {
 
-        std::string result = fullnames ? backend_name + "->logits" : backend_name_short + "@";
+        std::string result = fullnames ? backend_name + "@logits" : backend_name_short + "@";
 
         std::string name_top_k = fullnames ? "top_k" : "K";
         std::string name_rx = fullnames ? "range" : "R";
@@ -905,31 +905,35 @@ public:
 
         //    result += std::format("-> {:.2f} greedy",params.sparams.temp);
         //} else {
-            std::string name_penalty_repeat = fullnames ? "penalty_repeat" : "p_r";
-            std::string name_penalty_threshold = fullnames ? "penalty_threshold" : "p_t";
-            std::string name_penalty_freq = fullnames ? "penalty_freq" : "p_f";
-            std::string name_penalty_present = fullnames ? "penalty_present" : "p_p";
+            std::string name_penalty_repeat = fullnames ? "penalty[repeat" : "p[r";
+            std::string name_penalty_threshold = fullnames ? "threshold" : "pt";
+            std::string name_penalty_freq = fullnames ? "freq" : "pf";
+            std::string name_penalty_present = fullnames ? "present" : "ps";
             //DRY
             std::string name_dry = fullnames ? "DRY" : "D";
 
             std::string name_temp = fullnames ? "temp" : "T";
             std::string name_dynatemp_range = fullnames ? "dynatemp_range" : "dT";
 
-            std::string name_mirostat = fullnames ? "mirostat" : "I";
-            std::string name_mirostat_tau = fullnames ? "mirostat_tau" : "I_t";
-            std::string name_mirostat_eta = fullnames ? "mirostat_eta" : "I_e";
+            std::string name_mirostat = fullnames ? "mirostat[" : "I[";
+            std::string name_mirostat_tau = fullnames ? "tau" : "t";
+            std::string name_mirostat_eta = fullnames ? "eta" : "e";
 
             std::string name_top_n_sigma = fullnames ? "top_n_sigma" : "tns";
 
             std::string name_tfs_z = fullnames ? "tfs_z" : "F";
             std::string name_typical_p = fullnames ? "typical_p" : "Y";
             std::string name_p_step = fullnames ? "p_step" : "S";
-            std::string name_xtc_probability = fullnames ? "xtc_probability" : "x_p";
-            std::string name_xtc_threshold = fullnames ? "xtc_threshold" : "x_t";
+            std::string name_power_law_target = fullnames ? "power_law[target" : "pl[t";
+            std::string name_power_law_decay = fullnames ? "decay" : "d";
+            std::string name_xtc_probability = fullnames ? "xtc: probability" : "x_p";
+            std::string name_xtc_threshold = fullnames ? "threshold" : "x_t";
             std::string name_top_p = fullnames ? "top_p" : "P";
             std::string name_min_p = fullnames ? "min_p" : "M";
-            std::string name_noise = fullnames ? "gauss" : "O";
+            std::string name_noise = fullnames ? "grng" : "O";
             std::string name_k_shift = fullnames ? "k_shift" : "k_s";
+
+            // bool is_power_law = params.sparams.power_law_target > 0.0f;
 
             // mirostat is special 
             if (params.sparams.mirostat != paramsDefault.sparams.mirostat) {
@@ -943,7 +947,7 @@ public:
                 }
                 result += "-> " + name_mirostat + " = " + std::to_string(params.sparams.mirostat); 
                 result += std::format(";{}={:.2f}", name_mirostat_tau, params.sparams.mirostat_tau); 
-                result += std::format(";{}={:.2f}", name_mirostat_eta, params.sparams.mirostat_eta);
+                result += std::format(";{}={:.2f}]", name_mirostat_eta, params.sparams.mirostat_eta);
             } else if (params.sparams.top_n_sigma >= 0) {
                 result += std::format("->{}={}",name_top_k,params.sparams.top_k);
                 if (params.sparams.penalty_repeat > 1.0f) {
@@ -959,7 +963,7 @@ public:
                 result += std::format("->{}={:.2f}", name_temp, params.sparams.temp);
                 // result += std::format("->{}={:.2f}-{:.2f}", name_noise, params.sparams.noise_min, params.sparams.noise_max);
                 result += std::format("->{}={:.2f}", name_top_n_sigma, params.sparams.top_n_sigma);
-                result += std::format("->{}={:.2f}d{:.2f}", name_noise, params.sparams.noise_mean, params.sparams.noise_max);
+                result += std::format("->{}[{:.2f}d{:.2f}]", name_noise, params.sparams.noise_mean, params.sparams.noise_max);
             } else {
                 //DRY
                 if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
@@ -982,7 +986,7 @@ public:
                         // case 'x': result += std::format("xtc={:.2f}-{:.2f}({}%/{})",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,(params.sparams.xtc_probability*100),params.sparams.xtc_min); if (params.sparams.xtc_probability_once) result += "once"; else result += "each"; result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'x': result += std::format("xtc={:.2f}-{:.2f}/{:.2f}%",params.sparams.xtc_threshold,params.sparams.xtc_threshold_max,params.sparams.xtc_probability*100); result += std::format("-{}/{}({:.2f}%)", xtc_removed, xtc_total, xtc_percent); break;
                         case 'p': result += name_top_p; if (params.sparams.top_p != paramsDefault.sparams.top_p) result += std::format("={:.2f}",params.sparams.top_p); break;
-                        case 'o': result += std::format("{}=m{:.2f}d{:.2f}", name_noise, params.sparams.noise_mean, params.sparams.noise_max); break;
+                        case 'o': result += std::format("{}[m{:.2f}d{:.2f}]", name_noise, params.sparams.noise_mean, params.sparams.noise_max); break;
                         case 'm': result += name_min_p; if (params.sparams.min_p != paramsDefault.sparams.min_p) result += std::format("={:.3f}%{:.2f}",params.sparams.min_p,params.sparams.min_p_rand); result += std::format("({}/{})", min_p_total, candidates_max_min_p); break;
                         case 'l': result += std::format("{}:{}({} max)", name_k_shift, params.sparams.confidence_shift, params.sparams.k_shift); break;
                         case 'r': result += name_rx; if (params.sparams.range_min != paramsDefault.sparams.range_min || params.sparams.range_max != paramsDefault.sparams.range_max) result += std::format("={:.2f}-{:.2f}:{}/{}({:.2f}%)",params.sparams.range_min, params.sparams.range_max, rx_removed, rx_total, rx_percent); break;
@@ -1013,8 +1017,14 @@ public:
                 }
             }
         //}
-        result += std::format(":{}({}vs{}={:.2f})", candidates_max, num_probs_tops, num_probs_bottoms, confidence_total);
-        if (params.sparams.confidence_top > 0) result += std::format(" Cnf[{:.2f}-{:.2f}]", params.sparams.confidence_top, params.sparams.confidence_bottom);
+        if (params.sparams.power_law_target > 0.0f) {
+            result += std::format("#{}={:.2f}|{}={:.2f}]", name_power_law_target, params.sparams.power_law_target, name_power_law_decay, params.sparams.power_law_decay);
+            result += std::format("({}vs{}={:.2f})", num_probs_tops, num_probs_bottoms, confidence_total);
+        } else {
+            result += std::format("#{}({}vs{}={:.2f})", candidates_max, num_probs_tops, num_probs_bottoms, confidence_total);
+            if (params.sparams.confidence_top > 0) result += std::format(" Cnf[{:.2f}-{:.2f}]", params.sparams.confidence_top, params.sparams.confidence_bottom);
+        }
+
         return result;
     }
 

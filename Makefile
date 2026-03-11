@@ -446,6 +446,7 @@ OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_gguf.o \
     $(TMP)$(PREFIX)_ggml-alloc.o \
     $(TMP)$(PREFIX)_ggml-backend.o \
+    $(TMP)$(PREFIX)_ggml-backend-dl.o \
     $(TMP)$(PREFIX)_ggml-backend-reg.o \
     $(TMP)$(PREFIX)_ggml-opt.o \
     $(TMP)$(PREFIX)_ggml-quants.o \
@@ -495,13 +496,14 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-kv-cache-iswa.o \
     $(TMP)$(PREFIX)_llama-memory.o \
     $(TMP)$(PREFIX)_llama-memory-hybrid.o \
+    $(TMP)$(PREFIX)_llama-memory-hybrid-iswa.o \
     $(TMP)$(PREFIX)_llama-memory-recurrent.o \
     $(TMP)$(PREFIX)_llama-mmap.o \
     $(TMP)$(PREFIX)_llama-model-loader.o \
     $(TMP)$(PREFIX)_llama-model-saver.o \
     $(TMP)$(PREFIX)_llama-model.o \
     $(TMP)$(PREFIX)_llama-quant.o \
-    $(TMP)$(PREFIX)_llama-sampling.o \
+    $(TMP)$(PREFIX)_llama-sampler.o \
     $(TMP)$(PREFIX)_llama-vocab.o \
     $(TMP)$(PREFIX)_unicode-data.o \
     $(TMP)$(PREFIX)_unicode.o
@@ -528,10 +530,13 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_deci.o \
     $(TMP)$(PREFIX)_m_deepseek.o \
     $(TMP)$(PREFIX)_m_deepseek2.o \
+    $(TMP)$(PREFIX)_m_delta-net-base.o \
     $(TMP)$(PREFIX)_m_dots1.o \
     $(TMP)$(PREFIX)_m_dream.o \
     $(TMP)$(PREFIX)_m_ernie4-5-moe.o \
     $(TMP)$(PREFIX)_m_ernie4-5.o \
+    $(TMP)$(PREFIX)_m_eurobert.o \
+    $(TMP)$(PREFIX)_m_exaone-moe.o \
     $(TMP)$(PREFIX)_m_exaone.o \
     $(TMP)$(PREFIX)_m_exaone4.o \
     $(TMP)$(PREFIX)_m_falcon-h1.o \
@@ -539,7 +544,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_gemma-embedding.o \
     $(TMP)$(PREFIX)_m_gemma.o \
     $(TMP)$(PREFIX)_m_gemma2-iswa.o \
-    $(TMP)$(PREFIX)_m_gemma3-iswa.o \
+    $(TMP)$(PREFIX)_m_gemma3.o \
     $(TMP)$(PREFIX)_m_gemma3n-iswa.o \
     $(TMP)$(PREFIX)_m_glm4-moe.o \
     $(TMP)$(PREFIX)_m_glm4.o \
@@ -553,15 +558,21 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_hunyuan-moe.o \
     $(TMP)$(PREFIX)_m_internlm2.o \
     $(TMP)$(PREFIX)_m_jais.o \
+    $(TMP)$(PREFIX)_m_jais2.o \
     $(TMP)$(PREFIX)_m_jamba.o \
+    $(TMP)$(PREFIX)_m_kimi-linear.o \
     $(TMP)$(PREFIX)_m_lfm2.o \
     $(TMP)$(PREFIX)_m_llada-moe.o \
     $(TMP)$(PREFIX)_m_llada.o \
     $(TMP)$(PREFIX)_m_llama-iswa.o \
     $(TMP)$(PREFIX)_m_llama.o \
+    $(TMP)$(PREFIX)_m_maincoder.o \
+    $(TMP)$(PREFIX)_m_mamba-base.o \
     $(TMP)$(PREFIX)_m_mamba.o \
+    $(TMP)$(PREFIX)_m_mimo2-iswa.o \
     $(TMP)$(PREFIX)_m_minicpm3.o \
     $(TMP)$(PREFIX)_m_minimax-m2.o \
+    $(TMP)$(PREFIX)_m_modern-bert.o \
     $(TMP)$(PREFIX)_m_mistral3.o \
     $(TMP)$(PREFIX)_m_mpt.o \
     $(TMP)$(PREFIX)_m_nemotron-h.o \
@@ -573,11 +584,13 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_openai-moe-iswa.o \
     $(TMP)$(PREFIX)_m_openelm.o \
     $(TMP)$(PREFIX)_m_orion.o \
+    $(TMP)$(PREFIX)_m_paddleocr.o \
     $(TMP)$(PREFIX)_m_pangu-embedded.o \
     $(TMP)$(PREFIX)_m_phi2.o \
     $(TMP)$(PREFIX)_m_phi3.o \
     $(TMP)$(PREFIX)_m_plamo.o \
     $(TMP)$(PREFIX)_m_plamo2.o \
+    $(TMP)$(PREFIX)_m_plamo3.o \
     $(TMP)$(PREFIX)_m_plm.o \
     $(TMP)$(PREFIX)_m_qwen.o \
     $(TMP)$(PREFIX)_m_qwen2.o \
@@ -588,6 +601,8 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_qwen3vl-moe.o \
     $(TMP)$(PREFIX)_m_qwen3moe.o \
     $(TMP)$(PREFIX)_m_qwen3next.o \
+    $(TMP)$(PREFIX)_m_qwen35.o \
+    $(TMP)$(PREFIX)_m_qwen35moe.o \
     $(TMP)$(PREFIX)_m_refact.o \
     $(TMP)$(PREFIX)_m_rnd1.o \
     $(TMP)$(PREFIX)_m_rwkv6-base.o \
@@ -601,11 +616,11 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_stablelm.o \
     $(TMP)$(PREFIX)_m_starcoder.o \
     $(TMP)$(PREFIX)_m_starcoder2.o \
+    $(TMP)$(PREFIX)_m_step35-iswa.o \
     $(TMP)$(PREFIX)_m_t5-dec.o \
     $(TMP)$(PREFIX)_m_t5-enc.o \
     $(TMP)$(PREFIX)_m_wavtokenizer-dec.o \
-    $(TMP)$(PREFIX)_m_xverse.o \
-    $(TMP)$(PREFIX)_m_graph-context-mamba.o
+    $(TMP)$(PREFIX)_m_xverse.o
 
 OBJS_GGUF += \
     $(OBJS_GGUF_LLAMA) \
@@ -1064,3 +1079,5 @@ $(test-vk-ops):$(ggmlsrc)/tests/test-backend-ops.cpp $(OBJS_VK)
 	$(CXX) $(I_GGUF) $(CXXFLAGS_VK) -c $< -o $(call GET_OBJ_FILE1, $<)
 	$(CXX) $(I_GGUF) $(CXXFLAGS_VK) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE1, $<) -o $@ $(LDFLAGS_VK) $(LDFLAGS_VK+)
 
+task1: tst_task1.hpp
+	$(CXX) $(I_GGUF) $(filter-out %.h,$^) $(LDFLAGS) -o $@ $(CXXFLAGS)

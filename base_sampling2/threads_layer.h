@@ -1502,6 +1502,8 @@ struct configurableChat{
             modelConfig[model]["p_step"]["p_mul"] = params.sparams.p_step_func.p_mul;
             std::cout << "Object created! " << std::endl;
         } else if (params.sparams.p_step != paramsDefault.sparams.p_step) modelConfig[model]["p_step"] = params.sparams.p_step;
+        if (params.sparams.power_law_target != paramsDefault.sparams.power_law_target) modelConfig[model]["power_law_target"] = params.sparams.power_law_target;
+        if (params.sparams.power_law_decay != paramsDefault.sparams.power_law_decay) modelConfig[model]["power_law_decay"] = params.sparams.power_law_decay;
         if (params.sparams.xtc_probability != paramsDefault.sparams.xtc_probability) modelConfig[model]["xtc_probability"] = params.sparams.xtc_probability;
         if (params.sparams.xtc_threshold != paramsDefault.sparams.xtc_threshold) modelConfig[model]["xtc_threshold"] = params.sparams.xtc_threshold;
         if (params.sparams.xtc_threshold_max != paramsDefault.sparams.xtc_threshold_max) modelConfig[model]["xtc_threshold_max"] = params.sparams.xtc_threshold_max;
@@ -1646,6 +1648,8 @@ struct configurableChat{
         if (params.sparams.tfs_z != paramsDefault.sparams.tfs_z) newCard["tfs_z"] = params.sparams.tfs_z;
         if (params.sparams.typical_p != paramsDefault.sparams.typical_p) newCard["typical_p"] = params.sparams.typical_p;
         if (params.sparams.p_step != paramsDefault.sparams.p_step) newCard["p_step"] = params.sparams.p_step;
+        if (params.sparams.power_law_target != paramsDefault.sparams.power_law_target) newCard["power_law_target"] = params.sparams.power_law_target;
+        if (params.sparams.power_law_decay != paramsDefault.sparams.power_law_decay) newCard["power_law_decay"] = params.sparams.power_law_decay;
         if (params.sparams.xtc_probability != paramsDefault.sparams.xtc_probability) newCard["xtc_probability"] = params.sparams.xtc_probability;
         if (params.sparams.xtc_threshold != paramsDefault.sparams.xtc_threshold) newCard["xtc_threshold"] = params.sparams.xtc_threshold;
         if (params.sparams.xtc_threshold_max != paramsDefault.sparams.xtc_threshold_max) newCard["xtc_threshold_max"] = params.sparams.xtc_threshold_max;

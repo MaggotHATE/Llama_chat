@@ -160,3 +160,26 @@ void llama_set_time_impl(struct llama_sampling * smpl, const int64_t t_start_sam
                              int32_t   n_vocab,
                              int32_t   n_logit_bias,
               const llama_logit_bias * logit_bias);
+
+    /// power-law
+    ///
+    /// this sampler implements a power law probability transformation with adaptive
+    /// target tracking. it reshapes token probability distributions to favor tokens near a
+    /// configurable target probability, rather than always selecting from the highest probability
+    /// candidates. it is ideal for creative, unpredictable text generation.
+    ///
+    /// this sampler is like `greedy`, `dist`, and `mirostat` in that it actually selects a token ID
+    /// rather than just transforming logits. therefore it must always be the last sampler in the
+    /// sampler chain.
+    ///
+    /// minimal truncation before this sampler is recommended.
+    ///
+    /// @param target select tokens near this probability (valid range 0.0 to 1.0; <0 = disabled)
+    /// @param decay decay rate for target adaptation over time. lower values -> faster but less stable adaptation. (valid range 0.0 to 1.0; ≤0 = no adaptation)
+    ///
+    /// ref: https://github.com/MrJackSpade/llama.cpp/tree/master (original impl)
+    /// ref: https://github.com/ggml-org/llama.cpp/pull/17927     (llama.cpp PR)
+    LLAMA_API struct llama_sampler * llama_sampler_init_power_law(
+                               float   target,
+                               float   decay,
+                            uint32_t   seed);

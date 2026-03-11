@@ -165,7 +165,7 @@ struct common_params_sampling {
     int32_t top_k             = 40;    // <= 0 to use vocab size
     float   top_p             = 1.00f; // 1.0 = disabled
     float   min_p             = 0.05f; // 0.0 = disabled
-    float   min_p_rand        = 1.00f; // randomization factor for Gaussian noise
+    float   min_p_rand        = 0.50f; // randomization factor for Gaussian noise before applying min_p
     float   tfs_z             = 1.00f; // 1.0 = disabled
     float   typical_p         = 1.00f; // typical_p, 1.0 = disabled
     float   p_step            = 0.00f; // 0.0 = disabled
@@ -192,6 +192,8 @@ struct common_params_sampling {
     float   dry_base           = 1.75f; // 0.0 = disabled;      multiplier * base ^ (length of sequence before token - allowed length)
     int32_t dry_allowed_length = 2;     // tokens extending repetitions beyond this receive penalty
     int32_t dry_penalty_last_n = -1;    // how many tokens to scan for repetitions (0 = disable penalty, -1 = context size)
+    float    power_law_target   = -1.0f;  // select tokens near this probability (valid range 0.0 to 1.0; <0 = disabled)
+    float    power_law_decay    = 0.90f;  // decay rate for target adaptation over time. lower values -> faster but less stable adaptation. (valid range 0.0 to 1.0; ≤0 = no adaptation)
     float    xtc_probability       = 0.5; // probability of removing a top token
     float    xtc_threshold         = 0.1; // minimum tokens probablitity for this to run
     float    xtc_threshold_max     = 1.0; // maximum tokens probablitity for this to run

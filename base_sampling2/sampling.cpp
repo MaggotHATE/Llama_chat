@@ -173,7 +173,11 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
             }
             //llama_sampler_chain_add(result->chain, llama_sampler_init_post_addon(params.seed, params.xtc_probability, params.xtc_threshold));
             // llama_sampler_chain_add(result->chain, llama_sampler_init_dist(params.seed));
-            llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus(params.seed, params.confidence_top, params.confidence_bottom));
+            if (params.power_law_target > 0.0f) {
+                llama_sampler_chain_add(result->chain, llama_sampler_init_power_law(params.power_law_target, params.power_law_decay, params.seed));
+            } else {
+                llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus(params.seed, params.confidence_top, params.confidence_bottom));
+            }
             // llama_sampler_chain_add(result->chain, llama_sampler_init_dist_plus1 (params.seed, params.confidence_top, params.confidence_bottom, params.logit_bias));
         } else if (params.mirostat == 1) {
             llama_sampler_chain_add(result->chain, llama_sampler_init_temp(params.temp));
