@@ -546,6 +546,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_gemma2-iswa.o \
     $(TMP)$(PREFIX)_m_gemma3.o \
     $(TMP)$(PREFIX)_m_gemma3n-iswa.o \
+    $(TMP)$(PREFIX)_m_gemma4-iswa.o \
     $(TMP)$(PREFIX)_m_glm4-moe.o \
     $(TMP)$(PREFIX)_m_glm4.o \
     $(TMP)$(PREFIX)_m_gpt2.o \

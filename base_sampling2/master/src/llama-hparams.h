@@ -89,6 +89,7 @@ struct llama_hparams {
     bool     expert_weights_norm  = false;
     uint32_t expert_gating_func   = LLAMA_EXPERT_GATING_FUNC_TYPE_NONE;
     uint32_t moe_every_n_layers   = 0;
+    uint32_t moe_latent_size      = 0;
     uint32_t nextn_predict_layers = 0;
 
     float f_norm_eps;
@@ -207,6 +208,9 @@ struct llama_hparams {
 
     // qwen3vl deepstack
     uint32_t n_deepstack_layers = 0;
+
+    // gemma4 per-layer embedding
+    uint32_t n_embd_per_layer = 0;
 
     // needed by encoder-decoder models (e.g. T5, FLAN-T5)
     // ref: https://github.com/ggml-org/llama.cpp/pull/8141

@@ -153,6 +153,7 @@ extern "C" {
         LLAMA_FTYPE_MOSTLY_TQ1_0         = 36, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_TQ2_0         = 37, // except 1d tensors
         LLAMA_FTYPE_MOSTLY_MXFP4_MOE     = 38, // except 1d tensors
+        LLAMA_FTYPE_MOSTLY_NVFP4         = 39, // except 1d tensors
 
         LLAMA_FTYPE_GUESSED = 1024, // not specified in the model file
     };
@@ -379,22 +380,33 @@ extern "C" {
         size_t                            n_samplers;
     };
 
+    struct llama_model_tensor_override {
+        const char * pattern;
+        enum ggml_type type;
+    };
+
+    struct llama_model_imatrix_data {
+        const char * name;
+        const float * data;
+        size_t size;
+    };
+
     // model quantization parameters
     typedef struct llama_model_quantize_params {
-        int32_t nthread;                      // number of threads to use for quantizing, if <=0 will use std::thread::hardware_concurrency()
-        enum llama_ftype ftype;               // quantize to this llama_ftype
-        enum ggml_type output_tensor_type;    // output tensor type
-        enum ggml_type token_embedding_type;  // token embeddings tensor type
-        bool allow_requantize;                // allow quantizing non-f32/f16 tensors
-        bool quantize_output_tensor;          // quantize output.weight
-        bool only_copy;                       // only copy tensors - ftype, allow_requantize and quantize_output_tensor are ignored
-        bool pure;                            // quantize all tensors to the default type
-        bool keep_split;                      // quantize to the same number of shards
-        bool dry_run;                         // calculate and show the final quantization size without performing quantization
-        void * imatrix;                       // pointer to importance matrix data
-        void * kv_overrides;                  // pointer to vector containing overrides
-        void * tensor_types;                  // pointer to vector containing tensor types
-        void * prune_layers;                  // pointer to vector containing layer indices to prune
+        int32_t nthread;                                            // number of threads to use for quantizing, if <=0 will use std::thread::hardware_concurrency()
+        enum llama_ftype ftype;                                     // quantize to this llama_ftype
+        enum ggml_type output_tensor_type;                          // output tensor type
+        enum ggml_type token_embedding_type;                        // token embeddings tensor type
+        bool allow_requantize;                                      // allow quantizing non-f32/f16 tensors
+        bool quantize_output_tensor;                                // quantize output.weight
+        bool only_copy;                                             // only copy tensors - ftype, allow_requantize and quantize_output_tensor are ignored
+        bool pure;                                                  // quantize all tensors to the default type
+        bool keep_split;                                            // quantize to the same number of shards
+        bool dry_run;                                               // calculate and show the final quantization size without performing quantization
+        const struct llama_model_imatrix_data * imatrix;            // pointer to importance matrix data
+        const struct llama_model_kv_override * kv_overrides;        // pointer to kv overrides
+        const struct llama_model_tensor_override * tt_overrides;    // pointer to tensor overrides
+        const int32_t * prune_layers;                               // pointer to layer indices to prune
     } llama_model_quantize_params;
 
     typedef struct llama_logit_bias {
@@ -462,6 +474,11 @@ extern "C" {
     // If the split file name does not follow this pattern, use llama_model_load_from_splits
     LLAMA_API struct llama_model * llama_model_load_from_file(
                              const char * path_model,
+              struct llama_model_params   params);
+
+    // Load a model from an open FILE pointer
+    LLAMA_API struct llama_model * llama_model_load_from_file_ptr(
+                                   FILE * file,
               struct llama_model_params   params);
 
     // Load a model from multiple splits (support custom naming scheme)
@@ -635,7 +652,6 @@ extern "C" {
 
     // Load a LoRA adapter from file
     // The adapter is valid as long as the associated model is not freed
-    // All adapters must be loaded before context creation
     LLAMA_API struct llama_adapter_lora * llama_adapter_lora_init(
             struct llama_model * model,
             const char * path_lora);
@@ -659,9 +675,8 @@ extern "C" {
     LLAMA_API int32_t llama_adapter_meta_val_str_by_index(const struct llama_adapter_lora * adapter, int32_t i, char * buf, size_t buf_size);
 
     // Manually free a LoRA adapter
-    // NOTE: loaded adapters will be free when the associated model is deleted
-    LLAMA_API DEPRECATED(void llama_adapter_lora_free(struct llama_adapter_lora * adapter),
-            "adapters are now freed together with the associated model");
+    // NOTE: loaded adapters that are not manually freed will be freed when the associated model is deleted
+    LLAMA_API void llama_adapter_lora_free(struct llama_adapter_lora * adapter);
 
     // Get the invocation tokens if the current lora is an alora
     LLAMA_API uint64_t            llama_adapter_get_alora_n_invocation_tokens(const struct llama_adapter_lora * adapter);

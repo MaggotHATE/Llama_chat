@@ -126,6 +126,7 @@ enum llm_type {
     LLM_TYPE_100B_A6B,
     LLM_TYPE_102B_A12B, // Solar-Open
     LLM_TYPE_106B_A12B, // GLM-4.5-Air
+    LLM_TYPE_120B_A12B, // Nemotron 3 Super
     LLM_TYPE_122B_A10B, // Qwen3.5
     LLM_TYPE_196B_A11B, // Step3.5-Flash
     LLM_TYPE_230B_A10B, // Minimax M2
@@ -269,6 +270,9 @@ struct llama_layer {
     struct ggml_tensor * ffn_norm         = nullptr;
     struct ggml_tensor * ffn_norm_b       = nullptr;
     struct ggml_tensor * ffn_post_norm    = nullptr;
+    struct ggml_tensor * ffn_post_norm_1  = nullptr; // gemma4
+    struct ggml_tensor * ffn_post_norm_2  = nullptr; // gemma4
+    struct ggml_tensor * ffn_pre_norm_2   = nullptr; // gemma4
     struct ggml_tensor * layer_out_norm   = nullptr;
     struct ggml_tensor * layer_out_norm_b = nullptr;
     struct ggml_tensor * ffn_norm_exps    = nullptr;
@@ -284,6 +288,7 @@ struct llama_layer {
 
     // ff MoE
     struct ggml_tensor * ffn_gate_inp      = nullptr;
+    struct ggml_tensor * ffn_gate_inp_s    = nullptr; // gemma4
     struct ggml_tensor * ffn_gate_exps     = nullptr;
     struct ggml_tensor * ffn_down_exps     = nullptr;
     struct ggml_tensor * ffn_up_exps       = nullptr;
@@ -293,6 +298,15 @@ struct llama_layer {
     struct ggml_tensor * ffn_down_exps_b   = nullptr;
     struct ggml_tensor * ffn_up_exps_b     = nullptr;
     struct ggml_tensor * ffn_gate_up_exps_b = nullptr;
+
+    // ff MoE per-expert scales (NVFP4 per-tensor scale2)
+    struct ggml_tensor * ffn_gate_exps_s   = nullptr;
+    struct ggml_tensor * ffn_down_exps_s   = nullptr;
+    struct ggml_tensor * ffn_up_exps_s     = nullptr;
+
+    // ff MoE latent proj
+    struct ggml_tensor * ffn_latent_down = nullptr;
+    struct ggml_tensor * ffn_latent_up   = nullptr;
 
     // ff shared expert (shexp)
     struct ggml_tensor * ffn_gate_inp_shexp = nullptr;
@@ -387,13 +401,43 @@ struct llama_layer {
     struct ggml_tensor * rope_freqs = nullptr;
 
     // bitnet scale
-    struct ggml_tensor * wq_scale       = nullptr;
-    struct ggml_tensor * wk_scale       = nullptr;
-    struct ggml_tensor * wv_scale       = nullptr;
-    struct ggml_tensor * wo_scale       = nullptr;
-    struct ggml_tensor * ffn_gate_scale = nullptr;
-    struct ggml_tensor * ffn_up_scale   = nullptr;
-    struct ggml_tensor * ffn_down_scale = nullptr;
+    struct ggml_tensor * wq_s       = nullptr;
+    struct ggml_tensor * wk_s       = nullptr;
+    struct ggml_tensor * wv_s       = nullptr;
+    struct ggml_tensor * wo_s       = nullptr;
+    struct ggml_tensor * wqkv_s     = nullptr;
+    struct ggml_tensor * wqkv_gate_s = nullptr;
+    struct ggml_tensor * ffn_gate_s = nullptr;
+    struct ggml_tensor * ffn_up_s   = nullptr;
+    struct ggml_tensor * ffn_down_s = nullptr;
+    struct ggml_tensor * ffn_gate_shexp_s = nullptr;
+    struct ggml_tensor * ffn_up_shexp_s   = nullptr;
+    struct ggml_tensor * ffn_down_shexp_s = nullptr;
+    struct ggml_tensor * ssm_in_s    = nullptr;
+    struct ggml_tensor * ssm_out_s   = nullptr;
+    struct ggml_tensor * ssm_alpha_s = nullptr;
+    struct ggml_tensor * ssm_beta_s  = nullptr;
+
+    // input scales
+    struct ggml_tensor * wq_in_s            = nullptr;
+    struct ggml_tensor * wk_in_s            = nullptr;
+    struct ggml_tensor * wv_in_s            = nullptr;
+    struct ggml_tensor * wo_in_s            = nullptr;
+    struct ggml_tensor * wqkv_in_s          = nullptr;
+    struct ggml_tensor * wqkv_gate_in_s     = nullptr;
+    struct ggml_tensor * ffn_gate_in_s      = nullptr;
+    struct ggml_tensor * ffn_up_in_s        = nullptr;
+    struct ggml_tensor * ffn_down_in_s      = nullptr;
+    struct ggml_tensor * ffn_gate_exps_in_s = nullptr;
+    struct ggml_tensor * ffn_down_exps_in_s = nullptr;
+    struct ggml_tensor * ffn_up_exps_in_s   = nullptr;
+    struct ggml_tensor * ffn_gate_shexp_in_s= nullptr;
+    struct ggml_tensor * ffn_up_shexp_in_s  = nullptr;
+    struct ggml_tensor * ffn_down_shexp_in_s= nullptr;
+    struct ggml_tensor * ssm_in_in_s        = nullptr;
+    struct ggml_tensor * ssm_out_in_s       = nullptr;
+    struct ggml_tensor * ssm_alpha_in_s     = nullptr;
+    struct ggml_tensor * ssm_beta_in_s      = nullptr;
 
     // altup & laurel
     struct ggml_tensor * per_layer_inp_gate   = nullptr;
@@ -442,6 +486,9 @@ struct llama_layer {
     struct ggml_tensor * indexer_proj     = nullptr;
     struct ggml_tensor * indexer_attn_k   = nullptr;
     struct ggml_tensor * indexer_attn_q_b = nullptr; // note: for lora a/b, not bias
+
+    // gemma4 layer output scale
+    struct ggml_tensor * out_scale = nullptr;
 
     struct llama_layer_posnet posnet;
 
