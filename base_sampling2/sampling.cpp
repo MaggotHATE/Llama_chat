@@ -108,9 +108,12 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
 
     llama_sampler_chain_add(result->chain,
             llama_sampler_init_logit_bias_addon(
+                params.logit_bias_few,
                 llama_vocab_n_tokens(vocab),
                 params.logit_bias.size(),
-                params.logit_bias.data()));
+                params.logit_bias_beginning.size(),
+                params.logit_bias.data(),
+                params.logit_bias_beginning.data()));
 
     //if (params.temp > 0.0f) {
         if (params.mirostat == 0 && params.top_n_sigma < 0) {

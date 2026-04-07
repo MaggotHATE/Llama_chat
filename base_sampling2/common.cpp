@@ -1023,6 +1023,11 @@ struct common_init_result common_init_from_params(common_params & params) {
         params.sparams.logit_bias.insert(
                 params.sparams.logit_bias.end(),
                 params.sparams.logit_bias_eog.begin(), params.sparams.logit_bias_eog.end());
+
+        params.sparams.logit_bias_beginning.insert(
+                    params.sparams.logit_bias_beginning.end(),
+                    params.sparams.logit_bias_eog.begin(), params.sparams.logit_bias_eog.end());
+        
     }
 
     if (params.sparams.penalty_last_n == -1) {

@@ -768,6 +768,7 @@ public:
         for (auto word : params.sparams.logit_bias_strings_start) {
             if (word == token_str) {
                 logit_bias_tokens_start.push_back(id);
+                params.sparams.logit_bias_beginning.push_back({id, -INFINITY});
                 break;
             }
         }
@@ -954,7 +955,7 @@ public:
                     result += std::format("->{}={:.2f}|{}", name_penalty_repeat, params.sparams.penalty_repeat, params.sparams.penalty_last_n);
                     if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format(";{}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
                     if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
-                    if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
+                    if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}]", name_penalty_present, params.sparams.penalty_present);
                 }
                 //DRY
                 if (params.sparams.dry_multiplier != paramsDefault.sparams.dry_multiplier) {
@@ -976,7 +977,7 @@ public:
                             result += std::format("{}={:.2f}|{}", name_penalty_repeat, params.sparams.penalty_repeat, params.sparams.penalty_last_n);
                             if (params.sparams.penalty_threshold != paramsDefault.sparams.penalty_threshold) result += std::format(";{}={:.2f}", name_penalty_threshold, params.sparams.penalty_threshold); 
                             if (params.sparams.penalty_freq != paramsDefault.sparams.penalty_freq) result += std::format(";{}={:.2f}", name_penalty_freq, params.sparams.penalty_freq);
-                            if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}", name_penalty_present, params.sparams.penalty_present);
+                            if (params.sparams.penalty_present != paramsDefault.sparams.penalty_present) result += std::format(";{}={:.2f}]", name_penalty_present, params.sparams.penalty_present);
                         }
                         break;
                         case 'k': result += name_top_k; if (params.sparams.top_k != paramsDefault.sparams.top_k) result += std::format("={}",params.sparams.top_k); break;
