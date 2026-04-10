@@ -448,6 +448,7 @@ OBJS_GGUF_BASE = \
     $(TMP)$(PREFIX)_ggml-backend.o \
     $(TMP)$(PREFIX)_ggml-backend-dl.o \
     $(TMP)$(PREFIX)_ggml-backend-reg.o \
+    $(TMP)$(PREFIX)_ggml-backend-meta.o \
     $(TMP)$(PREFIX)_ggml-opt.o \
     $(TMP)$(PREFIX)_ggml-quants.o \
     $(TMP)$(PREFIX)_ggml-threading.o

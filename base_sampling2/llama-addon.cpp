@@ -2241,11 +2241,7 @@ static void llama_sampler_logit_bias_addon_beginning_impl(struct llama_sampler *
 static void llama_sampler_logit_bias_addon_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     auto * ctx = (llama_sampler_logit_bias_addon *) smpl->ctx;
 
-    if (ctx->n_few > 0) {
-
-        if (ctx->logit_bias_beginning.empty()) {
-            return;
-        }
+    if (ctx->n_few > 0 && not ctx->logit_bias_beginning.empty()) {
 
         ctx->to_search.clear();
 
