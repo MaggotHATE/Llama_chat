@@ -829,7 +829,7 @@ struct modelThread{
                     getTimigsBoth();
                     getSparamsList();
 
-                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 3, lastResult.length() < 5);
+                    std::string output = newChat.cycleStringsOnly(lastResult.length() < 3, lastResult.length() < 30);
                     if (isContinue == 'i') {
                         if (isUnload == 'y') {
                             unload();
@@ -1454,6 +1454,7 @@ struct configurableChat{
         if (params.use_mmap != paramsDefault.use_mmap) modelConfig[model]["use_mmap"] = params.use_mmap;
         if (params.flash_attn_type != paramsDefault.flash_attn_type) modelConfig[model]["flash_attn_type"] = params.flash_attn_type;
         if (params.no_kv_offload != paramsDefault.no_kv_offload) modelConfig[model]["no_kv_offload"] = params.no_kv_offload;
+        if (params.no_model_sparams != paramsDefault.no_model_sparams) modelConfig[model]["no_model_sparams"] = params.no_model_sparams;
         if (params.sparams.temp_func != paramsDefault.sparams.temp_func) {
             std::cout << "Need to create an object: temp" << std::endl;
             modelConfig[model]["temp"]["value"] = params.sparams.temp;

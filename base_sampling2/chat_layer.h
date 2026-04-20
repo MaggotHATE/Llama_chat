@@ -1039,15 +1039,20 @@ public:
     int init(int argc, char ** argv){
         // this is unsafe to run in threads;
         getArgs(argc, argv);
-        
-        printf("\n LOADING \n");
-        
+
+        printf("\n LOADING INIT %s\n", __func__);
+
         return init_default();
     }
 
     int init_default(bool useJson = true, bool headless = false){
 
-        if (useJson) readParamsFromFile("config.json", params, headless);
+        if (useJson) {
+            readParamsFromFile("config.json", params, headless);
+            printf("\n READ FROM JSON %s\n", __func__);
+        }
+
+        printf("\n LOADING INIT %s\n", __func__);
 
         return load_and_process();
     }
@@ -1065,12 +1070,16 @@ public:
                 params.antiprompt[0] = antiprompt;
         }
 
+        printf("\n LOADING INIT %s\n", __func__);
+
         return load_and_process();
     }
 
     int initialize(nlohmann::json configJson, bool streamed = true, bool soft = false) {
 
         readParamsFromJson(configJson, params);
+
+        printf("\n LOADING INIT %s\n", __func__);
 
         return load_and_process(streamed, soft);
     }
@@ -1285,7 +1294,11 @@ public:
 
         printf("Load start \n");
 
+        fprintf(stderr, "\nparams.sparams:\n repeat_last_n = %d,\n penalty_repeat = %f,\n penalty_present = %f,\n penalty_freq = %f,\n top_k = %d,\n tfs_z = %f,\n top_p = %f,\n typical_p = %f,\n temp = %f,\n mirostat = %d,\n mirostat_lr = %f,\n mirostat_ent = %f\n\n",
+            params.sparams.penalty_last_n, params.sparams.penalty_repeat, params.sparams.penalty_present, params.sparams.penalty_freq, params.sparams.top_k, params.sparams.tfs_z, params.sparams.top_p, params.sparams.typical_p, params.sparams.temp, params.sparams.mirostat, params.sparams.mirostat_eta, params.sparams.mirostat_tau);
+
         auto & sparams = params.sparams;
+        auto sparams_final = params.sparams;
         // this function is only needed if backends are compiled as dynamic libraries
         // there might be buffer problems for now
         ggml_backend_load_all();
@@ -1325,10 +1338,18 @@ public:
             printf("..............BACKEND INITIALIZED COMMON (%s)................\n", __func__);
 #endif
 
+            fprintf(stderr, "\nparams.sparams pre-init:\n repeat_last_n = %d,\n penalty_repeat = %f,\n penalty_present = %f,\n penalty_freq = %f,\n top_k = %d,\n tfs_z = %f,\n top_p = %f,\n typical_p = %f,\n temp = %f,\n mirostat = %d,\n mirostat_lr = %f,\n mirostat_ent = %f\n\n",
+            params.sparams.penalty_last_n, params.sparams.penalty_repeat, params.sparams.penalty_present, params.sparams.penalty_freq, params.sparams.top_k, params.sparams.tfs_z, params.sparams.top_p, params.sparams.typical_p, params.sparams.temp, params.sparams.mirostat, params.sparams.mirostat_eta, params.sparams.mirostat_tau);
+
             // load the model and apply lora adapter, if any
             common_init_result llama_init = common_init_from_params(params);
             printf("..............PARAMS INITIALIZED COMMON (%s)................\n", __func__);
             params_postfill();
+
+            // here we need to re-apply params from config
+            fprintf(stderr, "\nparams.sparams init and postfill:\n repeat_last_n = %d,\n penalty_repeat = %f,\n penalty_present = %f,\n penalty_freq = %f,\n top_k = %d,\n tfs_z = %f,\n top_p = %f,\n typical_p = %f,\n temp = %f,\n mirostat = %d,\n mirostat_lr = %f,\n mirostat_ent = %f\n\n",
+            params.sparams.penalty_last_n, params.sparams.penalty_repeat, params.sparams.penalty_present, params.sparams.penalty_freq, params.sparams.top_k, params.sparams.tfs_z, params.sparams.top_p, params.sparams.typical_p, params.sparams.temp, params.sparams.mirostat, params.sparams.mirostat_eta, params.sparams.mirostat_tau);
+
             printf("..............PARAMS POSTFILL FINISHED (%s)................\n", __func__);
 
             // model = llama_init.model.release();
@@ -1371,7 +1392,7 @@ public:
 
             if (status == 0) return 0;
         }
-        
+
         cleared = false;
         n_keep = params.n_keep;
 
@@ -1478,11 +1499,12 @@ public:
             fprintf(stderr, "%s: error: prompt is too long (%d tokens, max %d)\n", __func__, (int) std::size(embd_inp), n_ctx - 4);
             return 1;
         }
-        printf("%s: embd_inp filled\n", __func__, add_eos);
+        printf("%s: embd_inp filled\n", __func__);
 
         // debug message about similarity of saved session, if applicable
         n_matching_session_tokens = 0;
         if (std::size(session_tokens)) {
+            printf("%s: session_tokens found!\n", __func__);
             for (llama_token id : session_tokens) {
                 if (n_matching_session_tokens >= std::size(embd_inp) || id != embd_inp[n_matching_session_tokens]) {
                     break;
@@ -1509,6 +1531,8 @@ public:
                 n_matching_session_tokens = 0;
                 llama_memory_seq_rm(mem, -1, -1, -1);
             }
+        } else {
+            printf("%s: session_tokens ignored\n", __func__);
         }
 
         // if we will use the cache for the full prompt without reaching the end of the cache, force
@@ -1516,17 +1540,20 @@ public:
         if (!embd_inp.empty() && n_matching_session_tokens == std::size(embd_inp) &&
                 std::size(session_tokens) > std::size(embd_inp)) {
             session_tokens.resize(std::size(embd_inp) - 1);
+            printf("%s: session_tokens reevaluated\n", __func__);
         }
 
         // number of tokens to keep when resetting context
         if (params.n_keep < 0 || params.n_keep > (int) std::size(embd_inp)) {
             params.n_keep = (int)std::size(embd_inp);
+            printf("%s: params.n_keep = %d\n", __func__, params.n_keep);
         } else {
             params.n_keep += add_bos; // always keep the BOS token
+            printf("%s: params.n_keep with bos token = %d\n", __func__, params.n_keep);
         }
 
         
-        fprintf(stderr, "\nsampling:\n repeat_last_n = %d,\n penalty_repeat = %f,\n penalty_present = %f,\n penalty_freq = %f,\n top_k = %d,\n tfs_z = %f,\n top_p = %f,\n typical_p = %f,\n temp = %f,\n mirostat = %d,\n mirostat_lr = %f,\n mirostat_ent = %f\n",
+        fprintf(stderr, "\nsampling:\n repeat_last_n = %d,\n penalty_repeat = %f,\n penalty_present = %f,\n penalty_freq = %f,\n top_k = %d,\n tfs_z = %f,\n top_p = %f,\n typical_p = %f,\n temp = %f,\n mirostat = %d,\n mirostat_lr = %f,\n mirostat_ent = %f\n\n",
                 sparams.penalty_last_n, sparams.penalty_repeat, sparams.penalty_present, sparams.penalty_freq, sparams.top_k, sparams.tfs_z, sparams.top_p, sparams.typical_p, sparams.temp, sparams.mirostat, sparams.mirostat_eta, sparams.mirostat_tau);
 
         if (params.interactive) {
@@ -1594,8 +1621,8 @@ public:
 
         }
     }
-    
-    void extendContext() {
+
+    int extendContext() {
         if (ga_n == 1) {
             // infinite text generation via context shifting
             // if we run out of context:
@@ -1605,12 +1632,12 @@ public:
             if (n_past + (int) std::size(embd) >= n_ctx) {
                 if (!params.ctx_shift) {
                     printf("\n\n%s: context full and context shift is disabled => stopping\n", __func__);
-                    return;
+                    return 0;
                 }
 
                 if (params.n_predict == -2) {
                     printf("\n\n%s: context full and n_predict == -%d => stopping\n", __func__, params.n_predict);
-                    return;
+                    return 0;
                 }
 
                 const int n_left    = n_past - params.n_keep;
@@ -1623,6 +1650,8 @@ public:
 
                 path_session.clear();
             }
+
+            return 1;
         } else {
             // context extension via Self-Extend
             while (n_past >= ga_i + ga_w) {
@@ -1638,7 +1667,11 @@ public:
 
                 ga_i += ga_w/ga_n;
             }
+
+            return 2;
         }
+
+        return 0;
     }
 
     int reuse() {
@@ -1744,7 +1777,7 @@ public:
         // - take the n_keep first tokens from the original prompt (via n_past)
         // - take half of the last (n_ctx - n_keep) tokens and recompute the logits in batches
         //resetContext();
-        extendContext();
+        if (extendContext() == 0) return 0;
 
         // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
         if (reuse() == 0) return 0;

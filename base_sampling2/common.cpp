@@ -842,6 +842,8 @@ static inline void common_init_sampler_from_model(
     const llama_model * model,
     common_params_sampling & sparams) {
 
+    printf("\n %s: WARNING! LOADING SAMPLING PARAMETERS FROM THE MODEL\n\n", __func__);
+
     const uint64_t config = sparams.user_sampling_config;
 
     auto get_int32 = [&](const char * key, int32_t & dst, uint64_t user_config) {
@@ -852,6 +854,7 @@ static inline void common_init_sampler_from_model(
             char * end = nullptr;
             int32_t v = strtol(buf, &end, 10);
             if (end && end != buf) dst = v;
+            printf("%s: found key '%s'\n", __func__, key);
         }
     };
 
@@ -863,6 +866,7 @@ static inline void common_init_sampler_from_model(
             char * end = nullptr;
             float v = strtof(buf, &end);
             if (end && end != buf) dst = v;
+            printf("%s: found key '%s'\n", __func__, key);
         }
     };
 
@@ -889,6 +893,8 @@ static inline void common_init_sampler_from_model(
     get_int32(llama_model_meta_key_str(LLAMA_MODEL_META_KEY_SAMPLING_MIROSTAT),        sparams.mirostat,        common_params_sampling_config::COMMON_PARAMS_SAMPLING_CONFIG_MIROSTAT);
     get_float(llama_model_meta_key_str(LLAMA_MODEL_META_KEY_SAMPLING_MIROSTAT_TAU),    sparams.mirostat_tau,    common_params_sampling_config::COMMON_PARAMS_SAMPLING_CONFIG_MIROSTAT_TAU);
     get_float(llama_model_meta_key_str(LLAMA_MODEL_META_KEY_SAMPLING_MIROSTAT_ETA),    sparams.mirostat_eta,    common_params_sampling_config::COMMON_PARAMS_SAMPLING_CONFIG_MIROSTAT_ETA);
+
+    printf("\n %s: Loading sampling parameters from the model finished\n\n", __func__);
 }
 
 struct common_init_result common_init_from_params(common_params & params) {
@@ -910,7 +916,9 @@ struct common_init_result common_init_from_params(common_params & params) {
         return iparams;
     }
 
-    common_init_sampler_from_model(model, params.sparams);
+    if (params.no_model_sparams == false) {
+        common_init_sampler_from_model(model, params.sparams);
+    }
 
     const llama_vocab * vocab = llama_model_get_vocab(model);
 

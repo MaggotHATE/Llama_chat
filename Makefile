@@ -566,7 +566,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_lfm2.o \
     $(TMP)$(PREFIX)_m_llada-moe.o \
     $(TMP)$(PREFIX)_m_llada.o \
-    $(TMP)$(PREFIX)_m_llama-iswa.o \
+    $(TMP)$(PREFIX)_m_llama4.o \
     $(TMP)$(PREFIX)_m_llama.o \
     $(TMP)$(PREFIX)_m_maincoder.o \
     $(TMP)$(PREFIX)_m_mamba-base.o \
@@ -619,8 +619,8 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_starcoder.o \
     $(TMP)$(PREFIX)_m_starcoder2.o \
     $(TMP)$(PREFIX)_m_step35-iswa.o \
-    $(TMP)$(PREFIX)_m_t5-dec.o \
-    $(TMP)$(PREFIX)_m_t5-enc.o \
+    $(TMP)$(PREFIX)_m_t5.o \
+    $(TMP)$(PREFIX)_m_t5encoder.o \
     $(TMP)$(PREFIX)_m_wavtokenizer-dec.o \
     $(TMP)$(PREFIX)_m_xverse.o
 
