@@ -699,3 +699,5 @@ const char * const LLM_KV_SPLIT_TENSORS_COUNT = "split.tensors.count";
 void yaml_dump_vector_float    (FILE * stream, const char * prop_name, const std::vector<float> & data);
 void yaml_dump_vector_int      (FILE * stream, const char * prop_name, const std::vector<int> & data);
 void yaml_dump_string_multiline(FILE * stream, const char * prop_name, const char * data);
+
+void common_memory_breakdown_print(const struct llama_context * ctx);

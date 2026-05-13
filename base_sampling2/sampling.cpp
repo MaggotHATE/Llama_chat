@@ -277,7 +277,8 @@ void common_perf_print(const struct llama_context * ctx, const struct common_sam
     }
     if (ctx) {
         llama_perf_context_print(ctx);
-        llama_memory_breakdown_print(ctx);
+        // llama_memory_breakdown_print(ctx);
+        common_memory_breakdown_print(ctx);
     }
 }
 

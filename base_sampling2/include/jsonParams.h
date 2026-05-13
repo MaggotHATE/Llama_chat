@@ -501,41 +501,56 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
     if (checkJNum(config, "confidence_bottom")) params.sparams.confidence_bottom = config["confidence_bottom"];
 
 // samplers
-  // temp
+    // temp
     load_param_num(config, "temp", params.sparams.temp, params.sparams.temp_func);
     load_param_num(config, "dynatemp_range", params.sparams.dynatemp_range, params.sparams.dynatemp_range_func);
     if (checkJNum(config, "temp_smoothing")) params.sparams.smoothing_factor = config["temp_smoothing"];
     if (checkJNum(config, "smoothing_factor")) params.sparams.smoothing_factor = config["smoothing_factor"];
     if (checkJNum(config, "smoothing_curve")) params.sparams.smoothing_curve = config["smoothing_curve"];
     if (checkJBool(config, "temp_adaptive")) params.sparams.temp_adaptive = config["temp_adaptive"];
-  // top-k
+
+    // top-k
     if (checkJNum(config, "top_k")) params.sparams.top_k = config["top_k"];
     if (checkJNum(config, "k_shift")) params.sparams.k_shift = config["k_shift"];
-  // top-p
+
+    // top-p
     if (checkJNum(config, "top_p")) params.sparams.top_p = config["top_p"];
-  // typical
+
+    // typical
      if (checkJNum(config, "typical_p")) params.sparams.typical_p = config["typical_p"];
-  // tfs-z
+
+    // tfs-z
     if (checkJNum(config, "tfs_z")) params.sparams.tfs_z = config["tfs_z"];
-  // min-p
+
+    // min-p
     if (checkJNum(config, "min_p")) params.sparams.min_p = config["min_p"];
     if (checkJNum(config, "min_p_rand")) params.sparams.min_p_rand = config["min_p_rand"];
-  // noise
-    if (checkJNum(config, "noise_min")) params.sparams.noise_min = config["noise_min"];
+
+    // noise
+    if (checkJNum(config, "noise_mean")) params.sparams.noise_mean = config["noise_mean"];
     if (checkJNum(config, "noise_max")) params.sparams.noise_max = config["noise_max"];
-  // range-based exclusion
+
+    // range-based exclusion
     if (checkJNum(config, "range_min")) params.sparams.range_min = config["range_min"];
     if (checkJNum(config, "range_max")) params.sparams.range_max = config["range_max"];
-  // p-step
+
+    // p-step
     //if (checkJNum(config, "p_step")) params.sparams.p_step = config["p_step"];
     load_param_num(config, "p_step", params.sparams.p_step, params.sparams.p_step_func);
-  // xtc
+    if (checkJNum(config, "p_step_rand")) params.sparams.p_step_rand = config["p_step_rand"];
+
+    //power law
+    if (checkJNum(config, "power_law_target")) params.sparams.power_law_target = config["power_law_target"];
+    if (checkJNum(config, "power_law_decay")) params.sparams.power_law_decay = config["power_law_decay"];
+
+    // xtc
     if (checkJNum(config, "xtc_probability")) params.sparams.xtc_probability = config["xtc_probability"];
     if (checkJNum(config, "xtc_threshold")) params.sparams.xtc_threshold = config["xtc_threshold"];
     if (checkJNum(config, "xtc_threshold_max")) params.sparams.xtc_threshold_max = config["xtc_threshold_max"];
     if (checkJNum(config, "xtc_min")) params.sparams.xtc_min = config["xtc_min"];
     if (checkJBool(config, "xtc_probability_once")) params.sparams.xtc_probability_once = config["xtc_probability_once"];
-  // top_n_sigma
+
+    // top_n_sigma
     if (checkJNum(config, "top_n_sigma")) params.sparams.top_n_sigma = config["top_n_sigma"];
 
 //penalties
@@ -569,6 +584,7 @@ static void getSamplingParamsFromJson(nlohmann::json& config, common_params& par
     if (checkJObj(config, "logit_bias_strings_ext")) params.sparams.logit_bias_strings_ext = config["logit_bias_strings_ext"];
     if (checkJArr(config, "logit_bias_strings_start")) params.sparams.logit_bias_strings_start = config["logit_bias_strings_start"];
 
+    if (config["no_model_sparams"].is_boolean()) params.no_model_sparams = config["no_model_sparams"];
 }
 
 static void getPromptingParamsFromJson(nlohmann::json& config, common_params& params, bool hasFile = false, bool headless = false) {
@@ -685,7 +701,7 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
 // misc
     if (config["penalize_nl"].is_boolean()) params.sparams.penalize_nl = config["penalize_nl"];
     if (config["use_mmap"].is_boolean()) params.use_mmap = config["use_mmap"];
-    if (config["flash_attn"].is_boolean()) params.flash_attn = config["flash_attn"];
+    if (checkJNum(config, "flash_attn_type")) params.flash_attn_type = config["flash_attn_type"];
     if (config["no_kv_offload"].is_boolean()) params.no_kv_offload = config["no_kv_offload"];
     if (config["input_prefix_bos"].is_boolean()) params.input_prefix_bos = config["input_prefix_bos"];
 
@@ -710,8 +726,8 @@ static void getPerformanceParamsFromJson(nlohmann::json& config, common_params& 
         else if (config["rope_scaling_type"] == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
     }
 
-    if (checkJNum(config, "cache_type_k")) params.cache_type_k = config["cache_type_k"];
-    if (checkJNum(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
+    if (checkJString(config, "cache_type_k")) params.cache_type_k = config["cache_type_k"];
+    if (checkJString(config, "cache_type_v")) params.cache_type_v = config["cache_type_v"];
 
     if (checkJObj(config, "control_vectors")) {
         for (auto& el : config["control_vectors"].items()) {
@@ -731,7 +747,7 @@ static void getBackendParamsFromJson(nlohmann::json& config, common_params& para
     if (checkJNum(config, "n_threads_vk")) params.cpuparams.n_threads = config["n_threads_vk"];
     if (checkJNum(config, "n_threads_batch_vk")) params.cpuparams_batch.n_threads = config["n_threads_batch_vk"];
     if (config["use_mmap_vk"].is_boolean()) params.use_mmap = config["use_mmap_vk"];
-    if (config["flash_attn_vk"].is_boolean()) params.flash_attn = config["flash_attn_vk"];
+    if (checkJNum(config, "flash_attn_type_vk")) params.flash_attn_type = config["flash_attn_type_vk"];
     if (config["no_kv_offload_vk"].is_boolean()) params.no_kv_offload = config["no_kv_offload_vk"];
 
     if (checkJObj(config, "VK")) {

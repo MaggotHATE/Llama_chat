@@ -525,71 +525,86 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_chatglm.o \
     $(TMP)$(PREFIX)_m_codeshell.o \
     $(TMP)$(PREFIX)_m_cogvlm.o \
-    $(TMP)$(PREFIX)_m_cohere2-iswa.o \
+    $(TMP)$(PREFIX)_m_cohere2.o \
     $(TMP)$(PREFIX)_m_command-r.o \
     $(TMP)$(PREFIX)_m_dbrx.o \
     $(TMP)$(PREFIX)_m_deci.o \
     $(TMP)$(PREFIX)_m_deepseek.o \
     $(TMP)$(PREFIX)_m_deepseek2.o \
+    $(TMP)$(PREFIX)_m_deepseek2ocr.o \
     $(TMP)$(PREFIX)_m_delta-net-base.o \
     $(TMP)$(PREFIX)_m_dots1.o \
     $(TMP)$(PREFIX)_m_dream.o \
-    $(TMP)$(PREFIX)_m_ernie4-5-moe.o \
     $(TMP)$(PREFIX)_m_ernie4-5.o \
+    $(TMP)$(PREFIX)_m_ernie4-5-moe.o \
     $(TMP)$(PREFIX)_m_eurobert.o \
-    $(TMP)$(PREFIX)_m_exaone-moe.o \
     $(TMP)$(PREFIX)_m_exaone.o \
+    $(TMP)$(PREFIX)_m_exaone-moe.o \
     $(TMP)$(PREFIX)_m_exaone4.o \
     $(TMP)$(PREFIX)_m_falcon-h1.o \
     $(TMP)$(PREFIX)_m_falcon.o \
     $(TMP)$(PREFIX)_m_gemma-embedding.o \
     $(TMP)$(PREFIX)_m_gemma.o \
-    $(TMP)$(PREFIX)_m_gemma2-iswa.o \
+    $(TMP)$(PREFIX)_m_gemma2.o \
     $(TMP)$(PREFIX)_m_gemma3.o \
-    $(TMP)$(PREFIX)_m_gemma3n-iswa.o \
-    $(TMP)$(PREFIX)_m_gemma4-iswa.o \
+    $(TMP)$(PREFIX)_m_gemma3n.o \
+    $(TMP)$(PREFIX)_m_gemma4.o \
     $(TMP)$(PREFIX)_m_glm4-moe.o \
     $(TMP)$(PREFIX)_m_glm4.o \
+    $(TMP)$(PREFIX)_m_glm-dsa.o \
     $(TMP)$(PREFIX)_m_gpt2.o \
     $(TMP)$(PREFIX)_m_gptneox.o \
-    $(TMP)$(PREFIX)_m_granite-hybrid.o \
     $(TMP)$(PREFIX)_m_granite.o \
+    $(TMP)$(PREFIX)_m_granite-hybrid.o \
+    $(TMP)$(PREFIX)_m_granite-moe.o \
     $(TMP)$(PREFIX)_m_grok.o \
     $(TMP)$(PREFIX)_m_grovemoe.o \
     $(TMP)$(PREFIX)_m_hunyuan-dense.o \
     $(TMP)$(PREFIX)_m_hunyuan-moe.o \
+    $(TMP)$(PREFIX)_m_hunyuan-vl.o \
     $(TMP)$(PREFIX)_m_internlm2.o \
     $(TMP)$(PREFIX)_m_jais.o \
     $(TMP)$(PREFIX)_m_jais2.o \
     $(TMP)$(PREFIX)_m_jamba.o \
+    $(TMP)$(PREFIX)_m_jina-bert-v2.o \
+    $(TMP)$(PREFIX)_m_jina-bert-v3.o \
     $(TMP)$(PREFIX)_m_kimi-linear.o \
     $(TMP)$(PREFIX)_m_lfm2.o \
-    $(TMP)$(PREFIX)_m_llada-moe.o \
+    $(TMP)$(PREFIX)_m_lfm2moe.o \
     $(TMP)$(PREFIX)_m_llada.o \
+    $(TMP)$(PREFIX)_m_llada-moe.o \
     $(TMP)$(PREFIX)_m_llama4.o \
     $(TMP)$(PREFIX)_m_llama.o \
+    $(TMP)$(PREFIX)_m_llama-embed.o \
     $(TMP)$(PREFIX)_m_maincoder.o \
     $(TMP)$(PREFIX)_m_mamba-base.o \
     $(TMP)$(PREFIX)_m_mamba.o \
-    $(TMP)$(PREFIX)_m_mimo2-iswa.o \
+    $(TMP)$(PREFIX)_m_mamba2.o \
+    $(TMP)$(PREFIX)_m_mimo2.o \
+    $(TMP)$(PREFIX)_m_minicpm.o \
     $(TMP)$(PREFIX)_m_minicpm3.o \
     $(TMP)$(PREFIX)_m_minimax-m2.o \
     $(TMP)$(PREFIX)_m_modern-bert.o \
     $(TMP)$(PREFIX)_m_mistral3.o \
+    $(TMP)$(PREFIX)_m_mistral4.o \
     $(TMP)$(PREFIX)_m_mpt.o \
-    $(TMP)$(PREFIX)_m_nemotron-h.o \
     $(TMP)$(PREFIX)_m_nemotron.o \
+    $(TMP)$(PREFIX)_m_nemotron-h.o \
+    $(TMP)$(PREFIX)_m_nemotron-h-moe.o \
     $(TMP)$(PREFIX)_m_neo-bert.o \
+    $(TMP)$(PREFIX)_m_nomic-bert.o \
+    $(TMP)$(PREFIX)_m_nomic-bert-moe.o \
     $(TMP)$(PREFIX)_m_olmo.o \
     $(TMP)$(PREFIX)_m_olmo2.o \
     $(TMP)$(PREFIX)_m_olmoe.o \
-    $(TMP)$(PREFIX)_m_openai-moe-iswa.o \
+    $(TMP)$(PREFIX)_m_openai-moe.o \
     $(TMP)$(PREFIX)_m_openelm.o \
     $(TMP)$(PREFIX)_m_orion.o \
     $(TMP)$(PREFIX)_m_paddleocr.o \
-    $(TMP)$(PREFIX)_m_pangu-embedded.o \
+    $(TMP)$(PREFIX)_m_pangu-embed.o \
     $(TMP)$(PREFIX)_m_phi2.o \
     $(TMP)$(PREFIX)_m_phi3.o \
+    $(TMP)$(PREFIX)_m_phimoe.o \
     $(TMP)$(PREFIX)_m_plamo.o \
     $(TMP)$(PREFIX)_m_plamo2.o \
     $(TMP)$(PREFIX)_m_plamo3.o \
@@ -600,7 +615,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_qwen2vl.o \
     $(TMP)$(PREFIX)_m_qwen3.o \
     $(TMP)$(PREFIX)_m_qwen3vl.o \
-    $(TMP)$(PREFIX)_m_qwen3vl-moe.o \
+    $(TMP)$(PREFIX)_m_qwen3vlmoe.o \
     $(TMP)$(PREFIX)_m_qwen3moe.o \
     $(TMP)$(PREFIX)_m_qwen3next.o \
     $(TMP)$(PREFIX)_m_qwen35.o \
@@ -618,7 +633,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_stablelm.o \
     $(TMP)$(PREFIX)_m_starcoder.o \
     $(TMP)$(PREFIX)_m_starcoder2.o \
-    $(TMP)$(PREFIX)_m_step35-iswa.o \
+    $(TMP)$(PREFIX)_m_step35.o \
     $(TMP)$(PREFIX)_m_t5.o \
     $(TMP)$(PREFIX)_m_t5encoder.o \
     $(TMP)$(PREFIX)_m_wavtokenizer-dec.o \
