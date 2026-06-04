@@ -1927,9 +1927,11 @@ public:
         // llama_kv_self_seq_rm(ctx, -1, rewind_state.kv_cache_pos, -1);
         // llama_kv_cache_update(ctx);
         // llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
-        llama_memory_seq_rm(mem, 0, rewind_state.kv_cache_pos, -1);
+        // auto rewind_i = rewind_state.kv_cache_pos - 2;
+        auto rewind_i = rewind_state.kv_cache_pos;
+        common_context_seq_rm(ctx, 0, rewind_i, -1);
         //                   ctx, seq_id, p0, p1, delta
-        llama_memory_seq_add(mem, 0, rewind_state.kv_cache_pos, n_past, -rewind_state.kv_cache_pos);
+        common_context_seq_add(ctx, 0, rewind_state.kv_cache_pos, n_past, -rewind_state.kv_cache_pos);
 
     // sampling
         // common_sampler_reset(smpl);

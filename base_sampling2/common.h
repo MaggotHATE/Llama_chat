@@ -701,3 +701,9 @@ void yaml_dump_vector_int      (FILE * stream, const char * prop_name, const std
 void yaml_dump_string_multiline(FILE * stream, const char * prop_name, const char * data);
 
 void common_memory_breakdown_print(const struct llama_context * ctx);
+
+// official contex-related functions since MTP support
+// note that MTP itself is not supported here due to KDL reductions
+void common_context_seq_rm (llama_context * ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1);
+void common_context_seq_add(llama_context * ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1, llama_pos delta);
+void common_context_seq_cp (llama_context * ctx, llama_seq_id seq_id_src, llama_seq_id seq_id_dst, llama_pos p0, llama_pos p1);

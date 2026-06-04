@@ -494,6 +494,7 @@ OBJS_GGUF_LLAMA = \
     $(TMP)$(PREFIX)_llama-impl.o \
     $(TMP)$(PREFIX)_llama-io.o \
     $(TMP)$(PREFIX)_llama-kv-cache.o \
+    $(TMP)$(PREFIX)_llama-kv-cache-dsa.o \
     $(TMP)$(PREFIX)_llama-kv-cache-iswa.o \
     $(TMP)$(PREFIX)_llama-memory.o \
     $(TMP)$(PREFIX)_llama-memory-hybrid.o \
@@ -532,6 +533,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_deepseek.o \
     $(TMP)$(PREFIX)_m_deepseek2.o \
     $(TMP)$(PREFIX)_m_deepseek2ocr.o \
+    $(TMP)$(PREFIX)_m_deepseek32.o \
     $(TMP)$(PREFIX)_m_delta-net-base.o \
     $(TMP)$(PREFIX)_m_dots1.o \
     $(TMP)$(PREFIX)_m_dream.o \
@@ -580,6 +582,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_mamba-base.o \
     $(TMP)$(PREFIX)_m_mamba.o \
     $(TMP)$(PREFIX)_m_mamba2.o \
+    $(TMP)$(PREFIX)_m_mellum.o \
     $(TMP)$(PREFIX)_m_mimo2.o \
     $(TMP)$(PREFIX)_m_minicpm.o \
     $(TMP)$(PREFIX)_m_minicpm3.o \
@@ -636,6 +639,7 @@ OBJS_GGUF_LLAMA_MODELS = \
     $(TMP)$(PREFIX)_m_step35.o \
     $(TMP)$(PREFIX)_m_t5.o \
     $(TMP)$(PREFIX)_m_t5encoder.o \
+    $(TMP)$(PREFIX)_m_talkie.o \
     $(TMP)$(PREFIX)_m_wavtokenizer-dec.o \
     $(TMP)$(PREFIX)_m_xverse.o
 
